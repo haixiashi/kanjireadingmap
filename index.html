@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>漢字読み表</title>
 <style>
 
@@ -1169,6 +1169,57 @@ function initializeInteractivity() {
     w.scrollTop = my * r - (e.clientY - rect.top);
     scheduleMinimapUpdate();
   }, {passive: false});
+
+  let touchState = null;
+  w.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const t0 = e.touches[0], t1 = e.touches[1];
+      touchState = {
+        dist: Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY),
+        cx: (t0.clientX + t1.clientX) / 2,
+        cy: (t0.clientY + t1.clientY) / 2,
+        scale: scale
+      };
+    } else if (e.touches.length === 1) {
+      touchState = {drag: true, x: e.touches[0].clientX, y: e.touches[0].clientY};
+    }
+  }, {passive: false});
+
+  w.addEventListener('touchmove', function(e) {
+    if (e.touches.length === 2 && touchState && !touchState.drag) {
+      e.preventDefault();
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      const cx = (t0.clientX + t1.clientX) / 2;
+      const cy = (t0.clientY + t1.clientY) / 2;
+      const rect = w.getBoundingClientRect();
+      const mx = touchState.cx - rect.left + w.scrollLeft;
+      const my = touchState.cy - rect.top + w.scrollTop;
+      const prev = scale;
+      scale = Math.max(0.3, Math.min(3, touchState.scale * (dist / touchState.dist)));
+      applyScale();
+      const r = scale / prev;
+      w.scrollLeft = mx * r - (cx - rect.left);
+      w.scrollTop = my * r - (cy - rect.top);
+      touchState.cx = cx;
+      touchState.cy = cy;
+      touchState.dist = dist;
+      touchState.scale = scale;
+      scheduleMinimapUpdate();
+    } else if (e.touches.length === 1 && touchState && touchState.drag) {
+      e.preventDefault();
+      const t = e.touches[0];
+      w.scrollLeft -= t.clientX - touchState.x;
+      w.scrollTop -= t.clientY - touchState.y;
+      touchState.x = t.clientX;
+      touchState.y = t.clientY;
+    }
+  }, {passive: false});
+
+  w.addEventListener('touchend', function() {
+    touchState = null;
+  });
 
   updateMinimap();
   w.addEventListener('scroll', scheduleMinimapUpdate);
