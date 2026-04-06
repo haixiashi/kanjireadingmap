@@ -1180,6 +1180,19 @@ function initializeInteractivity() {
     mmNav(e);
   });
 
+  mm.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    mmDrag = true;
+    mmNav(e.touches[0]);
+  }, {passive: false});
+  document.addEventListener('touchmove', function(e) {
+    if (mmDrag) { e.preventDefault(); mmNav(e.touches[0]); }
+  }, {passive: false});
+  document.addEventListener('touchend', function() {
+    mmDrag = false;
+  });
+
   function updateMinimap() {
     const tw = w.scrollWidth;
     const th = w.scrollHeight;
