@@ -16,7 +16,7 @@ body{font-family:"Hiragino Kaku Gothic Pro","Yu Gothic","Meiryo",sans-serif;
 table{border-collapse:collapse}
 td{border:1px solid #ccc;padding:3px 5px}
 td{background:#fff;vertical-align:top;font-size:13px;
-   width:120px;min-width:120px;height:120px;overflow:hidden;
+   width:160px;min-width:160px;height:160px;overflow:hidden;
    position:relative}
 td.e{background:#f0f0f0}
 td.few ruby{font-size:32px}
@@ -180,7 +180,7 @@ var raw=pt[ci],en=raw?X(raw,rl+cl):[];
 if(!en.length)td.classList.add('e');else if(en.length<=2)td.classList.add('few');
 if(en.length>0){var lc=0;if(en.length>2){lc=1;var d0=en[0].search(/\d/),d1=en[1].search(/\d/);
 if(en.length>3&&(en[1].charCodeAt(d1)-48)>=4&&d1===en[1].length-1&&d0===en[0].length-1)lc=2}
-var sc=ci===0?15:Math.max(3,6-lc*2);
+var sc=ci===0?20:Math.max(7,12-lc*2);
 en.slice(0,sc).forEach((e,i)=>{var sp=K(e);if(i<lc)sp.classList.add('lg');td.appendChild(sp)});
 if(en.length>sc){var mr=$('span');mr.className='more';
 en.slice(sc).forEach(e=>mr.appendChild(K(e)));td.appendChild(mr);
@@ -216,7 +216,7 @@ for(var g of kgs){if(g.classList.contains(hc)){g.classList.remove('lg');continue
 if(vi<lc)g.classList.add('lg');else g.classList.remove('lg');vi++}
 var tg=td.querySelector('.toggle');if(!tg)return;
 var mr=tg.previousElementSibling;if(!mr||!mr.classList.contains('more'))return;
-var sc=td.classList.contains('first-col')?15:Math.max(3,6-lc*2),mv=0;
+var sc=td.classList.contains('first-col')?20:Math.max(7,12-lc*2),mv=0;
 for(var c of td.children){if(c===mr)break;if(c.classList.contains('kg')&&!c.classList.contains(hc))mv++}
 var rv=tv-mv;if(mr.dataset.autoOpen){mr.classList.remove('open');delete mr.dataset.autoOpen}
 for(var c of mr.children)if(c.dataset.overflowHidden){c.style.display='';delete c.dataset.overflowHidden}
