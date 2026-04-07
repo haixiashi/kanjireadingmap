@@ -20,7 +20,7 @@ from collections import defaultdict
 from resort_by_reading import (
     parse_kanjidic2, parse_jmdict, sort_entries, get_reading_freq,
     extract_kanji_data, format_kanji_data, kata_to_hira, is_katakana,
-    parse_entry, KANJIDIC2_PATH, JMDICT_PATH, INDEX_PATH
+    is_kanji, is_kana, parse_entry, KANJIDIC2_PATH, JMDICT_PATH, INDEX_PATH
 )
 
 KANA_ROW = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわ"
@@ -189,7 +189,116 @@ def main():
             if kanji not in existing_kanji:
                 new_kanji.add(kanji)
 
-    print(f"\nPhase 1 - Expansion: {new_count} new entries, {len(new_kanji)} new kanji")
+    print(f"\nPhase 1a - KANJIDIC2 expansion: {new_count} new entries, {len(new_kanji)} new kanji")
+
+    # --- Phase 1b: Expand from JMdict single-kanji words ---
+    # Catches readings KANJIDIC2 doesn't list (e.g. 温い/ぬるい)
+    jmdict_count = 0
+    with open(JMDICT_PATH, 'r', encoding='utf-8') as f:
+        jmdict_content = f.read()
+
+    import re as re2
+    re_restr_pat = re2.compile(r'<re_restr>(.*?)</re_restr>')
+
+    for m in re2.finditer(r'<entry>(.*?)</entry>', jmdict_content, re2.DOTALL):
+        entry_text = m.group(1)
+
+        kebs = re2.findall(r'<keb>(.*?)</keb>', entry_text)
+        if not kebs:
+            continue
+
+        # Parse r_ele with re_restr info
+        r_eles = []
+        for rm in re2.finditer(r'<r_ele>(.*?)</r_ele>', entry_text, re2.DOTALL):
+            reb_m = re2.search(r'<reb>(.*?)</reb>', rm.group(1))
+            restrs = re_restr_pat.findall(rm.group(1))
+            if reb_m:
+                r_eles.append((reb_m.group(1), restrs))
+        if not r_eles:
+            continue
+
+        for keb in kebs:
+            chars = list(keb)
+            # Must be exactly one kanji + only kana (no digits, symbols, etc.)
+            non_kana = [c for c in chars if not is_kana(c)]
+            if len(non_kana) != 1 or not is_kanji(non_kana[0]):
+                continue
+            kanji_chars = non_kana
+
+            kanji_char = kanji_chars[0]
+            info = kanji_info.get(kanji_char)
+            if not info:
+                continue
+            if kanji_char not in existing_kanji and info['grade'] is None and info['freq'] is None:
+                continue
+
+            for reb, restrs in r_eles:
+                # Skip readings restricted to other kanji forms
+                if restrs and keb not in restrs:
+                    continue
+
+                reading_hira = kata_to_hira(reb)
+
+                # Extract kana prefix and suffix from the word form
+                kana_suffix = ''
+                i = len(chars) - 1
+                while i >= 0 and is_kana(chars[i]):
+                    kana_suffix = kata_to_hira(chars[i]) + kana_suffix
+                    i -= 1
+
+                kana_prefix = ''
+                j = 0
+                while j < len(chars) and is_kana(chars[j]):
+                    kana_prefix += kata_to_hira(chars[j])
+                    j += 1
+
+                # Derive kanji's own reading by stripping surrounding kana
+                furigana = reading_hira
+                if kana_prefix:
+                    if not furigana.startswith(kana_prefix):
+                        continue  # Prefix mismatch (rendaku, colloquial, etc.)
+                    furigana = furigana[len(kana_prefix):]
+                if kana_suffix:
+                    if not furigana.endswith(kana_suffix):
+                        continue  # Suffix mismatch (rendaku, colloquial, etc.)
+                    okurigana = kana_suffix
+                    furigana = furigana[:-len(kana_suffix)]
+                else:
+                    okurigana = ''
+
+                if not furigana or len(furigana) > 4:
+                    continue  # Single kanji rarely has 5+ char reading
+                if len(okurigana) > 3:
+                    continue  # Overly long okurigana indicates compound
+
+                full_reading_text = furigana + ('|' + okurigana if okurigana else '')
+                full_reading_hira = furigana + okurigana
+
+                if (kanji_char, full_reading_hira) in existing_pairs:
+                    continue
+
+                cell = reading_to_cell(furigana)
+                if cell is None or cell[0] not in data['data']:
+                    continue
+
+                row, col = cell
+                if kanji_char in existing_in_cell[(row, col)]:
+                    continue
+
+                score = get_reading_freq(kanji_char, full_reading_hira, freq_map)
+                if score < FREQ_THRESHOLD:
+                    continue
+
+                entry_str = f"1{kanji_char}{full_reading_text}"
+                if col not in data['data'][row]:
+                    data['data'][row][col] = []
+
+                data['data'][row][col].append(entry_str)
+                existing_in_cell[(row, col)].add(kanji_char)
+                existing_pairs.add((kanji_char, full_reading_hira))
+                jmdict_count += 1
+
+    print(f"Phase 1b - JMdict expansion: {jmdict_count} new entries")
 
     # --- Phase 2: Reassign all tiers based on reading frequency ---
     tier_counts = defaultdict(int)
