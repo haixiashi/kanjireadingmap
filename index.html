@@ -1332,17 +1332,18 @@ function initializeInteractivity() {
         more.classList.add('open');
         more.dataset.autoOpen = '1';
         toggle.style.display = 'none';
-      } else if (mainVisible === 0) {
-        // All main entries hidden by filter — auto-expand but limit visible count
+      } else if (mainVisible < showCount) {
+        // Not enough visible in main area — auto-expand more to fill up to showCount
         more.classList.add('open');
         more.dataset.autoOpen = '1';
+        const need = showCount - mainVisible;
         let shown = 0;
         for (const ch of more.children) {
           if (!ch.classList.contains('kg') || ch.classList.contains(hideClass)) continue;
           shown++;
-          if (shown > showCount) { ch.style.display = 'none'; ch.dataset.overflowHidden = '1'; }
+          if (shown > need) { ch.style.display = 'none'; ch.dataset.overflowHidden = '1'; }
         }
-        const overflowCount = moreVisible - showCount;
+        const overflowCount = moreVisible - need;
         if (overflowCount > 0) {
           toggle.style.display = '';
           toggle.textContent = '+' + overflowCount;
