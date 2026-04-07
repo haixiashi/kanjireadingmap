@@ -20,7 +20,8 @@ from collections import defaultdict
 from resort_by_reading import (
     parse_kanjidic2, parse_jmdict, sort_entries, get_reading_freq,
     extract_kanji_data, format_kanji_data, kata_to_hira, is_katakana,
-    is_kanji, is_kana, parse_entry, KANJIDIC2_PATH, JMDICT_PATH, INDEX_PATH
+    is_kanji, is_kana, parse_entry, normalize_kanjidic_reading,
+    KANJIDIC2_PATH, JMDICT_PATH, INDEX_PATH
 )
 
 KANA_ROW = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわ"
@@ -107,6 +108,7 @@ def parse_kanjidic2_full(path):
         }
     # Build archaic -> common mapping
     archaic_to_common = {}
+    # Method 1: JIS208 variant references
     for lit, info in kanji_info.items():
         for code in info['jis_variants']:
             target = jis_to_kanji.get(code)
@@ -117,6 +119,26 @@ def parse_kanjidic2_full(path):
                     archaic_to_common[target] = lit
                 elif f_target is not None and f_lit is None:
                     archaic_to_common[lit] = target
+    # Method 2: Subset reading match (catches variants KANJIDIC2 doesn't link)
+    # If a no-freq kanji's readings are a subset of a freq'd kanji's readings,
+    # and there are at least 2 readings, it's likely a variant.
+    all_kanji = list(kanji_info.keys())
+    reading_sets = {}
+    for lit, info in kanji_info.items():
+        norms = frozenset(
+            normalize_kanjidic_reading(r) for r, _ in info['readings']
+        )
+        if len(norms) >= 2:
+            reading_sets[lit] = norms
+    for lit, norms in reading_sets.items():
+        if lit in archaic_to_common or kanji_info[lit]['freq'] is not None:
+            continue
+        for other, other_norms in reading_sets.items():
+            if other == lit or kanji_info[other]['freq'] is None:
+                continue
+            if norms <= other_norms:  # subset
+                archaic_to_common[lit] = other
+                break
     return kanji_info, archaic_to_common
 
 
