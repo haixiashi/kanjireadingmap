@@ -1155,11 +1155,16 @@ function generateTable(data) {
         td.classList.add('few');
       }
       if (entries.length > 0) {
-        const hasLg = entries.length > 2;
-        const showCount = colIdx === 0 ? 15 : (hasLg ? 4 : 6);
+        let lgCount = 0;
+        if (entries.length > 2) {
+          lgCount = 1;
+          if (entries.length > 3 && (entries[1].charCodeAt(0) - 48) >= 4 && !entries[1].includes('|') && !entries[0].includes('|'))
+            lgCount = 2;
+        }
+        const showCount = colIdx === 0 ? 15 : Math.max(3, 6 - lgCount * 2);
         entries.slice(0, showCount).forEach((e, i) => {
           const span = createKanjiSpan(e);
-          if (entries.length > 2 && (i === 0 || (i === 1 && (e.charCodeAt(0) - 48) >= 4 && !e.includes('|') && !entries[0].includes('|')))) span.classList.add('lg');
+          if (i < lgCount) span.classList.add('lg');
           td.appendChild(span);
         });
 
@@ -1216,9 +1221,22 @@ function createKanjiSpan(str) {
 
 function toggleMore(el) {
   const more = el.previousElementSibling;
-  if (more && more.classList.contains('more')) {
+  if (!more || !more.classList.contains('more')) return;
+  const hideClass = document.body.classList.contains('kun-only') ? 'on' : 'kun';
+  // Check if this is an auto-expanded cell with overflow-hidden entries
+  const hasOverflow = Array.from(more.children).some(ch => ch.dataset.overflowHidden);
+  if (more.dataset.autoOpen && hasOverflow) {
+    // Toggle overflow-hidden entries
+    const collapsed = Array.from(more.children).some(ch => ch.dataset.overflowHidden && ch.style.display === 'none');
+    let count = 0;
+    for (const ch of more.children) {
+      if (!ch.dataset.overflowHidden) continue;
+      ch.style.display = collapsed ? '' : 'none';
+      if (!ch.classList.contains(hideClass)) count++;
+    }
+    el.textContent = (collapsed ? '−' : '+') + count;
+  } else {
     more.classList.toggle('open');
-    const hideClass = document.body.classList.contains('kun-only') ? 'on' : 'kun';
     let count = 0;
     for (const ch of more.children) {
       if (!ch.classList.contains(hideClass)) count++;
@@ -1266,25 +1284,35 @@ function initializeInteractivity() {
       else if (totalVisible <= 2) { td.classList.remove('e'); td.classList.add('few'); }
       else { td.classList.remove('e'); td.classList.remove('few'); }
       // Update lg class based on visible entries
-      let visIdx = 0, firstHasSuffix = false;
+      let visIdx = 0, firstHasSuffix = false, lgCount = 0;
+      // First pass: determine lgCount
+      if (totalVisible > 2) {
+        lgCount = 1;
+        let vi = 0;
+        for (const kg of kgs) {
+          if (kg.classList.contains(hideClass)) continue;
+          const hasSuffix = kg.childNodes.length > 1;
+          if (vi === 0) firstHasSuffix = hasSuffix;
+          if (vi === 1 && totalVisible > 3) {
+            const tier = [1,2,3,4,5,6].find(n => kg.classList.contains('j'+n)) || 0;
+            if (tier >= 4 && !hasSuffix && !firstHasSuffix) lgCount = 2;
+          }
+          vi++;
+          if (vi > 1) break;
+        }
+      }
+      // Second pass: apply lg
       for (const kg of kgs) {
         if (kg.classList.contains(hideClass)) { kg.classList.remove('lg'); continue; }
-        const tier = [1,2,3,4,5,6].find(n => kg.classList.contains('j'+n)) || 0;
-        const hasSuffix = kg.childNodes.length > 1;
-        if (visIdx === 0) firstHasSuffix = hasSuffix;
-        if (totalVisible > 2 && (visIdx === 0 || (visIdx === 1 && tier >= 4 && !hasSuffix && !firstHasSuffix))) {
-          kg.classList.add('lg');
-        } else if (totalVisible > 2) {
-          kg.classList.remove('lg');
-        }
+        if (visIdx < lgCount) kg.classList.add('lg');
+        else kg.classList.remove('lg');
         visIdx++;
       }
       const toggle = td.querySelector('.toggle');
       if (!toggle) return;
       const more = toggle.previousElementSibling;
       if (!more || !more.classList.contains('more')) return;
-      const hasLg = totalVisible > 2;
-      const showCount = td.classList.contains('first-col') ? 15 : (hasLg ? 4 : 6);
+      const showCount = td.classList.contains('first-col') ? 15 : Math.max(3, 6 - lgCount * 2);
       let mainVisible = 0;
       for (const ch of td.children) {
         if (ch === more) break;
@@ -1296,10 +1324,31 @@ function initializeInteractivity() {
         more.classList.remove('open');
         delete more.dataset.autoOpen;
       }
-      if (moreVisible === 0 || totalVisible <= showCount || mainVisible === 0) {
+      // Reset overflow-hidden entries from previous filter
+      for (const ch of more.children) {
+        if (ch.dataset.overflowHidden) { ch.style.display = ''; delete ch.dataset.overflowHidden; }
+      }
+      if (moreVisible === 0 || totalVisible <= showCount) {
         more.classList.add('open');
         more.dataset.autoOpen = '1';
         toggle.style.display = 'none';
+      } else if (mainVisible === 0) {
+        // All main entries hidden by filter — auto-expand but limit visible count
+        more.classList.add('open');
+        more.dataset.autoOpen = '1';
+        let shown = 0;
+        for (const ch of more.children) {
+          if (!ch.classList.contains('kg') || ch.classList.contains(hideClass)) continue;
+          shown++;
+          if (shown > showCount) { ch.style.display = 'none'; ch.dataset.overflowHidden = '1'; }
+        }
+        const overflowCount = moreVisible - showCount;
+        if (overflowCount > 0) {
+          toggle.style.display = '';
+          toggle.textContent = '+' + overflowCount;
+        } else {
+          toggle.style.display = 'none';
+        }
       } else {
         toggle.style.display = '';
         if (!more.classList.contains('open')) toggle.textContent = '+' + moreVisible;
