@@ -218,7 +218,7 @@ var tg=td.querySelector('.toggle');if(!tg)return;
 var mr=tg.previousElementSibling;if(!mr||!mr.classList.contains('more'))return;
 var sc=td.classList.contains('first-col')?20:Math.max(7,12-lc*2),mv=0;
 for(var c of td.children){if(c===mr)break;if(c.classList.contains('kg')&&!c.classList.contains(hc))mv++}
-var rv=tv-mv;if(mr.dataset.autoOpen){mr.classList.remove('open');delete mr.dataset.autoOpen}
+var rv=tv-mv;mr.classList.remove('open');if(mr.dataset.autoOpen)delete mr.dataset.autoOpen
 for(var c of mr.children)if(c.dataset.overflowHidden){c.style.display='';delete c.dataset.overflowHidden}
 if(!rv||tv<=sc){mr.classList.add('open');mr.dataset.autoOpen='1';tg.style.display='none'}
 else if(mv<sc){mr.classList.add('open');mr.dataset.autoOpen='1';var nd=sc-mv,sh=0;
