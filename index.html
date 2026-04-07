@@ -171,7 +171,8 @@ el.textContent=(m.classList.contains('open')?'\u2212':'+')+n}}
 (function(){var D_=kanjiData,hd=['', ...D_.kana],rw=[...D_.kana].slice(0,-1),td=D_.data,
 cb=[0,6,11,16,21,26,31,36,39,44],rb=[0,5,10,15,20,25,30,35,38,43],
 tb=document.getElementById('tablebody');
-rw.forEach((rl,ri)=>{var tr=$('tr'),pt=(td[ri]||'').split(',');
+rw.forEach((rl,ri)=>{var tr=$('tr'),
+pt=(td[ri]||'').replace(/,(\d+)/g,(_,n)=>','.repeat(+n+1)).split(',');
 hd.forEach((cl,ci)=>{var td=$('td');if(ci===0)td.classList.add('first-col');
 if(cb.includes(ci))td.classList.add('gb');if(rb.includes(ri))td.classList.add('gt');
 var raw=pt[ci],en=raw?X(raw,rl+cl):[];
