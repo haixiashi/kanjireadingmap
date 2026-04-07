@@ -1292,7 +1292,7 @@ function initializeInteractivity() {
         more.classList.remove('open');
         delete more.dataset.autoOpen;
       }
-      if (moreVisible === 0 || mainVisible < showCount) {
+      if (moreVisible === 0 || totalVisible <= showCount || mainVisible === 0) {
         more.classList.add('open');
         more.dataset.autoOpen = '1';
         toggle.style.display = 'none';
