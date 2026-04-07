@@ -170,7 +170,7 @@ def parse_jmdict(path, kanji_readings):
     re_pri_pattern = re.compile(r'<re_pri>(.*?)</re_pri>')
     re_restr_pattern = re.compile(r'<re_restr>(.*?)</re_restr>')
 
-    freq = defaultdict(float)  # (kanji_char, reading_hira) -> score
+    freq = defaultdict(float)  # (kanji_char, reading_hira) -> max word score
     total_entries = 0
     segmented = 0
     unsegmented = 0
@@ -244,13 +244,13 @@ def parse_jmdict(path, kanji_readings):
                         kanji_reading = kanji_reading[len(kana_prefix):]
 
                     if kanji_reading:
-                        # Store both with and without okurigana
+                        # Store max word score, both with and without okurigana
                         full_reading = reading_hira
                         if kana_prefix:
                             full_reading = reading_hira[len(kana_prefix):]
-                        freq[(kanji_char, full_reading)] += score
+                        freq[(kanji_char, full_reading)] = max(freq[(kanji_char, full_reading)], score)
                         if full_reading != kanji_reading:
-                            freq[(kanji_char, kanji_reading)] += score * 0.5
+                            freq[(kanji_char, kanji_reading)] = max(freq[(kanji_char, kanji_reading)], score)
                     segmented += 1
 
                 else:
@@ -259,7 +259,7 @@ def parse_jmdict(path, kanji_readings):
                     if result:
                         for char, char_reading in result:
                             if is_kanji(char):
-                                freq[(char, char_reading)] += score
+                                freq[(char, char_reading)] = max(freq[(char, char_reading)], score)
                         segmented += 1
                     else:
                         unsegmented += 1
