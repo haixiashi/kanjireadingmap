@@ -51,12 +51,16 @@ rt{font-size:8px;color:#888}
          z-index:10;backdrop-filter:blur(4px);cursor:crosshair}
 .minimap-vp{position:absolute;border:2px solid #3b7dd8;background:rgba(59,125,216,0.15);
             border-radius:1px;pointer-events:none}
-.theme-toggle{position:fixed;bottom:16px;right:170px;z-index:10;
-              width:32px;height:32px;border-radius:4px;border:1px solid #999;
-              background:rgba(255,255,255,0.85);backdrop-filter:blur(4px);
-              cursor:pointer;display:flex;align-items:center;justify-content:center;
-              font-size:18px;line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}
-.theme-toggle:hover{background:rgba(200,200,200,0.85)}
+.fixed-btn{position:fixed;bottom:16px;z-index:10;
+           height:32px;border-radius:4px;border:1px solid #999;
+           background:rgba(255,255,255,0.85);backdrop-filter:blur(4px);
+           cursor:pointer;display:flex;align-items:center;justify-content:center;
+           line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}
+.fixed-btn:hover{background:rgba(200,200,200,0.85)}
+.theme-toggle{right:170px;width:32px;font-size:18px}
+.reading-toggle{right:210px;width:32px;font-size:14px;font-weight:bold}
+body.kun-only .kg.on{display:none}
+body.on-only .kg.kun{display:none}
 
 body.dark{background:#1a1a1a}
 body.dark td{background:#222;border-color:#444;color:#ddd}
@@ -75,8 +79,8 @@ body.dark .j1{color:#888888}
 body.dark .gb{border-left-color:#999}
 body.dark .gt{border-top-color:#999}
 body.dark .minimap{background:rgba(30,30,30,0.85);border-color:#666}
-body.dark .theme-toggle{background:rgba(30,30,30,0.85);border-color:#666;color:#ddd}
-body.dark .theme-toggle:hover{background:rgba(60,60,60,0.85)}
+body.dark .fixed-btn{background:rgba(30,30,30,0.85);border-color:#666;color:#ddd}
+body.dark .fixed-btn:hover{background:rgba(60,60,60,0.85)}
 
 </style>
 </head>
@@ -1118,6 +1122,13 @@ const kanjiData = {
 }
 };
 
+function hiraToKata(s) {
+  return [...s].map(c => {
+    const cp = c.charCodeAt(0);
+    return cp >= 0x3041 && cp <= 0x3096 ? String.fromCharCode(cp + 0x60) : c;
+  }).join('');
+}
+
 generateTable(kanjiData);
 initializeInteractivity();
 
@@ -1168,6 +1179,8 @@ function generateTable(data) {
       if (wm) {
         const d = document.createElement('div');
         d.className = 'watermark';
+        d.dataset.hira = wm;
+        d.dataset.kata = hiraToKata(wm);
         d.textContent = wm;
         td.appendChild(d);
       }
@@ -1180,8 +1193,10 @@ function generateTable(data) {
 function createKanjiSpan(str) {
   const lvl = str.charCodeAt(0) - 48;
   const p = str.substring(2).split('|');
+  const isOn = p[0].length > 0 && p[0].charCodeAt(0) >= 0x30A0 && p[0].charCodeAt(0) <= 0x30FF;
   const span = document.createElement('span');
   span.className = 'kg';
+  span.classList.add(isOn ? 'on' : 'kun');
   if (lvl > 0) span.classList.add('j' + lvl);
 
   const ruby = document.createElement('ruby');
@@ -1201,9 +1216,13 @@ function createKanjiSpan(str) {
 function toggleMore(el) {
   const more = el.previousElementSibling;
   if (more && more.classList.contains('more')) {
-    const count = more.children.length;
     more.classList.toggle('open');
-    el.textContent = more.classList.contains('open') ? '−' + count : '+' + count;
+    const hideClass = document.body.classList.contains('kun-only') ? 'on' : 'kun';
+    let count = 0;
+    for (const ch of more.children) {
+      if (!ch.classList.contains(hideClass)) count++;
+    }
+    el.textContent = (more.classList.contains('open') ? '−' : '+') + count;
   }
 }
 
@@ -1218,8 +1237,74 @@ function initializeInteractivity() {
   vp.className = 'minimap-vp';
   mm.appendChild(vp);
 
+  const readingBtn = document.createElement('button');
+  readingBtn.className = 'fixed-btn reading-toggle';
+  const modes = ['kun-only', 'on-only'];
+  const labels = ['あ', 'ア'];
+  const titles = ['Kun-yomi only', 'On-yomi only'];
+  let modeIdx = modes.indexOf(localStorage.getItem('readingMode'));
+  if (modeIdx < 0) modeIdx = 0;
+  document.body.classList.add(modes[modeIdx]);
+  readingBtn.textContent = labels[modeIdx];
+  readingBtn.title = titles[modeIdx];
+  function updateToggleCounts() {
+    const filter = modes[modeIdx];
+    const hideClass = filter === 'kun-only' ? 'on' : 'kun';
+    const useKata = filter === 'on-only';
+    document.querySelectorAll('.watermark').forEach(wm => {
+      wm.textContent = useKata ? wm.dataset.kata : wm.dataset.hira;
+    });
+    document.querySelectorAll('#tablebody td').forEach(td => {
+      const kgs = td.querySelectorAll('.kg');
+      if (kgs.length === 0) return;
+      let totalVisible = 0;
+      for (const kg of kgs) {
+        if (!kg.classList.contains(hideClass)) totalVisible++;
+      }
+      if (totalVisible === 0) { td.classList.add('e'); td.classList.remove('few'); }
+      else if (totalVisible <= 2) { td.classList.remove('e'); td.classList.add('few'); }
+      else { td.classList.remove('e'); td.classList.remove('few'); }
+      const toggle = td.querySelector('.toggle');
+      if (!toggle) return;
+      const more = toggle.previousElementSibling;
+      if (!more || !more.classList.contains('more')) return;
+      const showCount = td.classList.contains('first-col') ? 15 : 6;
+      let mainVisible = 0;
+      for (const ch of td.children) {
+        if (ch === more) break;
+        if (ch.classList.contains('kg') && !ch.classList.contains(hideClass)) mainVisible++;
+      }
+      const moreVisible = totalVisible - mainVisible;
+      // Reset auto-expanded state, then re-expand only if needed
+      if (more.dataset.autoOpen) {
+        more.classList.remove('open');
+        delete more.dataset.autoOpen;
+      }
+      if (moreVisible === 0 || totalVisible <= showCount) {
+        more.classList.add('open');
+        more.dataset.autoOpen = '1';
+        toggle.style.display = 'none';
+      } else {
+        toggle.style.display = '';
+        if (!more.classList.contains('open')) toggle.textContent = '+' + moreVisible;
+        else toggle.textContent = '−' + moreVisible;
+      }
+    });
+  }
+  readingBtn.addEventListener('click', function() {
+    document.body.classList.remove(modes[modeIdx]);
+    modeIdx = (modeIdx + 1) % 2;
+    document.body.classList.add(modes[modeIdx]);
+    readingBtn.textContent = labels[modeIdx];
+    readingBtn.title = titles[modeIdx];
+    localStorage.setItem('readingMode', modes[modeIdx]);
+    updateToggleCounts();
+  });
+  updateToggleCounts();
+  document.body.appendChild(readingBtn);
+
   const themeBtn = document.createElement('button');
-  themeBtn.className = 'theme-toggle';
+  themeBtn.className = 'fixed-btn theme-toggle';
   themeBtn.textContent = '\u263E';
   themeBtn.title = 'Toggle dark mode';
   document.body.appendChild(themeBtn);
