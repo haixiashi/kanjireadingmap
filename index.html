@@ -1158,7 +1158,7 @@ function generateTable(data) {
         const showCount = colIdx === 0 ? 15 : 6;
         entries.slice(0, showCount).forEach((e, i) => {
           const span = createKanjiSpan(e);
-          if (entries.length > 2 && (i === 0 || (i === 1 && (e.charCodeAt(0) - 48) >= 4 && !e.includes('|') && !entries[0].includes('|')))) span.classList.add('lg');
+          if (entries.length > 2 && !e.includes('|') && (i === 0 || (i === 1 && (e.charCodeAt(0) - 48) >= 4 && !entries[0].includes('|')))) span.classList.add('lg');
           td.appendChild(span);
         });
 
@@ -1271,7 +1271,7 @@ function initializeInteractivity() {
         const tier = [1,2,3,4,5,6].find(n => kg.classList.contains('j'+n)) || 0;
         const hasSuffix = kg.childNodes.length > 1;
         if (visIdx === 0) firstHasSuffix = hasSuffix;
-        if (totalVisible > 2 && (visIdx === 0 || (visIdx === 1 && tier >= 4 && !hasSuffix && !firstHasSuffix))) {
+        if (totalVisible > 2 && !hasSuffix && (visIdx === 0 || (visIdx === 1 && tier >= 4 && !firstHasSuffix))) {
           kg.classList.add('lg');
         } else if (totalVisible > 2) {
           kg.classList.remove('lg');
