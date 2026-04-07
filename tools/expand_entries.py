@@ -78,6 +78,7 @@ def parse_kanjidic2_full(path):
     tree = ET.parse(path)
     root = tree.getroot()
     kanji_info = {}
+    jis_to_kanji = {}
     for char in root.iter('character'):
         literal = char.find('literal').text
         misc = char.find('misc')
@@ -93,10 +94,30 @@ def parse_kanjidic2_full(path):
                     r_type = reading.get('r_type')
                     if r_type in ('ja_on', 'ja_kun'):
                         readings.append((reading.text, r_type))
+        jis_variants = []
+        for var in char.findall('.//variant'):
+            if var.get('var_type') == 'jis208':
+                jis_variants.append(var.text)
+        for cp in char.findall('.//cp_value'):
+            if cp.get('cp_type') == 'jis208':
+                jis_to_kanji[cp.text] = literal
         kanji_info[literal] = {
             'grade': grade, 'freq': freq, 'readings': readings,
+            'jis_variants': jis_variants,
         }
-    return kanji_info
+    # Build archaic -> common mapping
+    archaic_to_common = {}
+    for lit, info in kanji_info.items():
+        for code in info['jis_variants']:
+            target = jis_to_kanji.get(code)
+            if target and target != lit:
+                f_lit = info['freq']
+                f_target = kanji_info[target]['freq']
+                if f_lit is not None and f_target is None:
+                    archaic_to_common[target] = lit
+                elif f_target is not None and f_lit is None:
+                    archaic_to_common[lit] = target
+    return kanji_info, archaic_to_common
 
 
 def make_entry_str(tier, kanji, raw_reading, r_type):
@@ -127,7 +148,7 @@ def main():
     print("Loading data sources...")
     kanji_readings = parse_kanjidic2(KANJIDIC2_PATH)
     freq_map = parse_jmdict(JMDICT_PATH, kanji_readings)
-    kanji_info = parse_kanjidic2_full(KANJIDIC2_PATH)
+    kanji_info, archaic_to_common = parse_kanjidic2_full(KANJIDIC2_PATH)
 
     with open(INDEX_PATH, 'r', encoding='utf-8') as f:
         html = f.read()
@@ -331,6 +352,22 @@ def main():
                 sort_changes += 1
                 readings[rkey] = new_entries
     print(f"\nPhase 3 - Re-sorted {sort_changes} cells")
+
+    # --- Phase 4: Remove archaic variants ---
+    dedup_count = 0
+    for row in data['data']:
+        for col in data['data'][row]:
+            entries = data['data'][row][col]
+            kanji_in_cell = {e[1] for e in entries}
+            new_entries = []
+            for e in entries:
+                common = archaic_to_common.get(e[1])
+                if common and common in kanji_in_cell:
+                    dedup_count += 1
+                else:
+                    new_entries.append(e)
+            data['data'][row][col] = new_entries
+    print(f"\nPhase 4 - Removed {dedup_count} archaic variants")
 
     # Show examples
     print("\n=== Examples ===")
