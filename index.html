@@ -159,7 +159,8 @@ sp=$('span');sp.className='kg';sp.classList.add(on?'on':'kun');if(tr>0)sp.classL
 var rb=$('ruby');rb.textContent=kj;var rt=$('rt');rt.textContent=rd;rb.appendChild(rt);sp.appendChild(rb);
 if(sf)sp.appendChild(document.createTextNode(sf));return sp}
 function TM(el){var m=el.previousElementSibling;if(!m||!m.classList.contains('more'))return;
-var hc=B.classList.contains('kun-only')?'on':'kun',
+var hc=B.classList.contains('kun-only')?'on':
+B.classList.contains('on-only')?'kun':'',
 ho=Array.from(m.children).some(c=>c.dataset.overflowHidden);
 if(m.dataset.autoOpen&&ho){var n=0,
 col=Array.from(m.children).some(c=>c.dataset.overflowHidden&&c.style.display==='none');
@@ -193,10 +194,14 @@ tr.appendChild(td)});tb.appendChild(tr)})})();
 mm=$('div');mm.className='minimap';B.appendChild(mm);
 var vp=$('div');vp.className='minimap-vp';mm.appendChild(vp);
 var rb=$('button');rb.className='fixed-btn reading-toggle';
-var md=['kun-only','on-only'],lb=['\u8a13','\u97f3'],tt=['Kun-yomi only','On-yomi only'],
+var md=['both','kun-only','on-only'],
+lb=['\u6f22','\u8a13','\u97f3'],
+tt=['Both readings','Kun-yomi only','On-yomi only'],
 mi=md.indexOf(localStorage.getItem('readingMode'));if(mi<0)mi=0;
-B.classList.add(md[mi]);rb.textContent=lb[mi];rb.title=tt[mi];
-function U(){var hc=md[mi]==='kun-only'?'on':'kun',uk=md[mi]==='on-only';
+if(md[mi]!=='both')B.classList.add(md[mi]);
+rb.textContent=lb[mi];rb.title=tt[mi];
+function U(){var hc=md[mi]==='kun-only'?'on':md[mi]==='on-only'?'kun':'',
+uk=md[mi]==='on-only';
 Q('.watermark').forEach(w=>{w.textContent=uk?w.dataset.kata:w.dataset.hira});
 Q('#tablebody td').forEach(td=>{var kgs=td.querySelectorAll('.kg');if(!kgs.length)return;
 var tv=0;for(var g of kgs)if(!g.classList.contains(hc))tv++;
@@ -222,9 +227,13 @@ sh++;if(sh>nd){c.style.display='none';c.dataset.overflowHidden='1'}}
 var ov=rv-nd;if(ov>0){tg.style.display='';tg.textContent='+'+ov}else tg.style.display='none'}
 else{tg.style.display='';if(!mr.classList.contains('open'))tg.textContent='+'+rv;
 else tg.textContent='\u2212'+rv}})}
-rb.addEventListener('click',function(){B.classList.remove(md[mi]);mi=(mi+1)%2;
-B.classList.add(md[mi]);rb.textContent=lb[mi];rb.title=tt[mi];
-localStorage.setItem('readingMode',md[mi]);U()});U();B.appendChild(rb);
+rb.addEventListener('click',function(){
+if(md[mi]!=='both')B.classList.remove(md[mi]);
+mi=(mi+1)%3;
+if(md[mi]!=='both')B.classList.add(md[mi]);
+rb.textContent=lb[mi];rb.title=tt[mi];
+localStorage.setItem('readingMode',md[mi]);U()});
+U();B.appendChild(rb);
 var tb=$('button');tb.className='fixed-btn theme-toggle';tb.textContent='\u263E';tb.title='Toggle dark mode';
 B.appendChild(tb);if(localStorage.getItem('dark')==='1')B.classList.add('dark');
 if(B.classList.contains('dark'))tb.textContent='\u2600';
