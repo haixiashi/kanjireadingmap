@@ -1155,10 +1155,11 @@ function generateTable(data) {
         td.classList.add('few');
       }
       if (entries.length > 0) {
-        const showCount = colIdx === 0 ? 15 : 6;
+        const hasLg = entries.length > 2;
+        const showCount = colIdx === 0 ? 15 : (hasLg ? 4 : 6);
         entries.slice(0, showCount).forEach((e, i) => {
           const span = createKanjiSpan(e);
-          if (entries.length > 2 && !e.includes('|') && (i === 0 || (i === 1 && (e.charCodeAt(0) - 48) >= 4 && !entries[0].includes('|')))) span.classList.add('lg');
+          if (entries.length > 2 && (i === 0 || (i === 1 && (e.charCodeAt(0) - 48) >= 4 && !e.includes('|') && !entries[0].includes('|')))) span.classList.add('lg');
           td.appendChild(span);
         });
 
@@ -1271,7 +1272,7 @@ function initializeInteractivity() {
         const tier = [1,2,3,4,5,6].find(n => kg.classList.contains('j'+n)) || 0;
         const hasSuffix = kg.childNodes.length > 1;
         if (visIdx === 0) firstHasSuffix = hasSuffix;
-        if (totalVisible > 2 && !hasSuffix && (visIdx === 0 || (visIdx === 1 && tier >= 4 && !firstHasSuffix))) {
+        if (totalVisible > 2 && (visIdx === 0 || (visIdx === 1 && tier >= 4 && !hasSuffix && !firstHasSuffix))) {
           kg.classList.add('lg');
         } else if (totalVisible > 2) {
           kg.classList.remove('lg');
@@ -1282,7 +1283,8 @@ function initializeInteractivity() {
       if (!toggle) return;
       const more = toggle.previousElementSibling;
       if (!more || !more.classList.contains('more')) return;
-      const showCount = td.classList.contains('first-col') ? 15 : 6;
+      const hasLg = totalVisible > 2;
+      const showCount = td.classList.contains('first-col') ? 15 : (hasLg ? 4 : 6);
       let mainVisible = 0;
       for (const ch of td.children) {
         if (ch === more) break;
