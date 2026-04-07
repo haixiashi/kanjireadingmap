@@ -47,18 +47,18 @@ rt{font-size:8px;color:#888}
 .gb{border-left:2.5px solid #555}
 .gt{border-top:2.5px solid #555}
 .minimap{position:fixed;bottom:16px;right:16px;
-         background:rgba(255,255,255,0.85);border:1px solid #999;border-radius:4px;
-         z-index:10;backdrop-filter:blur(4px);cursor:crosshair}
+         background:#fff;border:1px solid #999;border-radius:4px;
+         z-index:10;cursor:crosshair}
 .minimap-vp{position:absolute;border:2px solid #3b7dd8;background:rgba(59,125,216,0.15);
             border-radius:1px;pointer-events:none}
 .fixed-btn{position:fixed;bottom:16px;z-index:10;
-           height:32px;border-radius:4px;border:1px solid #999;
-           background:rgba(255,255,255,0.85);backdrop-filter:blur(4px);
+           height:44px;border-radius:6px;border:1px solid #999;
+           background:#fff;
            cursor:pointer;display:flex;align-items:center;justify-content:center;
            line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}
-.fixed-btn:hover{background:rgba(200,200,200,0.85)}
-.theme-toggle{right:170px;width:32px;font-size:18px}
-.reading-toggle{right:210px;width:32px;font-size:14px;font-weight:bold}
+.fixed-btn:hover{background:#c8c8c8}
+.theme-toggle{right:170px;width:44px;font-size:24px}
+.reading-toggle{right:222px;width:44px;font-size:22px;font-weight:bold}
 body.kun-only .kg.on{display:none}
 body.on-only .kg.kun{display:none}
 
@@ -78,9 +78,9 @@ body.dark .j2{color:#ef5350}
 body.dark .j1{color:#888888}
 body.dark .gb{border-left-color:#999}
 body.dark .gt{border-top-color:#999}
-body.dark .minimap{background:rgba(30,30,30,0.85);border-color:#666}
-body.dark .fixed-btn{background:rgba(30,30,30,0.85);border-color:#666;color:#ddd}
-body.dark .fixed-btn:hover{background:rgba(60,60,60,0.85)}
+body.dark .minimap{background:#1e1e1e;border-color:#666}
+body.dark .fixed-btn{background:#1e1e1e;border-color:#666;color:#ddd}
+body.dark .fixed-btn:hover{background:#3c3c3c}
 
 </style>
 </head>
@@ -1259,7 +1259,7 @@ function initializeInteractivity() {
   const readingBtn = document.createElement('button');
   readingBtn.className = 'fixed-btn reading-toggle';
   const modes = ['kun-only', 'on-only'];
-  const labels = ['あ', 'ア'];
+  const labels = ['訓', '音'];
   const titles = ['Kun-yomi only', 'On-yomi only'];
   let modeIdx = modes.indexOf(localStorage.getItem('readingMode'));
   if (modeIdx < 0) modeIdx = 0;
