@@ -1114,6 +1114,7 @@ function initializeInteractivity() {
   const MM_MAX = 140, MINIMAP_PAD = MM_MAX + 32;
   let lastX = 0, lastY = 0, isDragging = false, mmDrag = false;
   let minimapUpdateScheduled = false, scale = 1;
+  let vx = 0, vy = 0, lastTime = 0, inertiaId = 0;
 
   const sizeWrap = document.createElement('div');
   sizeWrap.style.position = 'relative';
@@ -1141,29 +1142,55 @@ function initializeInteractivity() {
     }
   }
 
-  w.addEventListener('mousedown', function(e) {
+  function startDrag(x, y) {
+    cancelAnimationFrame(inertiaId);
     isDragging = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
+    lastX = x; lastY = y;
+    vx = 0; vy = 0;
+    lastTime = performance.now();
     w.classList.add('dragging');
+  }
+
+  function moveDrag(x, y) {
+    const now = performance.now();
+    const dt = now - lastTime || 1;
+    const dx = x - lastX;
+    const dy = y - lastY;
+    vx = dx / dt * 16;
+    vy = dy / dt * 16;
+    w.scrollLeft -= dx;
+    w.scrollTop -= dy;
+    lastX = x; lastY = y;
+    lastTime = now;
+  }
+
+  function endDrag() {
+    isDragging = false;
+    w.classList.remove('dragging');
+    function coast() {
+      if (Math.abs(vx) < 0.5 && Math.abs(vy) < 0.5) return;
+      w.scrollLeft -= vx;
+      w.scrollTop -= vy;
+      vx *= 0.95;
+      vy *= 0.95;
+      scheduleMinimapUpdate();
+      inertiaId = requestAnimationFrame(coast);
+    }
+    inertiaId = requestAnimationFrame(coast);
+  }
+
+  w.addEventListener('mousedown', function(e) {
+    startDrag(e.clientX, e.clientY);
   });
 
   document.addEventListener('mousemove', function(e) {
-    if (isDragging) {
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      w.scrollLeft -= dx;
-      w.scrollTop -= dy;
-      lastX = e.clientX;
-      lastY = e.clientY;
-    }
+    if (isDragging) moveDrag(e.clientX, e.clientY);
     if (mmDrag) mmNav(e);
   });
 
   document.addEventListener('mouseup', function() {
-    isDragging = false;
+    if (isDragging) endDrag();
     mmDrag = false;
-    w.classList.remove('dragging');
   });
 
   w.addEventListener('wheel', function(e) {
@@ -1193,6 +1220,9 @@ function initializeInteractivity() {
         scale: scale
       };
     } else if (e.touches.length === 1) {
+      cancelAnimationFrame(inertiaId);
+      vx = 0; vy = 0;
+      lastTime = performance.now();
       touchState = {drag: true, x: e.touches[0].clientX, y: e.touches[0].clientY};
     }
   }, {passive: false});
@@ -1221,14 +1251,33 @@ function initializeInteractivity() {
     } else if (e.touches.length === 1 && touchState && touchState.drag) {
       e.preventDefault();
       const t = e.touches[0];
-      w.scrollLeft -= t.clientX - touchState.x;
-      w.scrollTop -= t.clientY - touchState.y;
+      const now = performance.now();
+      const dt = now - lastTime || 1;
+      const dx = t.clientX - touchState.x;
+      const dy = t.clientY - touchState.y;
+      vx = dx / dt * 16;
+      vy = dy / dt * 16;
+      w.scrollLeft -= dx;
+      w.scrollTop -= dy;
       touchState.x = t.clientX;
       touchState.y = t.clientY;
+      lastTime = now;
     }
   }, {passive: false});
 
-  w.addEventListener('touchend', function() {
+  w.addEventListener('touchend', function(e) {
+    if (touchState && touchState.drag && e.touches.length === 0) {
+      function coast() {
+        if (Math.abs(vx) < 0.5 && Math.abs(vy) < 0.5) return;
+        w.scrollLeft -= vx;
+        w.scrollTop -= vy;
+        vx *= 0.95;
+        vy *= 0.95;
+        scheduleMinimapUpdate();
+        inertiaId = requestAnimationFrame(coast);
+      }
+      inertiaId = requestAnimationFrame(coast);
+    }
     touchState = null;
   });
 
