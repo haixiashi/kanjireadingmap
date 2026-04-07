@@ -142,516 +142,132 @@ const kanjiData = {
 }
 };
 
-function hiraToKata(s) {
-  return [...s].map(c => {
-    const cp = c.charCodeAt(0);
-    return cp >= 0x3041 && cp <= 0x3096 ? String.fromCharCode(cp + 0x60) : c;
-  }).join('');
-}
-
-generateTable(kanjiData);
-initializeInteractivity();
-
-function generateTable(data) {
-  const headers = ['', ...data.kana];
-  const rows = [...data.kana].slice(0, -1);
-  const tableData = data.data;
-  const colBorders = [0, 6, 11, 16, 21, 26, 31, 36, 39, 44];
-  const rowBorders = [0, 5, 10, 15, 20, 25, 30, 35, 38, 43];
-  const tbody = document.getElementById('tablebody');
-
-  rows.forEach((rowLabel, rowIdx) => {
-    const tr = document.createElement('tr');
-    const rowCells = {};
-    for (const s of (tableData[rowLabel] || '').split(',')) { if (!s) continue; const k = s.charCodeAt(0) >= 0x3400 ? '' : s[0]; rowCells[k] = k ? s.substring(1) : s; }
-    headers.forEach((colLabel, colIdx) => {
-      const td = document.createElement('td');
-      if (colIdx === 0) td.classList.add('first-col');
-      if (colBorders.includes(colIdx)) td.classList.add('gb');
-      if (rowBorders.includes(rowIdx)) td.classList.add('gt');
-
-      const raw = rowCells[colLabel];
-      const entries = raw ? expandEntries(raw, rowLabel + colLabel) : [];
-      if (entries.length === 0) {
-        td.classList.add('e');
-      } else if (entries.length <= 2) {
-        td.classList.add('few');
-      }
-      if (entries.length > 0) {
-        let lgCount = 0;
-        if (entries.length > 2) {
-          lgCount = 1;
-          const d0 = entries[0].search(/\d/), d1 = entries[1].search(/\d/);
-          if (entries.length > 3 && (entries[1].charCodeAt(d1) - 48) >= 4 && d1 === entries[1].length - 1 && d0 === entries[0].length - 1)
-            lgCount = 2;
-        }
-        const showCount = colIdx === 0 ? 15 : Math.max(3, 6 - lgCount * 2);
-        entries.slice(0, showCount).forEach((e, i) => {
-          const span = createKanjiSpan(e);
-          if (i < lgCount) span.classList.add('lg');
-          td.appendChild(span);
-        });
-
-        if (entries.length > showCount) {
-          const more = document.createElement('span');
-          more.className = 'more';
-          entries.slice(showCount).forEach(e => more.appendChild(createKanjiSpan(e)));
-          td.appendChild(more);
-          const toggle = document.createElement('span');
-          toggle.className = 'toggle';
-          toggle.textContent = '+' + (entries.length - showCount);
-          toggle.onclick = function(ev) { ev.stopPropagation(); toggleMore(this); };
-          td.appendChild(toggle);
-        }
-      }
-
-      const wm = rowLabel + colLabel;
-      if (wm) {
-        const d = document.createElement('div');
-        d.className = 'watermark';
-        d.dataset.hira = wm;
-        d.dataset.kata = hiraToKata(wm);
-        d.textContent = wm;
-        td.appendChild(d);
-      }
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-}
-
-function expandEntries(str, prefix) {
-  const prefixKata = hiraToKata(prefix);
-  const result = [];
-  let pos = 0;
-  while (pos < str.length) {
-    let ki = pos;
-    while (ki < str.length && str.charCodeAt(ki) >= 0x3400) ki++;
-    // Check for O/k marker
-    let reading = '';
-    let ri = ki;
-    const ch = str[ki];
-    if (ch === 'k') { reading = prefix; ri = ki + 1; }
-    else if (ch === 'O') { reading = prefixKata; ri = ki + 1; }
-    let di = ri;
-    while (di < str.length && (str.charCodeAt(di) < 48 || str.charCodeAt(di) > 57)) di++;
-    reading += str.substring(ri, di);
-    let si = di + 1;
-    while (si < str.length && str.charCodeAt(si) < 0x3400) si++;
-    const tail = reading + str.substring(di, si);
-    for (let k = pos; k < ki; k++) result.push(str[k] + tail);
-    pos = si;
-  }
-  return result;
-}
-
-function createKanjiSpan(str) {
-  const d = str.search(/\d/);
-  const kanji = str[0], reading = str.substring(1, d), tier = str.charCodeAt(d) - 48, suffix = str.substring(d + 1);
-  const isOn = reading.length > 0 && reading.charCodeAt(0) >= 0x30A0 && reading.charCodeAt(0) <= 0x30FF;
-  const span = document.createElement('span');
-  span.className = 'kg';
-  span.classList.add(isOn ? 'on' : 'kun');
-  if (tier > 0) span.classList.add('j' + tier);
-
-  const ruby = document.createElement('ruby');
-  ruby.textContent = kanji;
-  const rt = document.createElement('rt');
-  rt.textContent = reading;
-  ruby.appendChild(rt);
-
-  span.appendChild(ruby);
-  if (suffix) {
-    span.appendChild(document.createTextNode(suffix));
-  }
-
-  return span;
-}
-
-function toggleMore(el) {
-  const more = el.previousElementSibling;
-  if (!more || !more.classList.contains('more')) return;
-  const hideClass = document.body.classList.contains('kun-only') ? 'on' : 'kun';
-  // Check if this is an auto-expanded cell with overflow-hidden entries
-  const hasOverflow = Array.from(more.children).some(ch => ch.dataset.overflowHidden);
-  if (more.dataset.autoOpen && hasOverflow) {
-    // Toggle overflow-hidden entries
-    const collapsed = Array.from(more.children).some(ch => ch.dataset.overflowHidden && ch.style.display === 'none');
-    let count = 0;
-    for (const ch of more.children) {
-      if (!ch.dataset.overflowHidden) continue;
-      ch.style.display = collapsed ? '' : 'none';
-      if (!ch.classList.contains(hideClass)) count++;
-    }
-    el.textContent = (collapsed ? '−' : '+') + count;
-  } else {
-    more.classList.toggle('open');
-    let count = 0;
-    for (const ch of more.children) {
-      if (!ch.classList.contains(hideClass)) count++;
-    }
-    el.textContent = (more.classList.contains('open') ? '−' : '+') + count;
-  }
-}
-
-function initializeInteractivity() {
-  const w = document.querySelector('.wrap');
-  const table = document.getElementById('kanjitable');
-  const mm = document.createElement('div');
-  mm.className = 'minimap';
-  document.body.appendChild(mm);
-
-  const vp = document.createElement('div');
-  vp.className = 'minimap-vp';
-  mm.appendChild(vp);
-
-  const readingBtn = document.createElement('button');
-  readingBtn.className = 'fixed-btn reading-toggle';
-  const modes = ['kun-only', 'on-only'];
-  const labels = ['訓', '音'];
-  const titles = ['Kun-yomi only', 'On-yomi only'];
-  let modeIdx = modes.indexOf(localStorage.getItem('readingMode'));
-  if (modeIdx < 0) modeIdx = 0;
-  document.body.classList.add(modes[modeIdx]);
-  readingBtn.textContent = labels[modeIdx];
-  readingBtn.title = titles[modeIdx];
-  function updateToggleCounts() {
-    const filter = modes[modeIdx];
-    const hideClass = filter === 'kun-only' ? 'on' : 'kun';
-    const useKata = filter === 'on-only';
-    document.querySelectorAll('.watermark').forEach(wm => {
-      wm.textContent = useKata ? wm.dataset.kata : wm.dataset.hira;
-    });
-    document.querySelectorAll('#tablebody td').forEach(td => {
-      const kgs = td.querySelectorAll('.kg');
-      if (kgs.length === 0) return;
-      let totalVisible = 0;
-      for (const kg of kgs) {
-        if (!kg.classList.contains(hideClass)) totalVisible++;
-      }
-      if (totalVisible === 0) { td.classList.add('e'); td.classList.remove('few'); }
-      else if (totalVisible <= 2) { td.classList.remove('e'); td.classList.add('few'); }
-      else { td.classList.remove('e'); td.classList.remove('few'); }
-      // Update lg class based on visible entries
-      let visIdx = 0, firstHasSuffix = false, lgCount = 0;
-      // First pass: determine lgCount
-      if (totalVisible > 2) {
-        lgCount = 1;
-        let vi = 0;
-        for (const kg of kgs) {
-          if (kg.classList.contains(hideClass)) continue;
-          const hasSuffix = kg.childNodes.length > 1;
-          if (vi === 0) firstHasSuffix = hasSuffix;
-          if (vi === 1 && totalVisible > 3) {
-            const tier = [1,2,3,4,5,6].find(n => kg.classList.contains('j'+n)) || 0;
-            if (tier >= 4 && !hasSuffix && !firstHasSuffix) lgCount = 2;
-          }
-          vi++;
-          if (vi > 1) break;
-        }
-      }
-      // Second pass: apply lg
-      for (const kg of kgs) {
-        if (kg.classList.contains(hideClass)) { kg.classList.remove('lg'); continue; }
-        if (visIdx < lgCount) kg.classList.add('lg');
-        else kg.classList.remove('lg');
-        visIdx++;
-      }
-      const toggle = td.querySelector('.toggle');
-      if (!toggle) return;
-      const more = toggle.previousElementSibling;
-      if (!more || !more.classList.contains('more')) return;
-      const showCount = td.classList.contains('first-col') ? 15 : Math.max(3, 6 - lgCount * 2);
-      let mainVisible = 0;
-      for (const ch of td.children) {
-        if (ch === more) break;
-        if (ch.classList.contains('kg') && !ch.classList.contains(hideClass)) mainVisible++;
-      }
-      const moreVisible = totalVisible - mainVisible;
-      // Reset auto-expanded state, then re-expand only if needed
-      if (more.dataset.autoOpen) {
-        more.classList.remove('open');
-        delete more.dataset.autoOpen;
-      }
-      // Reset overflow-hidden entries from previous filter
-      for (const ch of more.children) {
-        if (ch.dataset.overflowHidden) { ch.style.display = ''; delete ch.dataset.overflowHidden; }
-      }
-      if (moreVisible === 0 || totalVisible <= showCount) {
-        more.classList.add('open');
-        more.dataset.autoOpen = '1';
-        toggle.style.display = 'none';
-      } else if (mainVisible < showCount) {
-        // Not enough visible in main area — auto-expand more to fill up to showCount
-        more.classList.add('open');
-        more.dataset.autoOpen = '1';
-        const need = showCount - mainVisible;
-        let shown = 0;
-        for (const ch of more.children) {
-          if (!ch.classList.contains('kg') || ch.classList.contains(hideClass)) continue;
-          shown++;
-          if (shown > need) { ch.style.display = 'none'; ch.dataset.overflowHidden = '1'; }
-        }
-        const overflowCount = moreVisible - need;
-        if (overflowCount > 0) {
-          toggle.style.display = '';
-          toggle.textContent = '+' + overflowCount;
-        } else {
-          toggle.style.display = 'none';
-        }
-      } else {
-        toggle.style.display = '';
-        if (!more.classList.contains('open')) toggle.textContent = '+' + moreVisible;
-        else toggle.textContent = '−' + moreVisible;
-      }
-    });
-  }
-  readingBtn.addEventListener('click', function() {
-    document.body.classList.remove(modes[modeIdx]);
-    modeIdx = (modeIdx + 1) % 2;
-    document.body.classList.add(modes[modeIdx]);
-    readingBtn.textContent = labels[modeIdx];
-    readingBtn.title = titles[modeIdx];
-    localStorage.setItem('readingMode', modes[modeIdx]);
-    updateToggleCounts();
-  });
-  updateToggleCounts();
-  document.body.appendChild(readingBtn);
-
-  const themeBtn = document.createElement('button');
-  themeBtn.className = 'fixed-btn theme-toggle';
-  themeBtn.textContent = '\u263E';
-  themeBtn.title = 'Toggle dark mode';
-  document.body.appendChild(themeBtn);
-  if (localStorage.getItem('dark') === '1') document.body.classList.add('dark');
-  if (document.body.classList.contains('dark')) themeBtn.textContent = '\u2600';
-  themeBtn.addEventListener('click', function() {
-    document.body.classList.toggle('dark');
-    const dark = document.body.classList.contains('dark');
-    themeBtn.textContent = dark ? '\u2600' : '\u263E';
-    localStorage.setItem('dark', dark ? '1' : '0');
-  });
-  const MM_MAX = 140, MINIMAP_PAD = MM_MAX + 32;
-  let lastX = 0, lastY = 0, isDragging = false, mmDrag = false;
-  let minimapUpdateScheduled = false, scale = 1;
-  let vx = 0, vy = 0, lastTime = 0, inertiaId = 0;
-
-  const sizeWrap = document.createElement('div');
-  sizeWrap.style.position = 'relative';
-  table.parentNode.insertBefore(sizeWrap, table);
-  sizeWrap.appendChild(table);
-  table.style.position = 'absolute';
-  table.style.top = '0';
-  table.style.left = '0';
-  table.style.transformOrigin = '0 0';
-
-  function applyScale() {
-    table.style.transform = `scale(${scale})`;
-    sizeWrap.style.width = table.offsetWidth * scale + 'px';
-    sizeWrap.style.height = table.offsetHeight * scale + MINIMAP_PAD + 'px';
-  }
-  applyScale();
-
-  function scheduleMinimapUpdate() {
-    if (!minimapUpdateScheduled) {
-      minimapUpdateScheduled = true;
-      requestAnimationFrame(() => {
-        updateMinimap();
-        minimapUpdateScheduled = false;
-      });
-    }
-  }
-
-  function startDrag(x, y) {
-    cancelAnimationFrame(inertiaId);
-    isDragging = true;
-    lastX = x; lastY = y;
-    vx = 0; vy = 0;
-    lastTime = performance.now();
-    w.classList.add('dragging');
-  }
-
-  function moveDrag(x, y) {
-    const now = performance.now();
-    const dt = now - lastTime || 1;
-    const dx = x - lastX;
-    const dy = y - lastY;
-    vx = dx / dt * 16;
-    vy = dy / dt * 16;
-    w.scrollLeft -= dx;
-    w.scrollTop -= dy;
-    lastX = x; lastY = y;
-    lastTime = now;
-  }
-
-  function endDrag() {
-    isDragging = false;
-    w.classList.remove('dragging');
-    function coast() {
-      if (Math.abs(vx) < 0.5 && Math.abs(vy) < 0.5) return;
-      w.scrollLeft -= vx;
-      w.scrollTop -= vy;
-      vx *= 0.95;
-      vy *= 0.95;
-      scheduleMinimapUpdate();
-      inertiaId = requestAnimationFrame(coast);
-    }
-    inertiaId = requestAnimationFrame(coast);
-  }
-
-  w.addEventListener('mousedown', function(e) {
-    startDrag(e.clientX, e.clientY);
-  });
-
-  document.addEventListener('mousemove', function(e) {
-    if (isDragging) moveDrag(e.clientX, e.clientY);
-    if (mmDrag) mmNav(e);
-  });
-
-  document.addEventListener('mouseup', function() {
-    if (isDragging) endDrag();
-    mmDrag = false;
-  });
-
-  w.addEventListener('wheel', function(e) {
-    e.preventDefault();
-    const rect = w.getBoundingClientRect();
-    const mx = e.clientX - rect.left + w.scrollLeft;
-    const my = e.clientY - rect.top + w.scrollTop;
-    const prev = scale;
-    scale *= e.deltaY > 0 ? 0.9 : 1/0.9;
-    scale = Math.max(0.3, Math.min(3, scale));
-    applyScale();
-    const r = scale / prev;
-    w.scrollLeft = mx * r - (e.clientX - rect.left);
-    w.scrollTop = my * r - (e.clientY - rect.top);
-    scheduleMinimapUpdate();
-  }, {passive: false});
-
-  let touchState = null;
-  w.addEventListener('touchstart', function(e) {
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      const t0 = e.touches[0], t1 = e.touches[1];
-      touchState = {
-        dist: Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY),
-        cx: (t0.clientX + t1.clientX) / 2,
-        cy: (t0.clientY + t1.clientY) / 2,
-        scale: scale
-      };
-    } else if (e.touches.length === 1) {
-      cancelAnimationFrame(inertiaId);
-      vx = 0; vy = 0;
-      lastTime = performance.now();
-      touchState = {drag: true, x: e.touches[0].clientX, y: e.touches[0].clientY};
-    }
-  }, {passive: false});
-
-  w.addEventListener('touchmove', function(e) {
-    if (e.touches.length === 2 && touchState && !touchState.drag) {
-      e.preventDefault();
-      const t0 = e.touches[0], t1 = e.touches[1];
-      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-      const cx = (t0.clientX + t1.clientX) / 2;
-      const cy = (t0.clientY + t1.clientY) / 2;
-      const rect = w.getBoundingClientRect();
-      const mx = touchState.cx - rect.left + w.scrollLeft;
-      const my = touchState.cy - rect.top + w.scrollTop;
-      const prev = scale;
-      scale = Math.max(0.3, Math.min(3, touchState.scale * (dist / touchState.dist)));
-      applyScale();
-      const r = scale / prev;
-      w.scrollLeft = mx * r - (cx - rect.left);
-      w.scrollTop = my * r - (cy - rect.top);
-      touchState.cx = cx;
-      touchState.cy = cy;
-      touchState.dist = dist;
-      touchState.scale = scale;
-      scheduleMinimapUpdate();
-    } else if (e.touches.length === 1 && touchState && touchState.drag) {
-      e.preventDefault();
-      const t = e.touches[0];
-      const now = performance.now();
-      const dt = now - lastTime || 1;
-      const dx = t.clientX - touchState.x;
-      const dy = t.clientY - touchState.y;
-      vx = dx / dt * 16;
-      vy = dy / dt * 16;
-      w.scrollLeft -= dx;
-      w.scrollTop -= dy;
-      touchState.x = t.clientX;
-      touchState.y = t.clientY;
-      lastTime = now;
-    }
-  }, {passive: false});
-
-  w.addEventListener('touchend', function(e) {
-    if (touchState && touchState.drag && e.touches.length === 0) {
-      function coast() {
-        if (Math.abs(vx) < 0.5 && Math.abs(vy) < 0.5) return;
-        w.scrollLeft -= vx;
-        w.scrollTop -= vy;
-        vx *= 0.95;
-        vy *= 0.95;
-        scheduleMinimapUpdate();
-        inertiaId = requestAnimationFrame(coast);
-      }
-      inertiaId = requestAnimationFrame(coast);
-    }
-    touchState = null;
-  });
-
-  updateMinimap();
-  w.addEventListener('scroll', scheduleMinimapUpdate);
-
-  mm.addEventListener('mousedown', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    mmDrag = true;
-    mmNav(e);
-  });
-
-  mm.addEventListener('touchstart', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    mmDrag = true;
-    mmNav(e.touches[0]);
-  }, {passive: false});
-  document.addEventListener('touchmove', function(e) {
-    if (mmDrag) { e.preventDefault(); mmNav(e.touches[0]); }
-  }, {passive: false});
-  document.addEventListener('touchend', function() {
-    mmDrag = false;
-  });
-
-  function updateMinimap() {
-    const tw = w.scrollWidth;
-    const th = w.scrollHeight;
-    const vw = w.clientWidth;
-    const vh = w.clientHeight;
-    const r = Math.min(MM_MAX / tw, MM_MAX / th);
-    const mmW = tw * r;
-    const mmH = th * r;
-
-    mm.style.width = mmW + 'px';
-    mm.style.height = mmH + 'px';
-    vp.style.left = w.scrollLeft * r + 'px';
-    vp.style.top = w.scrollTop * r + 'px';
-    vp.style.width = Math.min(vw, tw) * r + 'px';
-    vp.style.height = Math.min(vh, th) * r + 'px';
-  }
-
-  function mmNav(e) {
-    const rect = mm.getBoundingClientRect();
-    const tw = w.scrollWidth;
-    const th = w.scrollHeight;
-    const r = Math.min(MM_MAX / tw, MM_MAX / th);
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-    w.scrollLeft = cx / r - w.clientWidth / 2;
-    w.scrollTop = cy / r - w.clientHeight / 2;
-  }
-}
+var h2k=s=>[...s].map(c=>{var p=c.charCodeAt(0);return p>=0x3041&&p<=0x3096?String.fromCharCode(p+0x60):c}).join(''),
+$=s=>document.createElement(s),Q=s=>document.querySelectorAll(s),B=document.body,D=document;
+function X(s,pf){var pk=h2k(pf),r=[],p=0;while(p<s.length){var i=p;while(i<s.length&&s.charCodeAt(i)>=0x3400)i++;var rd='',j=i,c=s[i];if(c==='k'){rd=pf;j=i+1}else if(c==='O'){rd=pk;j=i+1}var d=j;while(d<s.length&&(s.charCodeAt(d)<48||s.charCodeAt(d)>57))d++;rd+=s.substring(j,d);var e=d+1;while(e<s.length&&s.charCodeAt(e)<0x3400)e++;var t=rd+s.substring(d,e);for(var k=p;k<i;k++)r.push(s[k]+t);p=e}return r}
+function K(s){var d=s.search(/\d/),kj=s[0],rd=s.substring(1,d),tr=s.charCodeAt(d)-48,sf=s.substring(d+1),
+on=rd.length>0&&rd.charCodeAt(0)>=0x30A0&&rd.charCodeAt(0)<=0x30FF,
+sp=$('span');sp.className='kg';sp.classList.add(on?'on':'kun');if(tr>0)sp.classList.add('j'+tr);
+var rb=$('ruby');rb.textContent=kj;var rt=$('rt');rt.textContent=rd;rb.appendChild(rt);sp.appendChild(rb);
+if(sf)sp.appendChild(document.createTextNode(sf));return sp}
+function TM(el){var m=el.previousElementSibling;if(!m||!m.classList.contains('more'))return;
+var hc=B.classList.contains('kun-only')?'on':'kun',
+ho=Array.from(m.children).some(c=>c.dataset.overflowHidden);
+if(m.dataset.autoOpen&&ho){var col=Array.from(m.children).some(c=>c.dataset.overflowHidden&&c.style.display==='none'),n=0;
+for(var c of m.children){if(!c.dataset.overflowHidden)continue;c.style.display=col?'':'none';if(!c.classList.contains(hc))n++}
+el.textContent=(col?'\u2212':'+')+n}else{m.classList.toggle('open');var n=0;
+for(var c of m.children)if(!c.classList.contains(hc))n++;
+el.textContent=(m.classList.contains('open')?'\u2212':'+')+n}}
+(function(){var D_=kanjiData,hd=['', ...D_.kana],rw=[...D_.kana].slice(0,-1),td=D_.data,
+cb=[0,6,11,16,21,26,31,36,39,44],rb=[0,5,10,15,20,25,30,35,38,43],
+tb=document.getElementById('tablebody');
+rw.forEach((rl,ri)=>{var tr=$('tr'),rc={};
+for(var s of(td[rl]||'').split(',')){if(!s)continue;var k=s.charCodeAt(0)>=0x3400?'':s[0];rc[k]=k?s.substring(1):s}
+hd.forEach((cl,ci)=>{var td=$('td');if(ci===0)td.classList.add('first-col');
+if(cb.includes(ci))td.classList.add('gb');if(rb.includes(ri))td.classList.add('gt');
+var raw=rc[cl],en=raw?X(raw,rl+cl):[];
+if(!en.length)td.classList.add('e');else if(en.length<=2)td.classList.add('few');
+if(en.length>0){var lc=0;if(en.length>2){lc=1;var d0=en[0].search(/\d/),d1=en[1].search(/\d/);
+if(en.length>3&&(en[1].charCodeAt(d1)-48)>=4&&d1===en[1].length-1&&d0===en[0].length-1)lc=2}
+var sc=ci===0?15:Math.max(3,6-lc*2);
+en.slice(0,sc).forEach((e,i)=>{var sp=K(e);if(i<lc)sp.classList.add('lg');td.appendChild(sp)});
+if(en.length>sc){var mr=$('span');mr.className='more';
+en.slice(sc).forEach(e=>mr.appendChild(K(e)));td.appendChild(mr);
+var tg=$('span');tg.className='toggle';tg.textContent='+'+(en.length-sc);
+tg.onclick=function(ev){ev.stopPropagation();TM(this)};td.appendChild(tg)}}
+var wm=rl+cl;if(wm){var dv=$('div');dv.className='watermark';dv.dataset.hira=wm;dv.dataset.kata=h2k(wm);dv.textContent=wm;td.appendChild(dv)}
+tr.appendChild(td)});tb.appendChild(tr)})})();
+(function(){var w=document.querySelector('.wrap'),tbl=document.getElementById('kanjitable'),
+mm=$('div');mm.className='minimap';B.appendChild(mm);
+var vp=$('div');vp.className='minimap-vp';mm.appendChild(vp);
+var rb=$('button');rb.className='fixed-btn reading-toggle';
+var md=['kun-only','on-only'],lb=['\u8a13','\u97f3'],tt=['Kun-yomi only','On-yomi only'],
+mi=md.indexOf(localStorage.getItem('readingMode'));if(mi<0)mi=0;
+B.classList.add(md[mi]);rb.textContent=lb[mi];rb.title=tt[mi];
+function U(){var hc=md[mi]==='kun-only'?'on':'kun',uk=md[mi]==='on-only';
+Q('.watermark').forEach(w=>{w.textContent=uk?w.dataset.kata:w.dataset.hira});
+Q('#tablebody td').forEach(td=>{var kgs=td.querySelectorAll('.kg');if(!kgs.length)return;
+var tv=0;for(var g of kgs)if(!g.classList.contains(hc))tv++;
+if(!tv){td.classList.add('e');td.classList.remove('few')}
+else if(tv<=2){td.classList.remove('e');td.classList.add('few')}
+else{td.classList.remove('e');td.classList.remove('few')}
+var vi=0,fs=false,lc=0;if(tv>2){lc=1;var j=0;
+for(var g of kgs){if(g.classList.contains(hc))continue;var hs=g.childNodes.length>1;
+if(j===0)fs=hs;if(j===1&&tv>3){var tr=[1,2,3,4,5,6].find(n=>g.classList.contains('j'+n))||0;
+if(tr>=4&&!hs&&!fs)lc=2}j++;if(j>1)break}}
+for(var g of kgs){if(g.classList.contains(hc)){g.classList.remove('lg');continue}
+if(vi<lc)g.classList.add('lg');else g.classList.remove('lg');vi++}
+var tg=td.querySelector('.toggle');if(!tg)return;
+var mr=tg.previousElementSibling;if(!mr||!mr.classList.contains('more'))return;
+var sc=td.classList.contains('first-col')?15:Math.max(3,6-lc*2),mv=0;
+for(var c of td.children){if(c===mr)break;if(c.classList.contains('kg')&&!c.classList.contains(hc))mv++}
+var rv=tv-mv;if(mr.dataset.autoOpen){mr.classList.remove('open');delete mr.dataset.autoOpen}
+for(var c of mr.children)if(c.dataset.overflowHidden){c.style.display='';delete c.dataset.overflowHidden}
+if(!rv||tv<=sc){mr.classList.add('open');mr.dataset.autoOpen='1';tg.style.display='none'}
+else if(mv<sc){mr.classList.add('open');mr.dataset.autoOpen='1';var nd=sc-mv,sh=0;
+for(var c of mr.children){if(!c.classList.contains('kg')||c.classList.contains(hc))continue;
+sh++;if(sh>nd){c.style.display='none';c.dataset.overflowHidden='1'}}
+var ov=rv-nd;if(ov>0){tg.style.display='';tg.textContent='+'+ov}else tg.style.display='none'}
+else{tg.style.display='';if(!mr.classList.contains('open'))tg.textContent='+'+rv;
+else tg.textContent='\u2212'+rv}})}
+rb.addEventListener('click',function(){B.classList.remove(md[mi]);mi=(mi+1)%2;
+B.classList.add(md[mi]);rb.textContent=lb[mi];rb.title=tt[mi];
+localStorage.setItem('readingMode',md[mi]);U()});U();B.appendChild(rb);
+var tb=$('button');tb.className='fixed-btn theme-toggle';tb.textContent='\u263E';tb.title='Toggle dark mode';
+B.appendChild(tb);if(localStorage.getItem('dark')==='1')B.classList.add('dark');
+if(B.classList.contains('dark'))tb.textContent='\u2600';
+tb.addEventListener('click',function(){B.classList.toggle('dark');var dk=B.classList.contains('dark');
+tb.textContent=dk?'\u2600':'\u263E';localStorage.setItem('dark',dk?'1':'0')});
+var MX=140,MP=172,lx=0,ly=0,dr=false,md2=false,mu=false,sc=1,vx=0,vy=0,lt=0,ii=0;
+var sw=$('div');sw.style.position='relative';tbl.parentNode.insertBefore(sw,tbl);sw.appendChild(tbl);
+tbl.style.position='absolute';tbl.style.top='0';tbl.style.left='0';tbl.style.transformOrigin='0 0';
+function AS(){tbl.style.transform='scale('+sc+')';sw.style.width=tbl.offsetWidth*sc+'px';
+sw.style.height=tbl.offsetHeight*sc+MP+'px'}AS();
+function SM(){if(!mu){mu=true;requestAnimationFrame(()=>{UM();mu=false})}}
+function SD(x,y){cancelAnimationFrame(ii);dr=true;lx=x;ly=y;vx=0;vy=0;lt=performance.now();w.classList.add('dragging')}
+function MV(x,y){var n=performance.now(),dt=n-lt||1,dx=x-lx,dy=y-ly;
+vx=dx/dt*16;vy=dy/dt*16;w.scrollLeft-=dx;w.scrollTop-=dy;lx=x;ly=y;lt=n}
+function ED(){dr=false;w.classList.remove('dragging');function C(){
+if(Math.abs(vx)<.5&&Math.abs(vy)<.5)return;w.scrollLeft-=vx;w.scrollTop-=vy;
+vx*=.95;vy*=.95;SM();ii=requestAnimationFrame(C)}ii=requestAnimationFrame(C)}
+w.addEventListener('mousedown',e=>SD(e.clientX,e.clientY));
+D.addEventListener('mousemove',e=>{if(dr)MV(e.clientX,e.clientY);if(md2)MN(e)});
+D.addEventListener('mouseup',()=>{if(dr)ED();md2=false});
+w.addEventListener('wheel',function(e){e.preventDefault();var rc=w.getBoundingClientRect(),
+mx=e.clientX-rc.left+w.scrollLeft,my=e.clientY-rc.top+w.scrollTop,pv=sc;
+sc*=e.deltaY>0?.9:1/.9;sc=Math.max(.3,Math.min(3,sc));AS();var r=sc/pv;
+w.scrollLeft=mx*r-(e.clientX-rc.left);w.scrollTop=my*r-(e.clientY-rc.top);SM()},{passive:false});
+var ts=null;
+w.addEventListener('touchstart',function(e){if(e.touches.length===2){e.preventDefault();
+var a=e.touches[0],b=e.touches[1];ts={d:Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY),
+cx:(a.clientX+b.clientX)/2,cy:(a.clientY+b.clientY)/2,s:sc}}
+else if(e.touches.length===1){cancelAnimationFrame(ii);vx=0;vy=0;lt=performance.now();
+ts={drag:true,x:e.touches[0].clientX,y:e.touches[0].clientY}}},{passive:false});
+w.addEventListener('touchmove',function(e){if(e.touches.length===2&&ts&&!ts.drag){e.preventDefault();
+var a=e.touches[0],b=e.touches[1],d=Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY),
+cx=(a.clientX+b.clientX)/2,cy=(a.clientY+b.clientY)/2,rc=w.getBoundingClientRect(),
+mx=ts.cx-rc.left+w.scrollLeft,my=ts.cy-rc.top+w.scrollTop,pv=sc;
+sc=Math.max(.3,Math.min(3,ts.s*(d/ts.d)));AS();var r=sc/pv;
+w.scrollLeft=mx*r-(cx-rc.left);w.scrollTop=my*r-(cy-rc.top);
+ts.cx=cx;ts.cy=cy;ts.d=d;ts.s=sc;SM()}
+else if(e.touches.length===1&&ts&&ts.drag){e.preventDefault();var t=e.touches[0],
+n=performance.now(),dt=n-lt||1,dx=t.clientX-ts.x,dy=t.clientY-ts.y;
+vx=dx/dt*16;vy=dy/dt*16;w.scrollLeft-=dx;w.scrollTop-=dy;ts.x=t.clientX;ts.y=t.clientY;lt=n}},{passive:false});
+w.addEventListener('touchend',function(e){if(ts&&ts.drag&&!e.touches.length){
+function C(){if(Math.abs(vx)<.5&&Math.abs(vy)<.5)return;w.scrollLeft-=vx;w.scrollTop-=vy;
+vx*=.95;vy*=.95;SM();ii=requestAnimationFrame(C)}ii=requestAnimationFrame(C)}ts=null});
+UM();w.addEventListener('scroll',SM);
+mm.addEventListener('mousedown',function(e){e.preventDefault();e.stopPropagation();md2=true;MN(e)});
+mm.addEventListener('touchstart',function(e){e.preventDefault();e.stopPropagation();md2=true;MN(e.touches[0])},{passive:false});
+D.addEventListener('touchmove',function(e){if(md2){e.preventDefault();MN(e.touches[0])}},{passive:false});
+D.addEventListener('touchend',()=>{md2=false});
+function UM(){var tw=w.scrollWidth,th=w.scrollHeight,vw=w.clientWidth,vh=w.clientHeight,
+r=Math.min(MX/tw,MX/th);mm.style.width=tw*r+'px';mm.style.height=th*r+'px';
+vp.style.left=w.scrollLeft*r+'px';vp.style.top=w.scrollTop*r+'px';
+vp.style.width=Math.min(vw,tw)*r+'px';vp.style.height=Math.min(vh,th)*r+'px'}
+function MN(e){var rc=mm.getBoundingClientRect(),tw=w.scrollWidth,th=w.scrollHeight,
+r=Math.min(MX/tw,MX/th);w.scrollLeft=(e.clientX-rc.left)/r-w.clientWidth/2;
+w.scrollTop=(e.clientY-rc.top)/r-w.clientHeight/2}})()
 </script>
 
 </body>
