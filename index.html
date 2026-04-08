@@ -5,38 +5,26 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>漢字読み表</title>
 <style>
-
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:"Hiragino Kaku Gothic Pro","Yu Gothic","Meiryo",sans-serif;
-     background:#f7f7f7}
-.wrap{overflow:auto;width:100vw;height:100vh;
-      scrollbar-width:none;cursor:grab;user-select:none}
+body{font-family:"Hiragino Kaku Gothic Pro","Yu Gothic","Meiryo",sans-serif;background:#f7f7f7}
+.wrap{overflow:auto;width:100vw;height:100vh;scrollbar-width:none;cursor:grab;user-select:none}
 .wrap::-webkit-scrollbar{display:none}
 .wrap.dragging{cursor:grabbing}
 table{border-collapse:collapse}
-td{border:1px solid #ccc;padding:2px 4px}
-td{background:#fff;vertical-align:top;font-size:10px;
-   width:128px;min-width:128px;height:128px;overflow:hidden;
-   position:relative;contain:strict}
+td{border:1px solid #ccc;padding:2px 4px;background:#fff;vertical-align:top;font-size:10px;width:128px;min-width:128px;height:128px;overflow:hidden;position:relative;contain:strict}
 td.e{background:#f0f0f0}
-td.few ruby{font-size:26px}
-td.few rt{font-size:11px}
-.kg.lg ruby{font-size:26px}
-.kg.lg rt{font-size:11px}
+td.few ruby,.kg.lg ruby{font-size:26px}
+td.few rt,.kg.lg rt{font-size:11px}
 td.first-col{border-right:3px solid #000;width:192px;min-width:192px}
-.watermark{position:absolute;top:0;left:0;width:100%;height:100%;
-           pointer-events:none;display:flex;align-items:center;justify-content:center;
-           font-size:38px;font-family:sans-serif;color:#999;opacity:0.18;font-weight:bold}
+.watermark{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:38px;font-family:sans-serif;color:#999;opacity:0.18;font-weight:bold}
 td.e .watermark{opacity:0.18}
 .first-col .watermark{font-size:72px}
-.kg{display:inline-block;margin:1px 2px;white-space:nowrap;
-    padding:1px 2px;border-radius:3px;color:#999}
+.kg{display:inline-block;margin:1px 2px;white-space:nowrap;padding:1px 2px;border-radius:3px;color:#999}
 ruby{font-size:12px}
 rt{font-size:6px;color:#888}
 .more{display:none}
 .more.open{display:inline}
-.toggle{cursor:pointer;color:#3b7dd8;font-size:10px;margin-left:3px;
-        user-select:none;white-space:nowrap}
+.toggle{cursor:pointer;color:#3b7dd8;font-size:10px;margin-left:3px;user-select:none;white-space:nowrap}
 .toggle:hover{text-decoration:underline}
 .j6{color:#2e7d32}
 .j5{color:#689f38}
@@ -46,22 +34,14 @@ rt{font-size:6px;color:#888}
 .j1{color:#000000}
 .gb{border-left:2.5px solid #555}
 .gt{border-top:2.5px solid #555}
-.minimap{position:fixed;bottom:16px;right:16px;
-         background:#fff;border:1px solid #999;border-radius:4px;
-         z-index:10;cursor:crosshair}
-.minimap-vp{position:absolute;border:2px solid #3b7dd8;background:rgba(59,125,216,0.15);
-            border-radius:1px;pointer-events:none}
-.fixed-btn{position:fixed;bottom:16px;z-index:10;
-           height:44px;border-radius:6px;border:1px solid #999;
-           background:#fff;
-           cursor:pointer;display:flex;align-items:center;justify-content:center;
-           line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}
+.minimap{position:fixed;bottom:16px;right:16px;background:#fff;border:1px solid #999;border-radius:4px;z-index:10;cursor:crosshair}
+.minimap-vp{position:absolute;border:2px solid #3b7dd8;background:rgba(59,125,216,0.15);border-radius:1px;pointer-events:none}
+.fixed-btn{position:fixed;bottom:16px;z-index:10;height:44px;border-radius:6px;border:1px solid #999;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}
 .fixed-btn:hover{background:#c8c8c8}
 .theme-toggle{right:170px;width:44px;font-size:24px}
 .reading-toggle{right:222px;width:44px;font-size:22px;font-weight:bold}
 body.kun-only .kg.on{display:none}
 body.on-only .kg.kun{display:none}
-
 body.dark{background:#1a1a1a}
 body.dark td{background:#222;border-color:#444;color:#ddd}
 body.dark td.e{background:#2a2a2a}
@@ -92,9 +72,7 @@ body.dark .fixed-btn:hover{background:#3c3c3c}
 </div>
 
 <script>
-const kanjiData = {
-"kana":"あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん",
-"data":[
+const kanjiData = [
 "有在5る合会逢遭遇4う当4て中4たり浴4びる上4げる荒3らす亜阿W或3る編3む騰2げる明空開2く悪2し充2てる敢2えて彼2の揚挙1げる和1える飽1く登0がる存0る称0げる,悪乎2於1,合相5愛Y挨曖哀W藍3間2対て0乃T,2青碧5蒼3い仰3ぐ扇2ぐ葵い1,赤5灯り4明4るい騰上:る紅朱丹4い緋4暁つき3証し3茜ね2銅がね1崇7める験し0厚0,秋5明5らか倦3る諦ら2める呆2れる商な1う哲顕晃亮らか0朗彬爽0らか,悪握X欠び2翌2る渥U,曙ぼの3朱3論つら7う緋1,顎9憧憬が2れる,朝4旭ひ4鮮彩:やか字9麻3浅2い嘲け8る漁2る欺む8く,足脚肢5味;葦芦2,預:ける梓さ8与か7る,汗4焦2る畔8,遊3ぶ,値価い4当辺4り新ら4しい暖た4か与3える仇9中3る頭ま3宛恰か2も賊徒8私し2温た1か能1う応0る敵6斉る0,1会5まる圧Y扱か4い熱4い集4まる厚篤暑3い淳敦渥惇0い鳩0める,宛4艶7やか,跡後痕5,穴孔5侮ど2る強が2ち,兄4,1姉4,1発暴7く,1油ら;脂膏ら:危9ない溢2れる,2剰4り余4る甘4い雨3尼2天つ1普遍ね1く,網4編2だす,1雨5天1,1過ま4ち危4うい謝誤ま3る怪3しい操つ3る綾文1殺1める肖か1る奇0しい彪綺0,歩2む鮎2,1新5た改検た4める争そ4う嵐し4洗3う顕わ3れる表現わ3す荒3い粗2い革た2まる著わ2す予かじ2め凡汎2ゆる非1ず鉱がね1抗が1う弁闘そ0う,1或い3主饗じ2歩2く,彼2,1併合5せる泡沫4慌4てる哀3れ粟2憐2れむ淡2い怜0れむ,安案Y暗X余ま4り闇W杏按鞍庵V剰ま2り行U",
 "意医委以已違維謂移為位遺囲依Y言云5う生活5きる異易威衣胃偉X井4椅慰緯萎彙尉W要射入居煎炒2る行往2く斐鋳伊畏V好良2い容函2れる亥2夷唯惟蛇U猪1善1い出1でる寝1ぬ埋1ける凍1てる斎忌1む癒1える逝1く嫁0く倭T,2道0,家3,庵り3,歪7む雷ずち1厳1めしい争1でか怒1る毬7奈那ん0,域Y勢お5い息4粋3憤どお2る気1,育Y幾4つ軍戦兵さ3郁U師さ0,池4犠にえ0,憩3い息2う,潔ぎよ3い些さか2勇2む誘な7う功勲お1,碑ぶみ3礎ずえ2石2苛虐8める弄8る,泉み:何8れ悪くに7,竜1,忙が4しい急3ぐ磯礒3勤1しむ,板4痛甚4い炒4める致3す傷悼3む至到2る労わ2る抱懐擁8く頂戴だ2く徒ずら1惨0む,一Y市5壱W著じる2しい苺ご2,一Y五4伍つ4逸乙V偽詐わ2る稜1斎1く慈く1しむ壱U厳くし0,1糸4愛4しい営な4む緒ぐち3挑8む暇ま1稚けない1,電ずま3稲3否2辞1む,古しえ3往しえ2,犬5乾い1,稲4,命ち5猪しし3祈祷禱2る,尿り7茨ら7旋り6,歪つ8,3今4警戒し3める未1だ勅し0める,3妹うと4芋3,嫌5否2卑2しい弥1癒1す,1弥1いよ,1入3湾え0,1入4,色5彩ど3る炉り0,岩磐巌4祝斎3う窟や2鰯し2謂ゆる2況1んや,員院因印Y引隠X飲姻陰W韻音咽V淫蔭寅允U",
 "受請承享5ける撃射5つ宇右Y打拍撲4つ有雨X売4る埋4める飢餓3える得3る生産3む羽W討伐2つ植2える鵜卯2浮2く謳V烏迂芋胡優U憂1い失1せる熟1れる芸蒔0える祐佑T椎苑0つ,1初3,1上4,魚5,浮4べる伺が2う漱い8,1臭さ2い,承たまわ3る,動8く揺6く,兎ぎ3,牛4後4ろ失喪亡な4う丑2氏8潮汐お1,薄4い渦9埋8める臼碓2羅もの1涼0い巴まき6,1嘘4,歌唄詩5疑が4う詠唱4う宴げ3謡2い謳2う転た1欧0う,内家中裡裏4,美愛く4しい器わ4写撮3す映移遷3る訴たQえる鬱V現つ1虚1ろ転0る,腕:台な1,疎1い,促が3す肯ず2く項じ1,1汝己2,畝2,1奪:う姥8,1産7,2馬5午3生れ2産2れる厩や2甘旨巧美2い,海5,1梅4,1敬ま2う恭うや1しい,2裏4浦3占卜な3う恨怨2む羨や2ましい末1麗1らか憾1む,瓜2,漆し3煩さ2い潤2む麗わ1しい湿渥お0う沢お0い彬わ0しい,嬉欣2しい憂愁患2い末1忙えるさま0騒い0,鱗こ2,上4噂さ3,運Y雲W芸U",
@@ -139,8 +117,7 @@ const kanjiData = {
 "列V,1例冷令齢Y礼励麗霊X零隷W黎嶺V鈴戻玲怜U涙T,4歴Y暦X,10裂Y列烈X劣W律U歴キs,26連聯練Y恋X錬W廉憐蓮簾V鎌怜T",
 "路Y露X呂炉賂W魯V鷺U虜T,2労老Y廊朗浪牢X露W郎楼弄糧蠟漏V籠狼竜U滝稜T,4録六陸Y禄W麓緑V鹿U,36論Y乱U",
 "我羽5和話Y輪環吾4別4ける頒4かつ倭X分4け割3る琶把W湧沸2く破2れる詫2びる弁0ける,1賄W隈V,3我;吾:岐4れる別3れる沸3す解判3る若3い分3つ,脇4傍3弁ま2える挟ばさ0む,枠5惑X沖0,訳4別脇3,1技伎:禍わい:災わ:い業8態8と芸6,鷲3,患ら9う僅8か忘2れる煩ら8う数らわ6しい,2私し5綿4渡渉弥亘3る轍ちい8腸1済し0乱0る,4戦な1く,5詫8,6喚叫2く,4咲5い笑3う藁2蕨び2童べ1稿穣0,割5質ふ0,悪2い,我吾5台0,2湾Y碗X腕椀W"
-]
-};
+];
 
 var h2k=s=>[...s].map(c=>{var p=c.charCodeAt(0);return p>=0x3041&&p<=0x3096?String.fromCharCode(p+0x60):c}).join(''),
 $=s=>document.createElement(s),Q=s=>document.querySelectorAll(s),B=document.body,D=document;
@@ -171,7 +148,8 @@ c.style.display=col?'':'none';if(!c.classList.contains(hc))n++}
 el.textContent=(col?'\u2212':'+')+n}else{m.classList.toggle('open');var n=0;
 for(var c of m.children)if(!c.classList.contains(hc))n++;
 el.textContent=(m.classList.contains('open')?'\u2212':'+')+n}}
-(function(){var D_=kanjiData,hd=['', ...D_.kana],rw=[...D_.kana].slice(0,-1),td=D_.data,
+(function(){var KN="あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん",
+hd=['', ...KN],rw=[...KN].slice(0,-1),td=kanjiData,
 cb=[0,6,11,16,21,26,31,36,39,44],rb=[0,5,10,15,20,25,30,35,38,43],
 tb=document.getElementById('tablebody');
 rw.forEach((rl,ri)=>{var tr=$('tr'),
