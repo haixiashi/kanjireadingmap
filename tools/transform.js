@@ -58,15 +58,14 @@ for(var k=p;k<i;k++)r.push(s[k]+t);p=e}return r}
 
 function Xnew(s,pf){
 var TC="abcdefghijklmnopqrstuvwxyz!#$%&()*+-ABCDEFGHIJKLMNOPQRSTUVWXYZ./:;=?@^_`";
-var D1=[0,0,1,1,1,0],D2=[0,1,-1,0,1,-1];
 var pk=h2k(pf),r=[],p=0;while(p<s.length){
 var i=p;while(i<s.length&&s.charCodeAt(i)>=0x3400)i++;
 var d=i;while(d<s.length&&s.charCodeAt(d)>=128)d++;
 var dc=d<s.length?s.charCodeAt(d):0,rd=s.substring(i,d),e,t;
 var ti=dc?TC.indexOf(s[d]):-1;
-if(ti>=0){var on=ti>=36?1:0,idx=ti%36,D=(idx/6|0),tr=idx%6+1;
+if(ti>=0){var on=ti>=36?1:0,idx=ti%36,Dv=(idx/6|0),tr=idx%6+1,d2=(Dv+1)%3-1,d1=(Dv-d2)/3%2;
 var b=on?pk:pf,pr='';
-for(var ci=0;ci<b.length;ci++)pr+=String.fromCharCode(b.charCodeAt(ci)+(ci===0?D1[D]:D2[D]));
+for(var ci=0;ci<b.length;ci++)pr+=String.fromCharCode(b.charCodeAt(ci)+(ci?d2:d1));
 e=d+1;while(e<s.length&&s.charCodeAt(e)>=128&&s.charCodeAt(e)<0x3400)e++;
 t=pr+rd+tr+s.substring(d+1,e)}
 else{e=d+1;while(e<s.length&&s.charCodeAt(e)>=128&&s.charCodeAt(e)<0x3400)e++;
