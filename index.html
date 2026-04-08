@@ -271,7 +271,9 @@ function C(){if(Math.abs(vx)<.5&&Math.abs(vy)<.5)return;w.scrollLeft-=vx;w.scrol
 vx*=.95;vy*=.95;SM();ii=requestAnimationFrame(C)}ii=requestAnimationFrame(C)}
 else if(ts&&!ts.drag){AS();w.scrollLeft=ts.sl0-ts.tx;w.scrollTop=ts.st0-ts.ty;
 clearTimeout(rl);RL();SM()}ts=null});
-w.scrollLeft=0;w.scrollTop=0;
+var ne=tbl.querySelectorAll('td:not(.e)'),rc=ne[Math.random()*ne.length|0];
+w.scrollLeft=(rc.offsetLeft+rc.offsetWidth/2)*sc-w.clientWidth/2;
+w.scrollTop=(rc.offsetTop+rc.offsetHeight/2)*sc-w.clientHeight/2;
 UM();w.addEventListener('scroll',SM);
 mm.addEventListener('mousedown',function(e){e.preventDefault();e.stopPropagation();md2=true;MN(e)});
 mm.addEventListener('touchstart',function(e){
