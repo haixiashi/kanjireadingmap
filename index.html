@@ -120,14 +120,15 @@ const kanjiData = [
 "我羽5和話Y輪環吾4別4|3m頒4|-F倭X分4|3割3|m琶把W湧沸2|1破2|nm詫2|Um弁0|3m~~賄W隈V~1我;吾:岐4|nm別3|nm沸3|;解判3|m若3|&分3|F~脇4傍3弁2`|*m挟0R7|b~枠5惑X沖0~訳4別脇3~~技伎:禍:q&災:q|&業8態8|J芸6~鷲3~患9k|(僅8|-忘2|nm煩8k|(数6kq|9&~0私59綿4渡渉弥亘3|m轍8C&腸1済09乱0|m~2戦1L|1~3詫8~4喚叫2|1~2咲5|&笑3|(藁2蕨2U童1[稿穣0~割5質0W~悪2|&~我吾5台0~0湾Y碗X腕椀W"
 ];
 
-var h2k=s=>[...s].map(c=>{var p=c.charCodeAt(0);return p>=0x3041&&p<=0x3096?String.fromCharCode(p+0x60):c}).join(''),
+var a2h=s=>[...s].map(c=>String.fromCharCode(c.charCodeAt(0)+0x301E)).join(''),
+a2k=s=>[...s].map(c=>String.fromCharCode(c.charCodeAt(0)+0x301E+0x60)).join(''),
 $=s=>document.createElement(s),Q=s=>document.querySelectorAll(s),B=document.body,D=document;
-function X(s,pf){var pk=h2k(pf),r=[],p=0;while(p<s.length){
+function X(s,pf){var r=[],p=0;while(p<s.length){
 var i=p;while(i<s.length&&s.charCodeAt(i)>=0x3400)i++;
 if(i===p)break;var dc=i<s.length?s.charCodeAt(i):0,ti=dc>=48&&dc<120?dc-48:-1;
-if(ti>=0){var on=ti>=36?1:0,idx=ti%36,Dv=(idx/6|0),tr=idx%6+1,d2=(Dv+1)%3-1,d1=(Dv-d2)/3%2,b=on?pk:pf,pr='';
-for(var ci=0;ci<b.length;ci++)pr+=String.fromCharCode(b.charCodeAt(ci)+(ci?d2:d1));
-var e=i+1,ko=on?0x60:0;while(e<s.length&&s.charCodeAt(e)<0x3400&&s.charCodeAt(e)!==0x7C)e++;
+if(ti>=0){var on=ti>=36?1:0,idx=ti%36,Dv=(idx/6|0),tr=idx%6+1,d2=(Dv+1)%3-1,d1=(Dv-d2)/3%2,ko=on?0x60:0,pr='';
+for(var ci=0;ci<pf.length;ci++)pr+=String.fromCharCode(pf.charCodeAt(ci)+0x301E+ko+(ci?d2:d1));
+var e=i+1;while(e<s.length&&s.charCodeAt(e)<0x3400&&s.charCodeAt(e)!==0x7C)e++;
 var rd='';for(var j=i+1;j<e;j++)rd+=String.fromCharCode(s.charCodeAt(j)+0x301E+ko);
 var sf='';if(e<s.length&&s.charCodeAt(e)===0x7C){e++;var fs=e;
 while(e<s.length&&s.charCodeAt(e)<0x3400)e++;
@@ -150,7 +151,7 @@ c.style.display=col?'':'none';if(!c.classList.contains(hc))n++}
 el.textContent=(col?'\u2212':'+')+n}else{m.classList.toggle('open');var n=0;
 for(var c of m.children)if(!c.classList.contains(hc))n++;
 el.textContent=(m.classList.contains('open')?'\u2212':'+')+n}}
-(function(){var KN="あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん",
+(function(){var KN="$&(*,-/13579;=?ACFHJLMNOPQTWZ]`abcdfhjklmnoqu",
 hd=['', ...KN],rw=[...KN].slice(0,-1),td=kanjiData,
 cb=[0,6,11,16,21,26,31,36,39,44],rb=[0,5,10,15,20,25,30,35,38,43],
 tb=document.getElementById('tablebody');
@@ -170,8 +171,8 @@ en.slice(sc).forEach(e=>mr.appendChild(K(e)));td.appendChild(mr);
 var tg=$('span');tg.className='toggle';tg.textContent='+'+(en.length-sc);
 tg.onclick=function(ev){ev.stopPropagation();TM(this)};td.appendChild(tg)}}
 var wm=rl+cl;if(wm){var dv=$('div');dv.className='watermark';
-dv.dataset.hira=wm;dv.dataset.kata=h2k(wm);
-dv.textContent=wm;td.appendChild(dv)}
+dv.dataset.hira=a2h(wm);dv.dataset.kata=a2k(wm);
+dv.textContent=dv.dataset.hira;td.appendChild(dv)}
 tr.appendChild(td)});tb.appendChild(tr)})})();
 (function(){var w=document.querySelector('.wrap'),tbl=document.getElementById('kanjitable'),
 mm=$('div');mm.className='minimap';B.appendChild(mm);
