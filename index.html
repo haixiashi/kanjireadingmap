@@ -219,12 +219,12 @@ tb.addEventListener('click',function(){B.classList.toggle('dark');var dk=B.class
 tb.textContent=dk?'\u2600':'\u263E';localStorage.setItem('dark',dk?'1':'0')});
 var MX=140,MP=172,lx=0,ly=0,dr=false,md2=false,mu=false,sc=1,vx=0,vy=0,lt=0,ii=0;
 var sw=$('div');sw.style.position='relative';tbl.parentNode.insertBefore(sw,tbl);sw.appendChild(tbl);
-tbl.style.position='absolute';tbl.style.top='0';tbl.style.left='0';tbl.style.transformOrigin='0 0';
+tbl.style.position='absolute';tbl.style.top=MP+'px';tbl.style.left=MP+'px';tbl.style.transformOrigin='0 0';
 tbl.style.willChange='transform';
 var tw0=tbl.offsetWidth,th0=tbl.offsetHeight,rl=0;
 function RC(){tw0=tbl.offsetWidth;th0=tbl.offsetHeight}
-function AS(){tbl.style.transform='scale('+sc+')';sw.style.width=tw0*sc+'px';
-sw.style.height=th0*sc+MP+'px'}AS();
+function AS(){tbl.style.transform='scale('+sc+')';sw.style.width=tw0*sc+MP*2+'px';
+sw.style.height=th0*sc+MP*2+'px'}AS();
 function RL(){tbl.style.willChange='auto';
 requestAnimationFrame(function(){requestAnimationFrame(function(){tbl.style.willChange='transform'})})}
 function SRL(){clearTimeout(rl);rl=setTimeout(RL,150)}
