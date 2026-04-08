@@ -33,6 +33,8 @@ rt{font-size:6px;color:#888}
 .j1{color:#000}
 .gb{border-left:2.5px solid #555}
 .gt{border-top:2.5px solid #555}
+.gr{border-right:2.5px solid #555}
+.gbb{border-bottom:2.5px solid #555}
 .minimap{position:fixed;bottom:16px;right:16px;background:#fff;border:1px solid #999;border-radius:4px;z-index:10;cursor:crosshair}
 .minimap-vp{position:absolute;border:2px solid #37d;background:rgba(59,125,216,0.15);border-radius:1px;pointer-events:none}
 .fixed-btn{position:fixed;bottom:16px;z-index:10;height:44px;border-radius:6px;border:1px solid #999;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}
@@ -55,6 +57,8 @@ body.dark .j3{color:#f90}
 body.dark .j2{color:#e55}
 body.dark .gb{border-left-color:#999}
 body.dark .gt{border-top-color:#999}
+body.dark .gr{border-right-color:#999}
+body.dark .gbb{border-bottom-color:#999}
 body.dark .minimap{background:#222;border-color:#666}
 body.dark .fixed-btn{background:#222;border-color:#666;color:#ddd}
 body.dark .fixed-btn:hover{background:#444}
@@ -153,7 +157,8 @@ tb=document.getElementById('tablebody');
 rw.forEach((rl,ri)=>{var tr=$('tr'),
 pt=(td[ri]||'').replace(/~(\d+)/g,(_,n)=>'~'.repeat(+n+3)).split('~');
 hd.forEach((cl,ci)=>{var td=$('td');if(ci===0)td.classList.add('first-col');
-if(cb.includes(ci))td.classList.add('gb');if(rb.includes(ri))td.classList.add('gt');
+if(cb.includes(ci))td.classList.add('gb');if(ci===hd.length-1)td.classList.add('gr');
+if(rb.includes(ri))td.classList.add('gt');if(ri===rw.length-1)td.classList.add('gbb');
 var raw=pt[ci],en=raw?X(raw,rl+cl):[];
 if(!en.length)td.classList.add('e');else if(en.length<=2)td.classList.add('few');
 if(en.length>0){var lc=0;if(en.length>2){lc=1;var d0=en[0].search(/\d/),d1=en[1].search(/\d/);
