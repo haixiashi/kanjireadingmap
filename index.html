@@ -213,7 +213,7 @@ rb.textContent=lb[mi];rb.title=tt[mi];
 localStorage.setItem('readingMode',md[mi]);U()});
 U();B.appendChild(rb);
 var tb=$('button');tb.className='fixed-btn theme-toggle';tb.textContent='\u263E';tb.title='Toggle dark mode';
-B.appendChild(tb);if(localStorage.getItem('dark')==='1')B.classList.add('dark');
+B.appendChild(tb);if(localStorage.getItem('dark')!=='0')B.classList.add('dark');
 if(B.classList.contains('dark'))tb.textContent='\u2600';
 tb.addEventListener('click',function(){B.classList.toggle('dark');var dk=B.classList.contains('dark');
 tb.textContent=dk?'\u2600':'\u263E';localStorage.setItem('dark',dk?'1':'0')});
@@ -266,9 +266,7 @@ function C(){if(Math.abs(vx)<.5&&Math.abs(vy)<.5)return;w.scrollLeft-=vx;w.scrol
 vx*=.95;vy*=.95;SM();ii=requestAnimationFrame(C)}ii=requestAnimationFrame(C)}
 else if(ts&&!ts.drag){AS();w.scrollLeft=ts.sl0-ts.tx;w.scrollTop=ts.st0-ts.ty;
 clearTimeout(rl);RL();SM()}ts=null});
-var naCell=tbl.rows[20].cells[21];
-w.scrollLeft=(naCell.offsetLeft+naCell.offsetWidth/2)*sc-w.clientWidth/2;
-w.scrollTop=(naCell.offsetTop+naCell.offsetHeight/2)*sc-w.clientHeight/2;
+w.scrollLeft=0;w.scrollTop=0;
 UM();w.addEventListener('scroll',SM);
 mm.addEventListener('mousedown',function(e){e.preventDefault();e.stopPropagation();md2=true;MN(e)});
 mm.addEventListener('touchstart',function(e){
