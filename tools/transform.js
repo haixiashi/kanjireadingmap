@@ -1,9 +1,8 @@
 const fs = require("fs");
 let html = fs.readFileSync("index.html", "utf8");
-const TC = "abcdefghijklmnopqrstuvwxyz!#$%&()*+-ABCDEFGHIJKLMNOPQRSTUVWXYZ./:;=?@^_`";
-
 // Old D-letter: D_old = diff1*4 + diff2+1 (diff2 uses -1=yoon,0,+1=dak,+2=handak)
 // New D: (3*d1+d2+6)%6 where d1=unicode diff1, d2=unicode diff2
+// Encoding: chr(48 + D*6 + (tier-1) [+ 36 if on-yomi])
 const oldToNewD = { 0: 5, 2: 1, 4: 2, 5: 3, 6: 4 };
 
 // Only transform inside the data array, not the entire file
@@ -23,8 +22,9 @@ dataSection = dataSection.replace(/([1-6])([a-lA-L])/g, (m, digit, letter) => {
   if (!(oldD in oldToNewD)) return m;
   const newD = oldToNewD[oldD];
   const idx = newD * 6 + (tier - 1);
+  const ch = String.fromCharCode(48 + (isOn ? idx + 36 : idx));
   saved++;
-  return TC[isOn ? idx + 36 : idx];
+  return ch === '\\' ? '\\\\' : ch;
 });
 
 html = html.substring(0, dataStart) + dataSection + html.substring(dataEnd);
@@ -57,12 +57,11 @@ else{e=d+1;while(e<s.length&&s.charCodeAt(e)<0x3400)e++;t=rd+s.substring(d,e)}
 for(var k=p;k<i;k++)r.push(s[k]+t);p=e}return r}
 
 function Xnew(s,pf){
-var TC="abcdefghijklmnopqrstuvwxyz!#$%&()*+-ABCDEFGHIJKLMNOPQRSTUVWXYZ./:;=?@^_`";
 var pk=h2k(pf),r=[],p=0;while(p<s.length){
 var i=p;while(i<s.length&&s.charCodeAt(i)>=0x3400)i++;
 var d=i;while(d<s.length&&s.charCodeAt(d)>=128)d++;
 var dc=d<s.length?s.charCodeAt(d):0,rd=s.substring(i,d),e,t;
-var ti=dc?TC.indexOf(s[d]):-1;
+var ti=dc>=48&&dc<120?dc-48:-1;
 if(ti>=0){var on=ti>=36?1:0,idx=ti%36,Dv=(idx/6|0),tr=idx%6+1,d2=(Dv+1)%3-1,d1=(Dv-d2)/3%2;
 var b=on?pk:pf,pr='';
 for(var ci=0;ci<b.length;ci++)pr+=String.fromCharCode(b.charCodeAt(ci)+(ci?d2:d1));
