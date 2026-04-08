@@ -213,8 +213,8 @@ vx=dx/dt*16;vy=dy/dt*16;w.scrollLeft-=dx;w.scrollTop-=dy;ts.x=t.clientX;ts.y=t.c
 w.addEventListener('touchend',function(e){if(ts&&ts.drag&&!e.touches.length){function C(){if(Math.abs(vx)<.5&&Math.abs(vy)<.5)return;
 w.scrollLeft-=vx;w.scrollTop-=vy;vx*=.95;vy*=.95;SM();ii=requestAnimationFrame(C)}ii=requestAnimationFrame(C)}
 else if(ts&&!ts.drag){AS();w.scrollLeft=ts.sl0-ts.tx;w.scrollTop=ts.st0-ts.ty;clearTimeout(rl);RL();SM()}ts=null});
-var ne=tbl.querySelectorAll('td:not(.e):not(.few)'),rc=ne[Math.random()*ne.length|0];
-w.scrollLeft=(rc.offsetLeft+rc.offsetWidth/2)*sc-w.clientWidth/2;w.scrollTop=(rc.offsetTop+rc.offsetHeight/2)*sc-w.clientHeight/2;
+var ne=tbl.querySelectorAll('td:not(.e)'),rc=ne[Math.random()*ne.length|0];
+w.scrollLeft=(MP+rc.offsetLeft+rc.offsetWidth/2)*sc-w.clientWidth/2;w.scrollTop=(MP+rc.offsetTop+rc.offsetHeight/2)*sc-w.clientHeight/2;
 UM();w.addEventListener('scroll',SM);mm.addEventListener('mousedown',function(e){e.preventDefault();e.stopPropagation();md2=true;MN(e)});
 mm.addEventListener('touchstart',function(e){e.preventDefault();e.stopPropagation();md2=true;MN(e.touches[0])},{passive:false});
 D.addEventListener('touchmove',function(e){if(md2){e.preventDefault();MN(e.touches[0])}},{passive:false});D.addEventListener('touchend',()=>{md2=false});
