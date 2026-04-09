@@ -4,68 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>漢字読み表</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:"Hiragino Kaku Gothic Pro","Yu Gothic","Meiryo",sans-serif;background:#fff}
-.wrap{overflow:auto;width:100vw;height:100vh;scrollbar-width:none;cursor:grab;user-select:none}
-.wrap::-webkit-scrollbar{display:none}
-.wrap.dragging{cursor:grabbing}
-table{border-collapse:collapse}
-td{border:1px solid #ccc;padding:2px 4px;background:#fff;vertical-align:top;font-size:10px;width:128px;min-width:128px;height:128px;overflow:hidden;position:relative;contain:strict}
-td.e{background:#eee}
-td.few ruby,.kg.lg ruby{font-size:26px}
-td.few rt,.kg.lg rt{font-size:11px}
-td.first-col{border-right:3px solid #000;width:192px;min-width:192px}
-.watermark{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:38px;font-family:sans-serif;color:#999;opacity:0.18;font-weight:bold}
-.first-col .watermark{font-size:72px}
-.kg{display:inline-block;margin:1px 2px;white-space:nowrap;padding:1px 2px;border-radius:3px}
-ruby{font-size:12px}
-rt{font-size:6px;color:#888}
-.more{display:none}
-.more.open{display:inline}
-.toggle{cursor:pointer;color:#37d;font-size:10px;margin-left:3px;user-select:none;white-space:nowrap}
-.toggle:hover{text-decoration:underline}
-.j6{color:#373}
-.j5{color:#693}
-.j4{color:#fa2}
-.j3{color:#e50}
-.j2{color:#b22}
-.j1{color:#222}
-.gb{border-left:2.5px solid var(--g,#555)}
-.gt{border-top:2.5px solid var(--g,#555)}
-.gr{border-right:2.5px solid var(--g,#555)}
-.gbb{border-bottom:2.5px solid var(--g,#555)}
-.minimap{position:fixed;bottom:16px;right:16px;background:#fff;border:1px solid #999;border-radius:4px;z-index:10;cursor:crosshair}
-.minimap-vp{position:absolute;border:2px solid #37d;background:rgba(59,125,216,0.15);border-radius:1px;pointer-events:none}
-.fixed-btn{position:fixed;bottom:16px;z-index:10;height:44px;border-radius:6px;border:1px solid #999;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}
-.fixed-btn:hover{background:#ccc}
-.theme-toggle{right:170px;width:44px;font-size:24px}
-.reading-toggle{right:222px;width:44px;font-size:22px;font-weight:bold}
-body.kun-only .kg.on{display:none}
-body.on-only .kg.kun{display:none}
-body.dark{background:#222;--g:#999}
-body.dark td{background:#222;border-color:#444;color:#ddd}
-body.dark td.first-col{border-right-color:#aaa}
-body.dark .watermark{color:#666}
-body.dark rt{color:#999}
-body.dark .toggle{color:#59f}
-body.dark .j6{color:#6b6}
-body.dark .j5{color:#9c6}
-body.dark .j4{color:#fe5}
-body.dark .j3{color:#f90}
-body.dark .j2{color:#e55}
-body.dark .j1{color:#888}
-body.dark .minimap{background:#222;border-color:#666}
-body.dark .fixed-btn{background:#222;border-color:#666;color:#ddd}
-body.dark .fixed-btn:hover{background:#444}
-</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Hiragino Kaku Gothic Pro","Yu Gothic","Meiryo",sans-serif;background:#fff}.wrap{overflow:auto;width:100vw;height:100vh;scrollbar-width:none;cursor:grab;user-select:none}.wrap::-webkit-scrollbar{display:none}.wrap.dragging{cursor:grabbing}table{border-collapse:collapse}td{border:1px solid #ccc;padding:2px 4px;background:#fff;vertical-align:top;font-size:10px;width:128px;min-width:128px;height:128px;overflow:hidden;position:relative;contain:strict}td.e{background:#eee}td.few ruby,.kg.lg ruby{font-size:26px}td.few rt,.kg.lg rt{font-size:11px}td.first-col{border-right:3px solid #000;width:192px;min-width:192px}.watermark{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:38px;font-family:sans-serif;color:#999;opacity:0.18;font-weight:bold}.first-col .watermark{font-size:72px}.kg{display:inline-block;margin:1px 2px;white-space:nowrap;padding:1px 2px;border-radius:3px}ruby{font-size:12px}rt{font-size:6px;color:#888}.more{display:none}.more.open{display:inline}.toggle{cursor:pointer;color:#37d;font-size:10px;margin-left:3px;user-select:none;white-space:nowrap}.toggle:hover{text-decoration:underline}.j6{color:#373}.j5{color:#693}.j4{color:#fa2}.j3{color:#e50}.j2{color:#b22}.j1{color:#222}.gb{border-left:2.5px solid var(--g,#555)}.gt{border-top:2.5px solid var(--g,#555)}.gr{border-right:2.5px solid var(--g,#555)}.gbb{border-bottom:2.5px solid var(--g,#555)}.minimap{position:fixed;bottom:16px;right:16px;background:#fff;border:1px solid #999;border-radius:4px;z-index:10;cursor:crosshair}.minimap-vp{position:absolute;border:2px solid #37d;background:rgba(59,125,216,0.15);border-radius:1px;pointer-events:none}.fixed-btn{position:fixed;bottom:16px;z-index:10;height:44px;border-radius:6px;border:1px solid #999;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}.fixed-btn:hover{background:#ccc}.theme-toggle{right:170px;width:44px;font-size:24px}.reading-toggle{right:222px;width:44px;font-size:22px;font-weight:bold}body.kun-only .kg.on{display:none}body.on-only .kg.kun{display:none}body.dark{background:#222;--g:#999}body.dark td{background:#222;border-color:#444;color:#ddd}body.dark td.first-col{border-right-color:#aaa}body.dark .watermark{color:#666}body.dark rt{color:#999}body.dark .toggle{color:#59f}body.dark .j6{color:#6b6}body.dark .j5{color:#9c6}body.dark .j4{color:#fe5}body.dark .j3{color:#f90}body.dark .j2{color:#e55}body.dark .j1{color:#888}body.dark .minimap{background:#222;border-color:#666}body.dark .fixed-btn{background:#222;border-color:#666;color:#ddd}body.dark .fixed-btn:hover{background:#444}</style>
 </head>
 <body>
-<div class="wrap">
-<table id="kanjitable">
-<tbody id="tablebody"></tbody>
-</table>
-</div>
+<div class="wrap"><table id="kanjitable"><tbody id="tablebody"></tbody></table></div>
 <script>
 const DATA=[
 "Мǰ5|mƥË逢遭遇4|(˹4|H4|AlӒ4|Um4|4mڿ3|k;¬޻W͢3|mك3|b߯2|4mϴ׮޵2|1̴2|9Ē2|Hmώ2|*H̃2|PήΑ1|4mƻ1|*m飽1|1֎0|.mɗ0|mל0|4m~̴2Ϥ1~ƥ֠5ͅY挨曖ƾWۢ3޷2ɽ0HT~0ߕֿ5ے3|&À3|2ͫ2|2ێ1&~ݲ5ԛ4lϴ4|m&߯:|m؝Ш4|&ؾ4Ѕ3F/ܩ39茜2O銅1.Oʦ7|cm߮09ƈ0~ח5ϴ5|k-õ3|m݃2k|cmƴ2|nmǉ1L|(ǀߡϿ³0k-П̀Ի0|k-~̴ΰXѿ2Uٟ2|mӫU~Б3^PШ3݂7Fk|(ؾ1~顎9͕͗2.|nm~С4ϯ4T鮮˽:|f-ɖ9߻3浅2|&ǝ83|mԄ2|m҄8b|1~ݵڊٺ5Ƹ;ی芦2~預:|3mї877-|m~Ҫ4Ԫ2|mո8~ޑ3|X~ôä4&˹ނ4|lϢ4k|9&Љ4A|-3|*m¶93|mߟ3`ɢ̬2-|d賊̊8ז29ӭ1A|-ڄ1|(̙0|mϔ6ϗ0m~~Ë5|`mǯYͰ4-|&Գ4|&߉4|`mƈ؋Ј3|&Ӟϐӫ̸0|&ߵ0|cm~ɢ4ڪ7|f-~跡̈ֆ5~׬ɕ5å2K|m˷2.|C~đ4~~ȿ4~~֍Џ7|1~~Ҹ;kڅڕ:kƂ9|L&ӻ2|nm~0Ŕ4|lÛ4|mը4|&ߎ3ʎ2Ȥ1FЂ遍1O|1~ط4ك2|B;~~ߎ5Ȥ1~~ޒ4`|CƂ4|(&݋ܽ3`|m̤3|9&ρ3F|mػϖ1Җ1|cmٷ1-|mȩ0|9&˾ع0~ҍ2|b߳2~~Ϣ5|Aυѡ4A|cm£4?|(ʪ49洗3|(ߡ3q|nmۿ՜3q|;ڿ3|&ؒ2|&ߙ2A|`mۊ2q|;¢2-:|cĶҨ2|hm非1|<鉱1.O͸1.|(˫޺0?|(~~͢3&饗2:ҍ2|1~̃2~~Þƥ5|=mӀҵ4͈4|Hmƾ3|n粟2͓2|nbӜ2|&̞0|nb~ɞѐYЊXÛ4`|l޹WЮ按鞍ˤVŔ2`|l۹U",
