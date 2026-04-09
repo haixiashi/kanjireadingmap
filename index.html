@@ -130,7 +130,7 @@ var sf='';if(e<s.length&&CA(s[e])===124){e++;var fs=e;while(e<s.length&&CA(s[e])
 for(var j=fs;j<e;j++)sf+=FC(CA(s[j])+H)}
 var t=pr+rd+tr+sf;for(var k=p;k<i;k++)r.push(s[k]+t);p=e}else{p=i+1}}return r}
 function K(s){var d=s.search(/\d/),kj=s[0],rd=s.substring(1,d),tr=CA(s[d])-48,sf=s.substring(d+1),
-on=rd.length>0&&CA(rd[0])>=12448&&CA(rd[0])<=12543,sp=$('span');
+on=rd.length>0&&(c=CA(rd[0]))>=12448&&c<=12543,sp=$('span');
 sp.className='kg';sp.classList.add(on?'on':'kun');if(tr>0)sp.classList.add('j'+tr);
 var rb=$('ruby');rb.textContent=kj;var rt=$('rt');rt.textContent=rd;rb.append(rt);sp.append(rb);
 if(sf)sp.append(document.createTextNode(sf));return sp}
