@@ -58,7 +58,6 @@ body.dark .j1{color:#888}
 body.dark .minimap{background:#222;border-color:#666}
 body.dark .fixed-btn{background:#222;border-color:#666;color:#ddd}
 body.dark .fixed-btn:hover{background:#444}
-
 </style>
 </head>
 <body>
@@ -67,9 +66,8 @@ body.dark .fixed-btn:hover{background:#444}
 <tbody id="tablebody"></tbody>
 </table>
 </div>
-
 <script>
-const DATA = [
+const DATA=[
 "Мǰ5|mƥË逢遭遇4|(˹4|H4|AlӒ4|Um4|4mڿ3|k;¬޻W͢3|mك3|b߯2|4mϴ׮޵2|1̴2|9Ē2|Hmώ2|*H̃2|PήΑ1|4mƻ1|*m飽1|1֎0|.mɗ0|mל0|4m~̴2Ϥ1~ƥ֠5ͅY挨曖ƾWۢ3޷2ɽ0HT~0ߕֿ5ے3|&À3|2ͫ2|2ێ1&~ݲ5ԛ4lϴ4|m&߯:|m؝Ш4|&ؾ4Ѕ3F/ܩ39茜2O銅1.Oʦ7|cm߮09ƈ0~ח5ϴ5|k-õ3|m݃2k|cmƴ2|nmǉ1L|(ǀߡϿ³0k-П̀Ի0|k-~̴ΰXѿ2Uٟ2|mӫU~Б3^PШ3݂7Fk|(ؾ1~顎9͕͗2.|nm~С4ϯ4T鮮˽:|f-ɖ9߻3浅2|&ǝ83|mԄ2|m҄8b|1~ݵڊٺ5Ƹ;ی芦2~預:|3mї877-|m~Ҫ4Ԫ2|mո8~ޑ3|X~ôä4&˹ނ4|lϢ4k|9&Љ4A|-3|*m¶93|mߟ3`ɢ̬2-|d賊̊8ז29ӭ1A|-ڄ1|(̙0|mϔ6ϗ0m~~Ë5|`mǯYͰ4-|&Գ4|&߉4|`mƈ؋Ј3|&Ӟϐӫ̸0|&ߵ0|cm~ɢ4ڪ7|f-~跡̈ֆ5~׬ɕ5å2K|m˷2.|C~đ4~~ȿ4~~֍Џ7|1~~Ҹ;kڅڕ:kƂ9|L&ӻ2|nm~0Ŕ4|lÛ4|mը4|&ߎ3ʎ2Ȥ1FЂ遍1O|1~ط4ك2|B;~~ߎ5Ȥ1~~ޒ4`|CƂ4|(&݋ܽ3`|m̤3|9&ρ3F|mػϖ1Җ1|cmٷ1-|mȩ0|9&˾ع0~ҍ2|b߳2~~Ϣ5|Aυѡ4A|cm£4?|(ʪ49洗3|(ߡ3q|nmۿ՜3q|;ڿ3|&ؒ2|&ߙ2A|`mۊ2q|;¢2-:|cĶҨ2|hm非1|<鉱1.O͸1.|(˫޺0?|(~~͢3&饗2:ҍ2|1~̃2~~Þƥ5|=mӀҵ4͈4|Hmƾ3|n粟2͓2|nbӜ2|&̞0|nb~ɞѐYЊXÛ4`|l޹WЮ按鞍ˤVŔ2`|l۹U",
 "̓ŴɃ¾ʸޕص݉םԥÔޚǨãYܛ¦5|(ժӊ5|/mս϶Ɇ۾胃ùX©4椅͏مۆ彙ʂW܏ʀěʓ煎Ԣ2|m۹̄2|1ϙޫÅշVȵڨ2|&ɮļ2|nm亥2Ȩǅ̼۰UՐ1ǌ1|&Ļ1|Imɸ1|Nǻ1|3mĴ1|HmϘ̔1|b֋1|*mފ1|1Ɏ0|1öT~0ޓ0~ɭ3~ˤ3l~Ҏ7|bߐ1<CƊ1|c9&£1|I-̜1|mҟ7Ȫޜ0u~域Yũ5,|&̫4ؐ3͔2K,|mҢ1~پY˖4|F軍ͤġ37郁U˃07~ҭ4Մ0M*~͖3|&̫2|(~ԍ30j|&«27-ţ2|bܺ7L|(řŬ1,~־3Xaׄ2<*ַ2ڵۨ8|cmˬ8|m~泉:aÚ8|n̴71M~׶1~̘4.|9&̡3|2׃礒3Ū1|9b~и4ևթ4|&Ԣ4|cmڟ3|;Ĉ̶3|bڞŇ2|mŠ2q|mͼ͛π8|1頂ͦ2B|1̊1<k̿0|b~Yʾ5ȚWۊ2:m|9&苺26~Y¨4Æ4FލVĀܪ2q|mע1Ϙ1|1͆11|9bȚUƊ019~~ؚ4ͅ4|9&Ǖ4L|bف32Cΐ8|bІ1`ס13L&~電3<`פ3Ʈ2ހ1|b~ƙ39*̄29*~Յ51&~פ4~ƺ5CՐ399׈׏2|m~ʑ7l茨7kϧ6l~Ҏ8F~1·4ݐ͡39|cmФ1|BŢ09|cm~1Ƚ4(Jګ3~ɐ5Ʈ2ź2|9&˳1֋1|;~~˳1|&j~~ě3Ӵ0*~~ě4~ک5˽3K|mԟ0l~ʞׁʮ4׋Ϙ3|(ײ2f鰯29݉2hmҼ1|uf~員院ǥƁY˯߆Xߤ姻߀W韻ߚƽV淫ۚɲďU",
 "ƕ݁Ͳ°5|3mκʀ5|FɜƠYͮ΁ο4|FМߎXț4|mǻ4|cm飢餓3|*m̌3|mժի3|bٝWܟÉ2|Fџ2|*m鵜ƀ2ӑ2|1ݍVԧ迂ګڂčU͑1|&ȧ1|=mԲ1|nmگۏ0|*m׉ØTѠڳ0|F~~Ń3~~4~߲5~ӑ4|[mÏ2.|(ԋ8&~~ڝ27|&~Ͳ3A`q|m~ť8|1γ6|1~Ę30~Ծ4̈4|oȧǒ­4L|(2Ҡ8ԑҩ1,~ۜ4|&Ӭ9ǻ8|cmڠ碓2٘1dPӘ0|&ʺ6`/~~嘘4~҆ǁܰ5ց4.|(ܭǆ4|(ɫ34݌2|&ݍ2|(ݺ1A҂0|(~Ħɭ܉܇4~ٚͅ41|9&ǟ4qīν3|;Ϲם遷3|mܧQA|*m鬱V՜1F۩1|oݺ0|m~ڐ:Ɵ1L~տ1|&~ê3.|;ٽ2<|1項1:~~汝ʷ2~պ2~~ȱ:|(姥8~~ի7~0ߪ5Ÿ3ժ2nի2|nm厩2fըϭʴٚ2|&~ӓ5~~і4~~ϑ2`|(̪1(f|9&~0܇4ӎ3ſž3L|(̩̣2|b羨2f|`9&Х1ߺ1|k-͙1|b~ե2~Ԇ39ԯ27|&Ԑ2|bߺ1q|9&ӵӫ0,|(Ҵ0,|&̀0q|9&~ɒҁ2|9&̱͑́2|&Х1̘0*m7`߭0&~ߴ25~4噂37~運Y雲WگU",
@@ -146,6 +144,5 @@ var ne=tbl.querySelectorAll('td:not(.e)'),rc=ne[Math.random()*ne.length|0];w.scr
 function UM(){var tw=w.scrollWidth,th=w.scrollHeight,vw=w.clientWidth,vh=w.clientHeight,r=Math.min(MX/tw,MX/th);mm.style.width=tw*r+'px';mm.style.height=th*r+'px';vp.style.left=w.scrollLeft*r+'px';vp.style.top=w.scrollTop*r+'px';vp.style.width=Math.min(vw,tw)*r+'px';vp.style.height=Math.min(vh,th)*r+'px'}
 function MN(e){var rc=mm.getBoundingClientRect(),tw=w.scrollWidth,th=w.scrollHeight,r=Math.min(MX/tw,MX/th);w.scrollLeft=(e.clientX-rc.left)/r-w.clientWidth/2;w.scrollTop=(e.clientY-rc.top)/r-w.clientHeight/2}})()
 </script>
-
 </body>
 </html>
