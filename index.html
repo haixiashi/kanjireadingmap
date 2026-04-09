@@ -156,7 +156,7 @@ var wm=rl+cl;if(wm){var dv=$('div');dv.className='watermark';dv.dataset.hira=a2h
 tr.append(td)});tb.append(tr)})})();
 (function(){var LS=localStorage,w=D.querySelector('.wrap'),tbl=D.getElementById('kanjitable'),mm=$('div');mm.className='minimap';B.append(mm);
 var vp=$('div');vp.className='minimap-vp';mm.append(vp);var rb=$('button');rb.className='fixed-btn reading-toggle';
-var md=['both','kun-only','on-only'],lb=['漢','訓','音'],tt=['Both readings','Kun-yomi only','On-yomi only'],
+var md=['both','kun-only','on-only'],lb='漢訓音',tt=['Both readings','Kun-yomi only','On-yomi only'],
 mi=md.indexOf(LS.getItem('readingMode'));if(mi<0)mi=0;if(md[mi]!=='both')B.classList.add(md[mi]);rb.textContent=lb[mi];rb.title=tt[mi];
 function U(){var hc=md[mi]==='kun-only'?'on':md[mi]==='on-only'?'kun':'',uk=md[mi]==='on-only';
 Q('.watermark').forEach(w=>{w.textContent=uk?w.dataset.kata:w.dataset.hira});
