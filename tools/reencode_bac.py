@@ -175,13 +175,13 @@ def uniform_cum(n):
     return list(range(n + 1))
 
 # Non-uniform models (enable one at a time)
-M_CELL = uniform_cum(2)            # TODO: [0, 1125, 2024]
-M_KTYPE = uniform_cum(3)           # TODO: [0, 5598, 6288, 11836]
-M_ONKUN = uniform_cum(2)           # TODO: [0, 2923, 4649]
-M_TIER = uniform_cum(6)            # TODO: [0, 889, 2219, 2780, 3580, 4337, 4649]
-M_VAR = uniform_cum(6)             # TODO: [0, 3357, 3823, 3929, 4356, 4357, 4649]
-M_EXTRA = uniform_cum(2)           # TODO: [0, 4649, 5847]
-M_KANA = uniform_cum(3)            # TODO: [0, 1373, 2566, 3263]
+M_CELL = [0, 1125, 2024]           # cell_present: empty/non-empty
+M_KTYPE = [0, 5598, 6288, 11836]   # kanji_type: kt/raw/term
+M_ONKUN = [0, 2923, 4649]          # on_kun: kun/on
+M_TIER = [0, 889, 2219, 2780, 3580, 4337, 4649]  # tier_idx 0-5
+M_VAR = [0, 3357, 3823, 3929, 4356, 4357, 4649]  # variant 0-5
+M_EXTRA = [0, 4649, 5847]          # extra_rd_flag: no/yes
+M_KANA = [0, 1373, 2566, 3263]     # kana_type: k4/k6/raw
 
 
 def main():
