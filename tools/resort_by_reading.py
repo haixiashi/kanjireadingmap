@@ -200,8 +200,12 @@ def parse_jmdict(path, kanji_readings):
 
         total_entries += 1
 
-        # For each kanji-reading pair
-        for keb, k_pri in k_eles:
+        # For each kanji-reading pair.
+        # Only score the first (primary) kanji form; alternate spellings
+        # (e.g. 噺 as variant of 話) should not inherit the word's score.
+        for k_idx, (keb, k_pri) in enumerate(k_eles):
+            if k_idx > 0:
+                continue
             for reb, r_pri, restrs in r_eles:
                 # If re_restr exists, this reading only applies to specific kanji forms
                 if restrs and keb not in restrs:

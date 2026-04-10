@@ -39,14 +39,15 @@ SMALL_MAP = {'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お
 
 # Tier thresholds: score >= threshold → tier
 # Scores use max-per-word scoring from JMdict priority tags.
+# Only the primary kanji form (first keb) in each JMdict entry is scored.
 # Thresholds concentrate most entries in the middle tiers (j3/j4).
 TIER_THRESHOLDS = [
     (98,  6),   # ~8%  - core readings (e.g. 手て, 足あし, 秋あき)
-    (93,  5),   # ~15% - very common (e.g. 青あお, 犬いぬ, 山やま)
-    (56,  4),   # ~27% - common
-    (15,  3),   # ~26% - moderate
-    (0.5, 2),   # ~15% - attested in JMdict but low/no freq tags
-    (0,   1),   # ~8%  - rare / not in JMdict / Hyogai
+    (93,  5),   # ~14% - very common (e.g. 青あお, 犬いぬ, 山やま)
+    (49,  4),   # ~28% - common
+    (5,   3),   # ~18% - moderate
+    (0.5, 2),   # ~17% - attested in JMdict but low/no freq tags
+    (0,   1),   # ~15% - rare / not in JMdict / Hyogai
 ]
 
 
