@@ -85,7 +85,8 @@ For each cell (row 0–43, col 0–45):
 
 All models use total=999. The JS code inlines the inner boundaries
 (implicit 0 at start and 999 at end) directly at each call site
-as array literals, e.g. `Z([555])` instead of declaring named variables.
+as variadic arguments, e.g. `Z(555)`. The `Z` function uses rest
+parameters (`Z=(...c)=>`) to collect them into an array.
 
 | Name | JS Array | Full cumulative | Symbols |
 |------|----------|-----------------|---------|
