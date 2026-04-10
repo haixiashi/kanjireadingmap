@@ -81,7 +81,8 @@ Usage (KD only): `python3 tools/reencode_da.py`
 
 ### verify_data.py
 Decodes the DA string from index.html using a Python arithmetic decoder
-and compares every entry against snapshot.json. Run after any data or
+(24-bit, 999-scale probability tables, `U(k)` uniform decoding) and
+compares every entry against snapshot.json. Run after any data or
 encoding change.
 
 Usage: `python3 tools/verify_data.py`

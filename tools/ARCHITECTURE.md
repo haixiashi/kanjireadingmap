@@ -33,8 +33,12 @@ delta-encoded codepoints. Stored as base-93 using 2:13 block code
 
 **Decoding** (JS, line 13):
 ```
-BD(KD) → bit array → R(n) reads n bits → build KT string
+G(KD) → bit array → R(n) reads n bits → build KT string
 ```
+`G()` decodes base-93 to a bit string using BigInt: each group of 13
+chars is converted to a BigInt via multiply-accumulate, then
+`.toString(2).padStart(85,0)` extracts 85 bits.
+
 The first char is `一` (U+4E00). Each subsequent char is previous + delta.
 
 ### DA String (Data / cell contents)
@@ -49,9 +53,11 @@ Char-to-digit mapping: `G = c => (charCode+26)*58/59-57|0`
 - State: `a` (low), `d` (high), `e` (value), all 24-bit
 - Constants: `T=1<<23` (TOP), `Q=T/2` (QUARTER), `M=T*2-1` (MASK)
 - `W()`: normalization — shifts out resolved bits, reads new bits
-- `Z(c)`: decode symbol using cumulative frequency array `c`,
-  total = `c.at(-1)`. Uses step-based lookup matching encoder boundaries.
-- `U(n)`: decode uniform symbol 0..n-1
+- `Z(c)`: decode symbol using cumulative frequency array `c` (999-scale,
+  inner values only — implicit 0 and 999). Uses step-based lookup
+  matching encoder boundaries.
+- `U(k)`: decode uniform symbol 0..2^k-1. Uses single-step division
+  `q=r>>k` (equivalent to `q=r/(1<<k)|0`), matching the encoder.
 
 ### Symbol Encoding Order (per cell)
 
@@ -60,8 +66,8 @@ For each cell (row 0–43, col 0–45):
 1. **cell_present**: `Z(CP)` → 0=empty, 1=non-empty
 2. If non-empty, loop over kanji groups:
    a. **kanji_type**: `Z(KY)` → 0=KT lookup, 1=raw codepoint, 2=terminator
-      - If 0: `U(2048)` → index into KT table
-      - If 1: `U(32768)` → codepoint offset from U+4E00
+      - If 0: `U(11)` → index into KT table (2048 = 2^11)
+      - If 1: `U(15)` → codepoint offset from U+4E00 (32768 = 2^15)
       - If 2: end of kanji list. If list empty → end of cell (return).
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
    c. **tier_idx**: `Z(TI)` → index 0–5, mapped via `'345216'[idx]` to tier digit
@@ -69,25 +75,28 @@ For each cell (row 0–43, col 0–45):
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
    f. **Extra reading**: loop `Z(EF)` → 0=done, 1=more char
       - **kana_type**: `Z(KF)` → 0=K4 (top 4), 1=K6 (next 16), 2=raw
-      - Value: `U(4)`, `U(16)`, or `U(128)` respectively
+      - Value: `U(2)`, `U(4)`, or `U(7)` respectively (4=2^2, 16=2^4, 128=2^7)
       - Kana code = value + H (+ ko for on-yomi)
-   g. **Okurigana** (kun-yomi only): loop `U(2)` → 0=done, 1=more char
+   g. **Okurigana** (kun-yomi only): loop `U(1)` → 0=done, 1=more char
       - Same kana_type + value decoding as extra reading, but code + H only (no ko)
    h. Assemble entry: `kanji + prefix + extra_reading + tier_char + okurigana`
 
-### Probability Models (cumulative frequency arrays)
+### Probability Models (999-scale cumulative frequency arrays)
 
-| Name | Array | Total | Symbols |
-|------|-------|-------|---------|
-| CP (cell_present) | [0, 1125, 2024] | 2024 | empty / non-empty |
-| KY (kanji_type) | [0, 5598, 6288, 11836] | 11836 | kt / raw / term |
-| OK (on_kun) | [0, 2923, 4649] | 4649 | kun / on |
-| TI (tier_idx) | [0, 889, 2219, 2780, 3580, 4337, 4649] | 4649 | tiers 0–5 |
-| VR (variant) | [0, 3357, 3823, 3929, 4356, 4357, 4649] | 4649 | Dv 0–5 |
-| EF (extra_rd_flag) | [0, 4649, 5847] | 5847 | done / more |
-| KF (kana_type) | [0, 1373, 2566, 3263] | 3263 | K4 / K6 / raw |
+All models use total=999. The JS code stores only the inner
+boundaries (implicit 0 at start and 999 at end).
 
-Okurigana flags use uniform `U(2)` — no probability model (not worth it).
+| Name | JS Array | Full cumulative | Symbols |
+|------|----------|-----------------|---------|
+| CP (cell_present) | [555] | [0, 555, 999] | empty / non-empty |
+| KY (kanji_type) | [472, 531] | [0, 472, 531, 999] | kt / raw / term |
+| OK (on_kun) | [628] | [0, 628, 999] | kun / on |
+| TI (tier_idx) | [191, 477, 597, 769, 932] | [0, 191, 477, 597, 769, 932, 999] | tiers 0–5 |
+| VR (variant) | [720, 820, 843, 935, 936] | [0, 720, 820, 843, 935, 936, 999] | Dv 0–5 |
+| EF (extra_rd_flag) | [794] | [0, 794, 999] | done / more |
+| KF (kana_type) | [420, 786] | [0, 420, 786, 999] | K4 / K6 / raw |
+
+Okurigana flags use uniform `U(1)` — no probability model (not worth it).
 
 ### Kana Encoding
 
@@ -134,9 +143,12 @@ In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
 - `DA` = cell data string (base-93, arithmetic coded)
 
 ### Line 13: Decoders
-- `G()`: char-to-digit for base-93
-- `BD()`: base-93 2:13 block decoder → bit array
-- KT building: decode KD deltas via `R(n)` bit reader
+- `G(s)`: base-93 → bit string. Uses BigInt: each 13-char block is
+  converted via multiply-accumulate (`v=v*93n+BigInt(digit)`), then
+  `v.toString(2).padStart(85,0)` extracts 85 bits. Char-to-digit:
+  `(CA(s[i])+26)*58/59-57|0`
+- KT building: `G(KD)` → bit string → `R(n)` reads n bits → delta-decode
+  2048 kanji codepoints into `KT` string
 - `DC()`: **inside IIFE** — arithmetic decoder + cell parser
   - All decoder state (a, d, e, W, Z, U, freq tables) scoped inside
   - Returns a function `pf => [entries...]`
@@ -191,17 +203,23 @@ Rebuilds `snapshot.json` from KANJIDIC2/JMdict:
 2. Reassign tiers from frequency scores
 3. Re-sort entries by score descending
 
+### transform.js
+Legacy one-time migration script (pre-snapshot era). No longer functional
+with the current data format. Kept for historical reference only.
+
 ### resort_by_reading.py / expand_entries.py
 Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 
 ## Known Constraints
 
 - KD still uses VLC + base-93 2:13 block code (not arithmetic coded)
-- DA uses arithmetic coding with 7 probability models
-- Okurigana flags use uniform `U(2)` (too few bits saved for a model)
-- KT table has 2,048 entries; 690 kanji use raw 16-bit encoding
+- DA uses arithmetic coding with 7 probability models (999-scale)
+- Okurigana flags use uniform `U(1)` (too few bits saved for a model)
+- KT table has 2,048 entries; 690 kanji use raw 15-bit encoding
 - 24-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement
+- `U(k)` decodes uniform symbols using `q=r>>k` (single-step division),
+  not repeated halving, to match encoder rounding
 - All decoder state must be inside the IIFE to avoid name collisions
-  with outer scope (D=document, Q=querySelectorAll, U=update, etc.)
-- `UM()` must be defined before its first call on the same execution path
+  with outer scope (D=document, Q=querySelectorAll, etc.)
+- Base-93 decoding uses BigInt `.toString(2)` for 85-bit block conversion

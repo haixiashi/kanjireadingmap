@@ -18,27 +18,80 @@ ROOT_DIR = os.path.dirname(SCRIPT_DIR)
 SNAPSHOT_PATH = os.path.join(SCRIPT_DIR, 'snapshot.json')
 INDEX_PATH = os.path.join(ROOT_DIR, 'index.html')
 
+sys.path.insert(0, SCRIPT_DIR)
+from reencode_da import decode_b93
 
-def decode_b93(s):
-    P = 2 ** 32
-    def g(c):
-        d = ord(c) - 0x20
-        if d > 2: d -= 1
-        if d > 59: d -= 1
-        return d
-    bits = []
-    for i in range(0, len(s), 13):
-        l = m = h = 0
-        for j in range(13):
-            d = g(s[i+j]) if i+j < len(s) else 0
-            v = l*93+d; l = v%P; c = (v-l)//P
-            v = m*93+c; m = v%P; c = (v-m)//P
-            h = h*93+c
-        for j in range(84,-1,-1):
-            if j > 63: bits.append((h>>(j-64))&1)
-            elif j > 31: bits.append((m>>(j-32))&1)
-            else: bits.append((l>>j)&1)
-    return bits
+
+# 24-bit arithmetic decoder (must match JS decoder exactly)
+BITS = 24
+MASK = (1 << BITS) - 1
+TOP = 1 << (BITS - 1)
+QTR = 1 << (BITS - 2)
+
+
+class ArithDecoder:
+    def __init__(self, bits):
+        self.mn = 0
+        self.mx = MASK
+        self.pk = 0
+        self.p = 0
+        self.bits = bits
+        for _ in range(24):
+            self.pk = (self.pk << 1 | self._rb()) & MASK
+
+    def _rb(self):
+        b = self.bits[self.p] if self.p < len(self.bits) else 0
+        self.p += 1
+        return b
+
+    def _norm(self):
+        while True:
+            if self.mn >= TOP:
+                self.mn -= TOP; self.mx -= TOP; self.pk -= TOP
+            elif self.mx < TOP:
+                pass
+            elif self.mn >= QTR and self.mx < 3 * QTR:
+                self.mn -= QTR; self.mx -= QTR; self.pk -= QTR
+            else:
+                break
+            self.mn = (self.mn << 1) & MASK
+            self.mx = ((self.mx << 1) | 1) & MASK
+            self.pk = (self.pk << 1 | self._rb()) & MASK
+
+    def decode_model(self, cum):
+        """Decode using cumulative frequency array (999-scale).
+
+        cum is the INNER array (without leading 0 or trailing 999).
+        E.g. [555] for cell_present means boundaries [0, 555, 999].
+        """
+        total = 999
+        r = self.mx - self.mn + 1
+        # Step-based lookup matching encoder boundaries
+        s = 0
+        o = self.mn
+        while s < len(cum) and o + (r * cum[s] // total) <= self.pk:
+            s += 1
+        # Update range
+        if s > 0:
+            self.mn = o + r * cum[s - 1] // total
+        if s < len(cum):
+            self.mx = o + r * cum[s] // total - 1
+        self._norm()
+        return s
+
+    def decode_uniform(self, k):
+        """Decode uniform symbol 0..2^k-1 using k bits worth of range."""
+        n = 1 << k
+        r = self.mx - self.mn + 1
+        q = r >> k
+        s = (self.pk - self.mn) // q
+        if s >= n:
+            s = n - 1
+        self.mn = self.mn + q * s
+        if s < n - 1:
+            self.mx = self.mn + q - 1
+        self._norm()
+        return s
 
 
 def build_kt(kd_str):
@@ -71,28 +124,41 @@ def build_kt(kd_str):
 
 
 def decode_da(da_str, kt, kana_str):
+    """Decode DA string using arithmetic decoder, matching JS DC()."""
     bits = decode_b93(da_str)
-    p = 0
+    dec = ArithDecoder(bits)
+    FC = chr
     H = 12318
     K4 = "m(&1"
     K6 = ";b9c*-knl3`LFqJ."
 
-    def R(n):
-        nonlocal p
-        v = 0
-        for _ in range(n):
-            v = v * 2 + bits[p]
-            p += 1
-        return v
+    # Probability tables (999-scale, inner values only)
+    CP = [555]
+    KY = [472, 531]
+    OK = [628]
+    TI = [191, 477, 597, 769, 932]
+    VR = [720, 820, 843, 935, 936]
+    EF = [794]
+    KF = [420, 786]
 
-    def RK():
-        if R(1):
-            if R(1):
-                return R(7)
-            return ord(K6[R(4)])
-        return ord(K4[R(2)])
+    k4_codes = {ord(c): i for i, c in enumerate(K4)}
+    k6_codes = {ord(c): i for i, c in enumerate(K6)}
 
-    FC = chr
+    def Z(c):
+        return dec.decode_model(c)
+
+    def U(k):
+        return dec.decode_uniform(k)
+
+    def RK(f):
+        l = Z(KF)
+        if l == 0:
+            return ord(K4[U(2)]) + H + f
+        elif l == 1:
+            return ord(K6[U(4)]) + H + f
+        else:
+            return U(7) + H + f
+
     cells = {}
 
     for ri in range(44):
@@ -102,28 +168,26 @@ def decode_da(da_str, kt, kana_str):
             pf = row_kana + col_kana
             cell_key = row_kana + '+' + col_kana
 
-            if not R(1):
+            if Z(CP) == 0:
                 continue
 
             entries = []
             while True:
                 kl = []
                 while True:
-                    if R(1):
-                        if R(1):
-                            if not kl:
-                                break
-                            break
-                        kl.append(FC(R(15) + 19968))
+                    j = Z(KY)
+                    if j == 2:
+                        break
+                    if j == 1:
+                        kl.append(FC(U(15) + 19968))
                     else:
-                        kl.append(kt[R(11)])
+                        kl.append(kt[U(11)])
                 if not kl:
                     break
 
-                on = R(1)
-                tr_idx = R(2) + 2 if R(1) else R(1)
-                tr = '345216'[tr_idx]
-                Dv = (R(2) + 2 if R(1) else 1) if R(1) else 0
+                on = Z(OK)
+                tr = '345216'[Z(TI)]
+                Dv = Z(VR)
                 d2 = (Dv + 1) % 3 - 1
                 d1 = ((Dv - d2) // 3) % 2
                 ko = on * 96
@@ -133,12 +197,12 @@ def decode_da(da_str, kt, kana_str):
                     pr += FC(ord(c) + ko + (d2 if ci2 else d1))
 
                 rd = ''
-                while R(1):
-                    rd += FC(RK() + H + ko)
+                while Z(EF):
+                    rd += FC(RK(ko))
 
                 sf = ''
-                while not on and R(1):
-                    sf += FC(RK() + H)
+                while not on and U(1):
+                    sf += FC(RK(0))
 
                 t = pr + rd + tr + sf
                 for k in kl:
@@ -148,31 +212,6 @@ def decode_da(da_str, kt, kana_str):
                 cells[cell_key] = entries
 
     return cells
-
-
-def decoded_to_original(entry, cell_kana):
-    """Convert decoded entry back to original format like '4中あた|る'."""
-    kanji = entry[0]
-    rest = entry[1:]
-    # Find the tier digit
-    d = None
-    for i, c in enumerate(rest):
-        if c.isdigit():
-            d = i
-            break
-    if d is None:
-        return None
-    reading = rest[:d]
-    tier = rest[d]
-    okurigana = rest[d + 1:]
-
-    # The reading includes the cell kana prefix
-    # Separate: prefix = cell_kana (possibly shifted for on-yomi), extra = rest
-    if okurigana:
-        result = tier + kanji + reading + '|' + okurigana
-    else:
-        result = tier + kanji + reading
-    return result
 
 
 def main():
@@ -186,8 +225,7 @@ def main():
     da = re.search(r'DA="([^"]*)"', src).group(1)
     kn = re.search(r'KN="([^"]*)"', src).group(1)
 
-    # Recover kana_str from KN by reversing the ASCII mapping
-    # KN[i] + 12318 = kana codepoint
+    # Recover kana_str from KN
     kana_str = ''.join(chr(ord(c) + 12318) for c in kn)
 
     kt = build_kt(kd)

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """BAC encoder for DA data.
 
-Encodes the same symbol sequence as the VLC encoder, but using arithmetic
-coding with probability models for better compression.
+Encodes cell data from snapshot.json using binary arithmetic coding
+with 7 probability models (999-scale) for low-cardinality fields
+and uniform encoding for high-cardinality fields (U(k) where k=log2(n)).
 
 Architecture:
 1. Arithmetic encode symbols → bit stream (24-bit range coder)
-2. Pack bits into base-93 (2:13 block code, same as current)
-
-Start with all-uniform models, then replace one at a time.
+2. Pack bits into base-93 (13:85 block code)
+3. Verify round-trip with built-in ArithDecoder before outputting
 """
 
 import json
@@ -165,13 +165,13 @@ def uniform_cum(n):
     return list(range(n + 1))
 
 # Non-uniform models (enable one at a time)
-M_CELL = [0, 569, 1024]             # cell_present: empty/non-empty
-M_KTYPE = [0, 484, 544, 1024]      # kanji_type: kt/raw/term
-M_ONKUN = [0, 644, 1024]           # on_kun: kun/on
-M_TIER = [0, 196, 489, 612, 789, 955, 1024]  # tier_idx 0-5
-M_VAR = [0, 739, 842, 865, 959, 960, 1024]   # variant 0-5
-M_EXTRA = [0, 814, 1024]           # extra_rd_flag: no/yes
-M_KANA = [0, 431, 805, 1024]       # kana_type: k4/k6/raw
+M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
+M_KTYPE = [0, 472, 531, 999]       # kanji_type: kt/raw/term
+M_ONKUN = [0, 628, 999]            # on_kun: kun/on
+M_TIER = [0, 191, 477, 597, 769, 932, 999]  # tier_idx 0-5
+M_VAR = [0, 720, 820, 843, 935, 936, 999]   # variant 0-5
+M_EXTRA = [0, 794, 999]            # extra_rd_flag: no/yes
+M_KANA = [0, 420, 786, 999]        # kana_type: k4/k6/raw
 
 
 def main():

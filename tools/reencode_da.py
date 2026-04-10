@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Re-encode DA string from snapshot.json using current encoding format."""
+"""VLC encoder and base-93 codec library.
+
+The main() function encodes snapshot.json into a VLC-format DA string.
+This is the LEGACY encoder — DA now uses arithmetic coding (see
+reencode_bac.py). This file is still used as a library: reencode_bac.py
+imports encode_b93/decode_b93/digit_to_char/char_to_digit from here.
+"""
 
 import json
 import os
@@ -591,7 +597,7 @@ def main():
     print(f"Encoded {total_entries} entries in {total_cells} non-empty cells ({empty_cells} empty)", file=sys.stderr)
     print(f"Total bits: {len(bits)}", file=sys.stderr)
 
-    # Encode to base-85
+    # Encode to base-93
     da_str = encode_b93(bits)
     print(f"DA string length: {len(da_str)}", file=sys.stderr)
 
@@ -599,7 +605,7 @@ def main():
     verify_bits = decode_b93(da_str)
     for i in range(len(bits)):
         assert verify_bits[i] == bits[i], f"Bit mismatch at position {i}"
-    print("Base-85 round-trip verified", file=sys.stderr)
+    print("Base-93 round-trip verified", file=sys.stderr)
 
     sys.stdout.write(da_str)
 
