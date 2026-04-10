@@ -123,7 +123,7 @@ def decode_da(da_str, kt, kana_str):
     CP = [555]
     KY = [531]
     OK = [628]
-    TI = [191, 477, 597, 769, 932]
+    TI = [163, 335, 526, 812, 933]
     D1 = [885]
     D2_0 = [71, 886]
     D2_1 = [199, 998]
@@ -171,7 +171,7 @@ def decode_da(da_str, kt, kana_str):
                     break
 
                 on = Z(OK)
-                tr = '345216'[Z(TI)]
+                tr = str(Z(TI) + 1)
                 d1 = Z(D1)
                 d2 = Z(D2_1 if d1 else D2_0) - 1
                 ko = on * 96

@@ -70,7 +70,7 @@ For each cell (row 0–43, col 0–45):
       - If 0: `U(2738)` → index into KT table (all kanji are in KT)
       - If 1: end of kanji list. If list empty → end of cell (return).
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
-   c. **tier_idx**: `Z(TI)` → index 0–5, mapped via `'345216'[idx]` to tier digit
+   c. **tier_idx**: `Z(TI)+1` → tier 1–6 (natural order, no lookup string)
    d. **variant**: `d1=Z(D1)`, then `d2=Z(D2|d1)-1` (conditional table)
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
    f. **Extra reading**: loop `Z(EF)` → 0=done, 1=more char
@@ -94,7 +94,7 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 | CP (cell_present) | [555] | [0, 555, 999] | empty / non-empty |
 | KY (kanji_type) | [531] | [0, 531, 999] | kanji / terminator |
 | OK (on_kun) | [628] | [0, 628, 999] | kun / on |
-| TI (tier_idx) | [191, 477, 597, 769, 932] | [0, 191, 477, 597, 769, 932, 999] | tiers 0–5 |
+| TI (tier_idx) | [163, 335, 526, 812, 933] | [0, 163, 335, 526, 812, 933, 999] | tier 1–6 |
 | D1 (d1 offset) | [885] | [0, 885, 999] | 0 / 1 |
 | D2\|d1=0 | [71, 886] | [0, 71, 886, 999] | -1 / 0 / 1 |
 | D2\|d1=1 | [199, 998] | [0, 199, 998, 999] | -1 / 0 / 1 |
@@ -132,8 +132,8 @@ impossible) without wasting bits on a joint 6-symbol table.
 - Tier 2 (j2): score ≥ 0.5 (~17%) — attested, low frequency
 - Tier 1 (j1): score = 0 (~15%) — rare / not in JMdict
 
-Stored as index into `'345216'`, so idx 0→tier 3, idx 1→tier 4, etc.
-The two most common tiers (3, 4) get the shortest arithmetic codes.
+Encoded directly as `Z(TI)+1` where idx 0→tier 1, idx 1→tier 2, etc.
+(natural order; no lookup string needed with arithmetic coding).
 
 ## Entry Format
 

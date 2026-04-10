@@ -161,7 +161,7 @@ def uniform_cum(n):
 M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
 M_KTYPE = [0, 531, 999]            # kanji_type: kanji/term
 M_ONKUN = [0, 628, 999]            # on_kun: kun/on
-M_TIER = [0, 191, 477, 597, 769, 932, 999]  # tier_idx 0-5
+M_TIER = [0, 163, 335, 526, 812, 933, 999]  # tier 1-6 (natural order)
 M_D1 = [0, 885, 999]              # d1: 0/1
 M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
 M_D2_1 = [0, 199, 998, 999]       # d2 when d1=1: -1/0/1
@@ -248,7 +248,7 @@ def main():
     H = 12318; K4 = "m(&1"; K6 = ";b9c*-knl3`LFqJ."
     k4_codes = {ord(c): i for i, c in enumerate(K4)}
     k6_codes = {ord(c): i for i, c in enumerate(K6)}
-    tier_to_idx = {3: 0, 4: 1, 5: 2, 2: 3, 1: 4, 6: 5}
+    tier_to_idx = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}
 
     enc = ArithEncoder()
     ops = []  # for verification
