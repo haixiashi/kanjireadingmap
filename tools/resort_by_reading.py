@@ -170,7 +170,7 @@ def parse_jmdict(path, kanji_readings):
     re_pri_pattern = re.compile(r'<re_pri>(.*?)</re_pri>')
     re_restr_pattern = re.compile(r'<re_restr>(.*?)</re_restr>')
 
-    freq = defaultdict(float)  # (kanji_char, reading_hira) -> max word score
+    freq_all = defaultdict(list)  # (kanji_char, reading_hira) -> [word scores]
     total_entries = 0
     segmented = 0
     unsegmented = 0
@@ -249,13 +249,13 @@ def parse_jmdict(path, kanji_readings):
                         kanji_reading = kanji_reading[len(kana_prefix):]
 
                     if kanji_reading:
-                        # Store max word score, both with and without okurigana
+                        # Collect word scores for decay-weighted aggregation
                         full_reading = reading_hira
                         if kana_prefix:
                             full_reading = reading_hira[len(kana_prefix):]
-                        freq[(kanji_char, full_reading)] = max(freq[(kanji_char, full_reading)], score)
+                        freq_all[(kanji_char, full_reading)].append(score)
                         if full_reading != kanji_reading:
-                            freq[(kanji_char, kanji_reading)] = max(freq[(kanji_char, kanji_reading)], score)
+                            freq_all[(kanji_char, kanji_reading)].append(score)
                     segmented += 1
 
                 else:
@@ -264,14 +264,28 @@ def parse_jmdict(path, kanji_readings):
                     if result:
                         for char, char_reading in result:
                             if is_kanji(char):
-                                freq[(char, char_reading)] = max(freq[(char, char_reading)], score)
+                                freq_all[(char, char_reading)].append(score)
                         segmented += 1
                     else:
                         unsegmented += 1
 
     print(f"  {total_entries} entries with kanji")
     print(f"  {segmented} segmented, {unsegmented} unsegmented")
-    print(f"  {len(freq)} unique (kanji, reading) pairs")
+    print(f"  {len(freq_all)} unique (kanji, reading) pairs")
+
+    # Aggregate scores with exponential decay: sort descending, weight
+    # 1st word at full value, 2nd at 1/2, 3rd at 1/4, etc.
+    # This rewards readings used in many common words without letting
+    # a pile of obscure compounds inflate a rare reading.
+    freq = {}
+    for key, scores in freq_all.items():
+        scores.sort(reverse=True)
+        total = 0.0
+        weight = 1.0
+        for s in scores:
+            total += s * weight
+            weight *= 0.5
+        freq[key] = total
     return freq
 
 

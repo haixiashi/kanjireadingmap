@@ -38,13 +38,15 @@ SMALL_MAP = {'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お
              'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ'}
 
 # Tier thresholds: score >= threshold → tier
-# Based on max-per-word scoring (scores range 0-145)
+# Scores use decay-weighted aggregation (1st word full, 2nd half, 3rd quarter...)
+# so readings in many common words score higher than one-hit wonders.
+# Thresholds derived from percentile distribution of all entry scores.
 TIER_THRESHOLDS = [
-    (95,  6),   # ~19% - core readings (nf01-level words)
-    (78,  5),   # ~20% - very common
-    (48,  4),   # ~19% - common
-    (15,  3),   # ~20% - moderate
-    (0.5, 2),   # ~12% - attested in JMdict but no freq tags
+    (168, 6),   # ~15% - core readings (e.g. 手て, 口くち, 足あし)
+    (115, 5),   # ~15% - very common (e.g. 秋あき, 青あお, 犬いぬ)
+    (68,  4),   # ~20% - common
+    (30,  3),   # ~22% - moderate
+    (0.5, 2),   # ~20% - attested in JMdict but low/no freq tags
     (0,   1),   # ~8%  - rare / not in JMdict / Hyogai
 ]
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Re-encode DA string from aa96857 ground truth data using current encoding format."""
+"""Re-encode DA string from snapshot.json using current encoding format."""
 
 import json
+import os
 import re
-import subprocess
 import sys
 
 
@@ -117,17 +117,27 @@ def parse_entry(entry_str):
 
 
 def get_ground_truth():
-    """Extract data from aa96857."""
-    result = subprocess.run(
-        ['git', 'show', 'aa96857:index.html'],
-        capture_output=True, text=True
-    )
-    html = result.stdout
-    m = re.search(r'const kanjiData = (\{.*?\n\});', html, re.DOTALL)
-    js = m.group(1)
-    js = re.sub(r',(\s*[}\]])', r'\1', js)
-    data = json.loads(js)
-    return data
+    """Load data from snapshot.json (authoritative reference)."""
+    snapshot_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'snapshot.json')
+    with open(snapshot_path, 'r') as f:
+        snap = json.load(f)
+
+    # Convert snapshot format (cell_key -> entries) to the nested dict format
+    # that the encoder expects: data['data'][row_kana][col_kana] = entries
+    # Also reconstruct kana_str from the cell keys
+    kana_set = set()
+    data_dict = {}
+    for cell_key, entries in snap.items():
+        row, col = cell_key.split('+', 1)
+        kana_set.add(row)
+        if col:
+            kana_set.add(col)
+        if row not in data_dict:
+            data_dict[row] = {}
+        data_dict[row][col] = entries
+
+    kana_str = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん"
+    return {'kana': kana_str, 'data': data_dict}
 
 
 def get_current_source():
