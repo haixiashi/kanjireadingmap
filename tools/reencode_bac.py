@@ -161,10 +161,10 @@ def uniform_cum(n):
 M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
 M_KTYPE = [0, 531, 999]            # kanji_type: kanji/term
 M_ONKUN = [0, 628, 999]            # on_kun: kun/on
-M_TIER = [0, 163, 335, 526, 812, 933, 999]  # tier 1-6 (natural order)
-M_D1 = [0, 885, 999]              # d1: 0/1
+M_TIER = [0, 163, 335, 526, 811, 932, 999]  # tier 1-6 (natural order)
+M_D1 = [0, 884, 999]              # d1: 0/1
 M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
-M_D2_1 = [0, 199, 998, 999]       # d2 when d1=1: -1/0/1
+M_D2_1 = [0, 198, 997, 999]       # d2 when d1=1: -1/0/1
 M_EXTRA = [0, 794, 999]            # extra_rd_flag: no/yes
 M_KANA = [0, 420, 786, 999]        # kana_type: k4/k6/raw
 M_OKURI = [0, 585, 999]            # okurigana_flag: done/more
