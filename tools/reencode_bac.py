@@ -176,6 +176,62 @@ M_EXTRA = [0, 794, 999]            # extra_rd_flag: no/yes
 M_KANA = [0, 420, 786, 999]        # kana_type: k4/k6/raw
 M_OKURI = [0, 585, 999]            # okurigana_flag: done/more
 M_K4 = [0, 452, 685, 859, 999]    # K4 kana index: る/う/い/く
+M_KD_CASE = [0, 459, 877, 993, 999]  # KD delta bucket: 2b/4b/6b/9b
+
+
+def encode_kd(kt):
+    """Encode KT list into arithmetic-coded KD string."""
+    enc = ArithEncoder()
+    ops = []
+
+    def em(cum, sym):
+        enc.encode_model(cum, sym)
+        ops.append(('M', cum, sym))
+
+    def eu(val, n):
+        enc.encode_uniform(val, n)
+        ops.append(('U', n, val))
+
+    prev = ord(kt[0])  # 0x4E00
+    for i in range(1, len(kt)):
+        delta = ord(kt[i]) - prev
+        prev = ord(kt[i])
+        if delta <= 4:
+            em(M_KD_CASE, 0)
+            eu(delta - 1, 4)
+        elif delta <= 20:
+            em(M_KD_CASE, 1)
+            eu(delta - 5, 16)
+        elif delta <= 84:
+            em(M_KD_CASE, 2)
+            eu(delta - 21, 64)
+        else:
+            em(M_KD_CASE, 3)
+            eu(delta - 85, 512)
+
+    bits = enc.finish()
+
+    # Verify
+    dec = ArithDecoder(bits)
+    errors = 0
+    for i, op in enumerate(ops):
+        if op[0] == 'M':
+            got = dec.decode_model(op[1])
+            if got != op[2]:
+                print(f"KD Op {i}: M got {got} expected {op[2]}", file=sys.stderr)
+                errors += 1
+                if errors > 3:
+                    break
+        else:
+            got = dec.decode_uniform(op[1])
+            if got != op[2]:
+                print(f"KD Op {i}: U({op[1]}) got {got} expected {op[2]}", file=sys.stderr)
+                errors += 1
+                if errors > 3:
+                    break
+
+    print(f"KD: {len(ops)} ops, {len(bits)} bits, verify: {errors} errors", file=sys.stderr)
+    return bits, errors
 
 
 def main():
@@ -322,10 +378,23 @@ def main():
         print(f"DA: {len(da_str)} chars", file=sys.stderr)
         old_da = re.search(r'DA="([^"]*)"', src).group(1)
         print(f"Old DA: {len(old_da)} chars, saving: {len(old_da) - len(da_str)}", file=sys.stderr)
-        sys.stdout.write(da_str)
     else:
-        print("FAILED - not writing output", file=sys.stderr)
+        print("DA FAILED - not writing output", file=sys.stderr)
         sys.exit(1)
+
+    # Encode KD
+    kd_bits, kd_errors = encode_kd(kt)
+    if kd_errors == 0:
+        kd_new = encode_b93(kd_bits)
+        print(f"KD: {len(kd_new)} chars", file=sys.stderr)
+        old_kd = re.search(r'KD="([^"]*)"', src).group(1)
+        print(f"Old KD: {len(old_kd)} chars, saving: {len(old_kd) - len(kd_new)}", file=sys.stderr)
+    else:
+        print("KD FAILED", file=sys.stderr)
+        sys.exit(1)
+
+    # Output both: KD\nDA
+    sys.stdout.write(kd_new + '\n' + da_str)
 
 
 if __name__ == '__main__':

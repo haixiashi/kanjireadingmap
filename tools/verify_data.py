@@ -95,30 +95,18 @@ class ArithDecoder:
 
 
 def build_kt(kd_str):
+    """Decode KD string using arithmetic decoder (matching JS)."""
     bits = decode_b93(kd_str)
+    dec = ArithDecoder(bits)
+    KD_CASE = [459, 877, 993]
     kt = [chr(0x4E00)]
     cp = 0x4E00
-    p = 0
-
-    def read(n):
-        nonlocal p
-        v = 0
-        for _ in range(n):
-            v = v * 2 + bits[p]
-            p += 1
-        return v
+    bit_counts = [2, 4, 6, 9]
+    offsets = [1, 5, 21, 85]
 
     for _ in range(2047):
-        if read(1):
-            if read(1):
-                if read(1):
-                    cp += read(9) + 85
-                else:
-                    cp += read(6) + 21
-            else:
-                cp += read(4) + 5
-        else:
-            cp += read(2) + 1
+        q = dec.decode_model(KD_CASE)
+        cp += dec.decode_uniform(bit_counts[q]) + offsets[q]
         kt.append(chr(cp))
     return kt
 
