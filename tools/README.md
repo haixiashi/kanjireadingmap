@@ -3,6 +3,9 @@
 Scripts for maintaining the kanji reading data. The authoritative data
 lives in `snapshot.json`; all other files are derived from it.
 
+See `ARCHITECTURE.md` for detailed documentation of the data encoding,
+decoder structure, and probability models.
+
 ## Data sources
 
 - `kanjidic2.xml` — KANJIDIC2 dictionary (kanji readings, grades, frequencies)
@@ -28,8 +31,7 @@ scores for (kanji, reading) pairs.
 
 Key design decisions:
 - **Max-per-word scoring**: each (kanji, reading) pair gets the score of
-  its single highest-scoring JMdict word. This avoids inflating readings
-  that appear in many compounds.
+  its single highest-scoring JMdict word.
 - **Primary keb only**: only the first kanji form (keb) in each JMdict
   entry is scored. Alternate spellings (e.g. 噺 as variant of 話) do not
   inherit the primary form's score.
@@ -55,18 +57,32 @@ Full rebuild pipeline for snapshot.json. Runs three phases:
 
 Usage: `PYTHONPATH=tools python3 tools/rebuild_snapshot.py`
 
+### reencode_bac.py
+Encodes snapshot.json into the DA string using binary arithmetic coding
+with probability models. Outputs a base-93 string (2:13 block code).
+
+The encoder uses 24-bit precision and 7 probability models for
+low-cardinality fields (cell_present, kanji_type, on_kun, tier_idx,
+variant, extra_rd_flag, kana_type). High-cardinality fields (kt_idx,
+raw_cp, kana values) use uniform encoding.
+
+Includes a built-in `ArithDecoder` that verifies the round-trip before
+outputting. The encoder's interval arithmetic must exactly match the JS
+decoder's step-based lookup.
+
+Usage: `python3 tools/reencode_bac.py > /tmp/da.txt`
+
 ### reencode_da.py
-Encodes snapshot.json into the binary DA string used in index.html.
-The DA string is a base-85 encoding of a variable-length bitstream
-representing the 44x46 cell grid.
+Legacy VLC encoder. Still used for encoding the KD string (kanji
+dictionary table). Also provides `encode_b93`/`decode_b93` for base-93
+2:13 block code conversion, used by both KD and DA pipelines.
 
-Usage: `python3 tools/reencode_da.py > /tmp/da.txt`
-
-Then replace the DA="..." string in index.html.
+Usage (KD only): `python3 tools/reencode_da.py`
 
 ### verify_data.py
-Decodes the DA string from index.html and compares every entry against
-snapshot.json. Run after any data-encoding change.
+Decodes the DA string from index.html using a Python arithmetic decoder
+and compares every entry against snapshot.json. Run after any data or
+encoding change.
 
 Usage: `python3 tools/verify_data.py`
 
@@ -76,14 +92,14 @@ Usage: `python3 tools/verify_data.py`
 # 1. Rebuild snapshot (fixes readings, tiers, sort order)
 PYTHONPATH=tools python3 tools/rebuild_snapshot.py
 
-# 2. Re-encode DA string
-python3 tools/reencode_da.py > /tmp/da.txt
+# 2. Re-encode DA string (arithmetic coded)
+python3 tools/reencode_bac.py > /tmp/da.txt
 
-# 3. Replace DA in index.html (manual or scripted)
+# 3. Replace DA in index.html
 python3 -c "
 import re
 with open('index.html') as f: src = f.read()
-with open('/tmp/da.txt') as f: da = f.read().strip()
+with open('/tmp/da.txt') as f: da = f.read()
 old = re.search(r'DA=\"([^\"]*)\"', src).group(1)
 with open('index.html', 'w') as f: f.write(src.replace('DA=\"'+old+'\"', 'DA=\"'+da+'\"'))
 "
@@ -91,3 +107,6 @@ with open('index.html', 'w') as f: f.write(src.replace('DA=\"'+old+'\"', 'DA=\"'
 # 4. Verify
 python3 tools/verify_data.py
 ```
+
+Note: do NOT use `.strip()` on the DA string — space (U+0020) is a
+valid base-93 digit and may appear at the start or end.
