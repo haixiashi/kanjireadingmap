@@ -273,19 +273,10 @@ def parse_jmdict(path, kanji_readings):
     print(f"  {segmented} segmented, {unsegmented} unsegmented")
     print(f"  {len(freq_all)} unique (kanji, reading) pairs")
 
-    # Aggregate scores with exponential decay: sort descending, weight
-    # 1st word at full value, 2nd at 1/2, 3rd at 1/4, etc.
-    # This rewards readings used in many common words without letting
-    # a pile of obscure compounds inflate a rare reading.
+    # Use max word score per (kanji, reading) pair.
     freq = {}
     for key, scores in freq_all.items():
-        scores.sort(reverse=True)
-        total = 0.0
-        weight = 1.0
-        for s in scores:
-            total += s * weight
-            weight *= 0.5
-        freq[key] = total
+        freq[key] = max(scores)
     return freq
 
 
