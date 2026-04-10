@@ -71,7 +71,7 @@ For each cell (row 0–43, col 0–45):
       - If 2: end of kanji list. If list empty → end of cell (return).
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
    c. **tier_idx**: `Z(TI)` → index 0–5, mapped via `'345216'[idx]` to tier digit
-   d. **variant**: `Z(VR)` → Dv 0–5, encodes d1/d2 kana offsets
+   d. **variant**: `d1=Z(D1)`, then `d2=Z(D2|d1)-1` (conditional table)
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
    f. **Extra reading**: loop `Z(EF)` → 0=done, 1=more char
       - **kana_type**: `Z(KF)` → 0=K4 (top 4), 1=K6 (next 16), 2=raw
@@ -94,7 +94,9 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 | KY (kanji_type) | [472, 531] | [0, 472, 531, 999] | kt / raw / term |
 | OK (on_kun) | [628] | [0, 628, 999] | kun / on |
 | TI (tier_idx) | [191, 477, 597, 769, 932] | [0, 191, 477, 597, 769, 932, 999] | tiers 0–5 |
-| VR (variant) | [720, 820, 843, 935, 936] | [0, 720, 820, 843, 935, 936, 999] | Dv 0–5 |
+| D1 (d1 offset) | [885] | [0, 885, 999] | 0 / 1 |
+| D2\|d1=0 | [71, 886] | [0, 71, 886, 999] | -1 / 0 / 1 |
+| D2\|d1=1 | [199, 998] | [0, 199, 998, 999] | -1 / 0 / 1 |
 | EF (extra_rd_flag) | [794] | [0, 794, 999] | done / more |
 | KF (kana_type) | [420, 786] | [0, 420, 786, 999] | K4 / K6 / raw |
 | OF (okuri_flag) | [585] | [0, 585, 999] | done / more |
@@ -110,12 +112,14 @@ The kana code is `charCode - H - ko` where H=12318 and ko=96 for on-yomi.
 
 ### Variant Encoding
 
-The variant `Dv` (0–5) encodes offsets `d1` (first char) and `d2` (rest)
-applied to the cell's kana prefix for readings with dakuten/handakuten:
-```
-d2 = (Dv+1) % 3 - 1     → values: -1, 0, 1
-d1 = ((Dv-d2) / 3) % 2   → values: 0, 1
-```
+Offsets `d1` (first char, 0 or 1) and `d2` (rest, -1/0/1) are applied
+to the cell's kana prefix for readings with dakuten/handakuten.
+They are encoded as two separate fields with conditional probability:
+1. `d1 = Z(885)` — 0 (88.5%) or 1 (11.5%)
+2. `d2 = Z(D2|d1) - 1` — uses `Z(71,886)` when d1=0, `Z(199,998)` when d1=1
+
+The conditional tables capture the correlation (d1=1, d2=1 is nearly
+impossible) without wasting bits on a joint 6-symbol table.
 
 ### Tier System
 
@@ -215,7 +219,7 @@ Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 ## Known Constraints
 
 - KD still uses VLC + base-93 2:13 block code (not arithmetic coded)
-- DA uses arithmetic coding with 9 probability models (999-scale)
+- DA uses arithmetic coding with 11 probability models (999-scale)
 - KT table has 2,048 entries; 690 kanji use raw 15-bit encoding
 - 24-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement

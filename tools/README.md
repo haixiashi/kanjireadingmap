@@ -61,7 +61,7 @@ Usage: `PYTHONPATH=tools python3 tools/rebuild_snapshot.py`
 Encodes snapshot.json into the DA string using binary arithmetic coding
 with probability models. Outputs a base-93 string (2:13 block code).
 
-The encoder uses 24-bit precision and 9 probability models for
+The encoder uses 24-bit precision and 11 probability models for
 low-cardinality fields (cell_present, kanji_type, on_kun, tier_idx,
 variant, extra_rd_flag, kana_type). High-cardinality fields (kt_idx,
 raw_cp, kana values) use uniform encoding.

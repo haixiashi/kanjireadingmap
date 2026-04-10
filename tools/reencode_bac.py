@@ -2,7 +2,7 @@
 """BAC encoder for DA data.
 
 Encodes cell data from snapshot.json using binary arithmetic coding
-with 9 probability models (999-scale) for low-cardinality fields
+with 11 probability models (999-scale) for low-cardinality fields
 and uniform encoding for high-cardinality fields (U(k) where k=log2(n)).
 
 Architecture:
@@ -169,7 +169,9 @@ M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
 M_KTYPE = [0, 472, 531, 999]       # kanji_type: kt/raw/term
 M_ONKUN = [0, 628, 999]            # on_kun: kun/on
 M_TIER = [0, 191, 477, 597, 769, 932, 999]  # tier_idx 0-5
-M_VAR = [0, 720, 820, 843, 935, 936, 999]   # variant 0-5
+M_D1 = [0, 885, 999]              # d1: 0/1
+M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
+M_D2_1 = [0, 199, 998, 999]       # d2 when d1=1: -1/0/1
 M_EXTRA = [0, 794, 999]            # extra_rd_flag: no/yes
 M_KANA = [0, 420, 786, 999]        # kana_type: k4/k6/raw
 M_OKURI = [0, 585, 999]            # okurigana_flag: done/more
@@ -257,12 +259,8 @@ def main():
                 d2 = act[1] - exp[1] if len(act) > 1 and len(exp) > 1 else 0
                 if len(prefix) <= 1:
                     d2 = 0
-                dv_map = {}
-                for dv in range(6):
-                    dd2 = (dv + 1) % 3 - 1
-                    dd1 = ((dv - dd2) // 3) % 2
-                    dv_map[(dd1, dd2)] = dv
-                em(M_VAR, dv_map.get((d1, d2), 0))
+                em(M_D1, d1)
+                em(M_D2_1 if d1 else M_D2_0, d2 + 1)  # d2 is -1/0/1, encode as 0/1/2
 
                 extra = furigana[len(prefix):]
                 for c in extra:
