@@ -146,7 +146,7 @@ In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
 ## JS Code Structure (index.html)
 
 ### Line 12: Globals and data strings
-- `R` = String.fromCharCode, `b` = charCodeAt
+- `R` = String.fromCharCode, `p` = charCodeAt
 - `KD` = kanji dictionary string (base-93)
 - `DA` = cell data string (base-93, arithmetic coded)
 
@@ -154,7 +154,7 @@ In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
 - `G(s)`: base-93 → bit string. Uses BigInt: each 13-char block is
   converted via multiply-accumulate (`v=v*93n+BigInt(digit)`), then
   `v.toString(2).padStart(85,0)` extracts 85 bits. Char-to-digit:
-  `(CA(s[i])+26)*58/59-57|0`
+  `(p(s[i])+26)*58/59-57|0`
 - `DC()`: **single IIFE** containing all decoding:
   1. Initialize arithmetic decoder with `G(KD)`, decode KT (2047 deltas)
   2. Re-initialize arithmetic decoder with `G(DA)`
