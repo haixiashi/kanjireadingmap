@@ -349,8 +349,8 @@ def main():
             write(7, code)
 
     # Tier encoding: '354261'[idx]
-    # idx 0->3, 1->5, 2->4, 3->2, 4->6, 5->1
-    tier_to_idx = {3: 0, 5: 1, 4: 2, 2: 3, 6: 4, 1: 5}
+    # '345216'[idx]: idx 0->3, 1->4, 2->5, 3->2, 4->1, 5->6
+    tier_to_idx = {3: 0, 4: 1, 5: 2, 2: 3, 1: 4, 6: 5}
     # idx encoding: 0,1 use short form; 2,3,4,5 use long form
     # if R(1)==0: idx = R(1) -> 0 or 1
     # if R(1)==1: idx = R(2)+2 -> 2,3,4,5

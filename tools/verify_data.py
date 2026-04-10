@@ -111,7 +111,7 @@ def decode_da(da_str, kt, kana_str):
 
                 on = R(1)
                 tr_idx = R(2) + 2 if R(1) else R(1)
-                tr = '354261'[tr_idx]
+                tr = '345216'[tr_idx]
                 Dv = (R(2) + 2 if R(1) else 1) if R(1) else 0
                 d2 = (Dv + 1) % 3 - 1
                 d1 = ((Dv - d2) // 3) % 2
