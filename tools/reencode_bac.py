@@ -145,7 +145,7 @@ def decode_kd(kd_str):
     bits = decode_b93(kd_str)
     dec = ArithDecoder(bits)
     kt = [chr(0x4E00)]; cp = 0x4E00
-    for _ in range(2047):
+    while cp < 0x9EBA:  # decode until last kanji
         q = dec.decode_model(M_KD_CASE)
         cp += dec.decode_uniform([4, 16, 64, 512][q]) + [1, 5, 21, 85][q]
         kt.append(chr(cp))
@@ -159,7 +159,7 @@ def uniform_cum(n):
 
 # Non-uniform models (enable one at a time)
 M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
-M_KTYPE = [0, 472, 531, 999]       # kanji_type: kt/raw/term
+M_KTYPE = [0, 531, 999]            # kanji_type: kanji/term
 M_ONKUN = [0, 628, 999]            # on_kun: kun/on
 M_TIER = [0, 191, 477, 597, 769, 932, 999]  # tier_idx 0-5
 M_D1 = [0, 885, 999]              # d1: 0/1
@@ -169,7 +169,7 @@ M_EXTRA = [0, 794, 999]            # extra_rd_flag: no/yes
 M_KANA = [0, 420, 786, 999]        # kana_type: k4/k6/raw
 M_OKURI = [0, 585, 999]            # okurigana_flag: done/more
 M_K4 = [0, 452, 685, 859, 999]    # K4 kana index: る/う/い/く
-M_KD_CASE = [0, 459, 877, 993, 999]  # KD delta bucket: 2b/4b/6b/9b
+M_KD_CASE = [0, 535, 927, 997, 999]  # KD delta bucket: 2b/4b/6b/9b
 
 
 def encode_kd(kt):
@@ -233,9 +233,16 @@ def main():
     with open(os.path.join(TOOLS_DIR, '..', 'index.html')) as f:
         src = f.read()
 
-    kd_str = re.search(r'KD="([^"]*)"', src).group(1)
-    kt = decode_kd(kd_str)
+    # Build KT from all kanji in snapshot (sorted by codepoint)
+    all_kanji = set()
+    for entries in snap.values():
+        for e in entries:
+            cp = ord(e[1])
+            if 0x4E00 <= cp < 0x10000:
+                all_kanji.add(e[1])
+    kt = [chr(cp) for cp in sorted(ord(k) for k in all_kanji)]
     kt_index = {c: i for i, c in enumerate(kt)}
+    print(f"KT: {len(kt)} entries", file=sys.stderr)
 
     kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
     H = 12318; K4 = "m(&1"; K6 = ";b9c*-knl3`LFqJ."
@@ -283,19 +290,14 @@ def main():
                     groups.append((key, [kanji]))
 
             for (tier, furigana, okurigana, is_on), kanji_list in groups:
-                encodable = [k for k in kanji_list
-                             if k in kt_index or (0x4E00 <= ord(k) < 0x4E00 + 32768)]
+                encodable = [k for k in kanji_list if k in kt_index]
                 if not encodable:
                     continue
 
                 for kc in encodable:
-                    if kc in kt_index:
-                        em(M_KTYPE, 0)
-                        eu(kt_index[kc], 2048)
-                    else:
-                        em(M_KTYPE, 1)
-                        eu(ord(kc) - 0x4E00, 20667)
-                em(M_KTYPE, 2)
+                    em(M_KTYPE, 0)
+                    eu(kt_index[kc], len(kt))
+                em(M_KTYPE, 1)  # terminator
 
                 em(M_ONKUN, 1 if is_on else 0)
                 em(M_TIER, tier_to_idx[tier])
@@ -341,7 +343,7 @@ def main():
                             eu(code, 118)
                     em(M_OKURI, 0)
 
-            em(M_KTYPE, 2)  # end of cell
+            em(M_KTYPE, 1)  # end of cell
 
     bits = enc.finish()
     print(f"Ops: {len(ops)}, bits: {len(bits)}", file=sys.stderr)

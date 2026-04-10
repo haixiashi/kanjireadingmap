@@ -97,13 +97,13 @@ def build_kt(kd_str):
     """Decode KD string using arithmetic decoder (matching JS)."""
     bits = decode_b93(kd_str)
     dec = ArithDecoder(bits)
-    KD_CASE = [459, 877, 993]
+    KD_CASE = [535, 927, 997]
     kt = [chr(0x4E00)]
     cp = 0x4E00
     bit_counts = [4, 16, 64, 512]
     offsets = [1, 5, 21, 85]
 
-    for _ in range(2047):
+    for _ in range(2737):
         q = dec.decode_model(KD_CASE)
         cp += dec.decode_uniform(bit_counts[q]) + offsets[q]
         kt.append(chr(cp))
@@ -121,7 +121,7 @@ def decode_da(da_str, kt, kana_str):
 
     # Probability tables (999-scale, inner values only)
     CP = [555]
-    KY = [472, 531]
+    KY = [531]
     OK = [628]
     TI = [191, 477, 597, 769, 932]
     D1 = [885]
@@ -165,14 +165,8 @@ def decode_da(da_str, kt, kana_str):
             entries = []
             while True:
                 kl = []
-                while True:
-                    j = Z(KY)
-                    if j == 2:
-                        break
-                    if j == 1:
-                        kl.append(FC(U(20667) + 19968))
-                    else:
-                        kl.append(kt[U(2048)])
+                while not Z(KY):
+                    kl.append(kt[U(len(kt))])
                 if not kl:
                     break
 
