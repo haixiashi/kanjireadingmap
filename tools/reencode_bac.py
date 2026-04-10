@@ -143,27 +143,16 @@ class ArithDecoder:
 def decode_kd(kd_str):
     """Decode KD string (current base from index.html) to KT list."""
     # Auto-detect: check which G function the current index.html uses
-    def g91(c):
-        v = ord(c) - 35
-        if ord(c) > 91: v -= 1
-        return v
     def g93(c):
         d = ord(c) - 0x20
         if d > 2: d -= 1
         if d > 59: d -= 1
         return d
-    # Try base-91 first (current), fall back to base-93
-    for g, base in [(g91, 91), (g93, 93)]:
-        bits = []
-        try:
-            for i in range(0, len(kd_str), 2):
-                v = g(kd_str[i]) * base + g(kd_str[i + 1])
-                for j in range(12, -1, -1):
-                    bits.append((v >> j) & 1)
-        except Exception:
-            continue
-        if len(bits) >= 10245:
-            break
+    bits = []
+    for i in range(0, len(kd_str), 2):
+        v = g93(kd_str[i]) * 93 + g93(kd_str[i + 1])
+        for j in range(12, -1, -1):
+            bits.append((v >> j) & 1)
     kt = [chr(0x4E00)]; cp = 0x4E00; p = 0
     def read(n):
         nonlocal p; v = 0
