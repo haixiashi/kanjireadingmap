@@ -146,7 +146,7 @@ In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
 ## JS Code Structure (index.html)
 
 ### Line 12: Globals and data strings
-- `FC` = String.fromCharCode, `CA` = charCodeAt
+- `R` = String.fromCharCode, `b` = charCodeAt
 - `KD` = kanji dictionary string (base-93)
 - `DA` = cell data string (base-93, arithmetic coded)
 
