@@ -140,6 +140,8 @@ def decode_da(da_str, kt, kana_str):
     VR = [720, 820, 843, 935, 936]
     EF = [794]
     KF = [420, 786]
+    OF = [585]
+    K4M = [452, 685, 859]
 
     k4_codes = {ord(c): i for i, c in enumerate(K4)}
     k6_codes = {ord(c): i for i, c in enumerate(K6)}
@@ -153,7 +155,7 @@ def decode_da(da_str, kt, kana_str):
     def RK(f):
         l = Z(KF)
         if l == 0:
-            return ord(K4[U(2)]) + H + f
+            return ord(K4[Z(K4M)]) + H + f
         elif l == 1:
             return ord(K6[U(4)]) + H + f
         else:
@@ -201,7 +203,7 @@ def decode_da(da_str, kt, kana_str):
                     rd += FC(RK(ko))
 
                 sf = ''
-                while not on and U(1):
+                while not on and Z(OF):
                     sf += FC(RK(0))
 
                 t = pr + rd + tr + sf

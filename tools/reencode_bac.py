@@ -2,7 +2,7 @@
 """BAC encoder for DA data.
 
 Encodes cell data from snapshot.json using binary arithmetic coding
-with 7 probability models (999-scale) for low-cardinality fields
+with 9 probability models (999-scale) for low-cardinality fields
 and uniform encoding for high-cardinality fields (U(k) where k=log2(n)).
 
 Architecture:
@@ -172,6 +172,8 @@ M_TIER = [0, 191, 477, 597, 769, 932, 999]  # tier_idx 0-5
 M_VAR = [0, 720, 820, 843, 935, 936, 999]   # variant 0-5
 M_EXTRA = [0, 794, 999]            # extra_rd_flag: no/yes
 M_KANA = [0, 420, 786, 999]        # kana_type: k4/k6/raw
+M_OKURI = [0, 585, 999]            # okurigana_flag: done/more
+M_K4 = [0, 452, 685, 859, 999]    # K4 kana index: る/う/い/く
 
 
 def main():
@@ -268,7 +270,7 @@ def main():
                     code = ord(c) - H - ko
                     if code in k4_codes:
                         em(M_KANA, 0)
-                        eu(k4_codes[code], 4)
+                        em(M_K4, k4_codes[code])
                     elif code in k6_codes:
                         em(M_KANA, 1)
                         eu(k6_codes[code], 16)
@@ -279,18 +281,18 @@ def main():
 
                 if not is_on:
                     for c in okurigana:
-                        eu(1, 2)
+                        em(M_OKURI, 1)
                         code = ord(c) - H
                         if code in k4_codes:
                             em(M_KANA, 0)
-                            eu(k4_codes[code], 4)
+                            em(M_K4, k4_codes[code])
                         elif code in k6_codes:
                             em(M_KANA, 1)
                             eu(k6_codes[code], 16)
                         else:
                             em(M_KANA, 2)
                             eu(code, 128)
-                    eu(0, 2)
+                    em(M_OKURI, 0)
 
             em(M_KTYPE, 2)  # end of cell
 

@@ -75,9 +75,9 @@ For each cell (row 0–43, col 0–45):
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
    f. **Extra reading**: loop `Z(EF)` → 0=done, 1=more char
       - **kana_type**: `Z(KF)` → 0=K4 (top 4), 1=K6 (next 16), 2=raw
-      - Value: `U(2)`, `U(4)`, or `U(7)` respectively (4=2^2, 16=2^4, 128=2^7)
+      - Value: `Z(K4M)`, `U(4)`, or `U(7)` respectively
       - Kana code = value + H (+ ko for on-yomi)
-   g. **Okurigana** (kun-yomi only): loop `U(1)` → 0=done, 1=more char
+   g. **Okurigana** (kun-yomi only): loop `Z(OF)` → 0=done, 1=more char
       - Same kana_type + value decoding as extra reading, but code + H only (no ko)
    h. Assemble entry: `kanji + prefix + extra_reading + tier_char + okurigana`
 
@@ -95,8 +95,8 @@ boundaries (implicit 0 at start and 999 at end).
 | VR (variant) | [720, 820, 843, 935, 936] | [0, 720, 820, 843, 935, 936, 999] | Dv 0–5 |
 | EF (extra_rd_flag) | [794] | [0, 794, 999] | done / more |
 | KF (kana_type) | [420, 786] | [0, 420, 786, 999] | K4 / K6 / raw |
-
-Okurigana flags use uniform `U(1)` — no probability model (not worth it).
+| OF (okuri_flag) | [585] | [0, 585, 999] | done / more |
+| K4M (k4_index) | [452, 685, 859] | [0, 452, 685, 859, 999] | る / う / い / く |
 
 ### Kana Encoding
 
@@ -213,8 +213,7 @@ Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 ## Known Constraints
 
 - KD still uses VLC + base-93 2:13 block code (not arithmetic coded)
-- DA uses arithmetic coding with 7 probability models (999-scale)
-- Okurigana flags use uniform `U(1)` (too few bits saved for a model)
+- DA uses arithmetic coding with 9 probability models (999-scale)
 - KT table has 2,048 entries; 690 kanji use raw 15-bit encoding
 - 24-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement
