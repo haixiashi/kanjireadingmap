@@ -22,19 +22,20 @@ external dependencies.
 ### KD String (Kanji Dictionary / KT table)
 
 The KD string encodes a sorted list of 2,048 most-frequent kanji using
-delta-encoded codepoints. Stored as base-93 using 2:13 block code
-(2 chars → 13 bits).
+delta-encoded codepoints with **arithmetic coding**, packed into base-93
+via 2:13 block code (13 chars → 85 bits).
 
-**Encoding**: Delta VLC with buckets:
-- `0` + 2 bits: delta 1–4
-- `10` + 4 bits: delta 5–20
-- `110` + 6 bits: delta 21–84
-- `111` + 9 bits: delta 85–596
+**Encoding**: Each delta is encoded as a case selector (4 symbols,
+arithmetic coded via `Z(459,877,993)`) followed by a uniform value:
+- Case 0: `U(2)` + 1 → delta 1–4
+- Case 1: `U(4)` + 5 → delta 5–20
+- Case 2: `U(6)` + 21 → delta 21–84
+- Case 3: `U(9)` + 85 → delta 85–596
 
-**Decoding** (JS, line 13):
-```
-G(KD) → bit array → R(n) reads n bits → build KT string
-```
+**Decoding** (JS, inside IIFE on line 13):
+KD is decoded first using the arithmetic decoder (Z/U), building the
+KT string. Then the decoder is re-initialized with DA for cell data.
+
 `G()` decodes base-93 to a bit string using BigInt: each group of 13
 chars is converted to a BigInt via multiply-accumulate, then
 `.toString(2).padStart(85,0)` extracts 85 bits.
@@ -90,6 +91,7 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 
 | Name | JS Array | Full cumulative | Symbols |
 |------|----------|-----------------|---------|
+| KD_CASE (delta bucket) | [459, 877, 993] | [0, 459, 877, 993, 999] | 2b / 4b / 6b / 9b |
 | CP (cell_present) | [555] | [0, 555, 999] | empty / non-empty |
 | KY (kanji_type) | [472, 531] | [0, 472, 531, 999] | kt / raw / term |
 | OK (on_kun) | [628] | [0, 628, 999] | kun / on |
@@ -153,11 +155,11 @@ In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
   converted via multiply-accumulate (`v=v*93n+BigInt(digit)`), then
   `v.toString(2).padStart(85,0)` extracts 85 bits. Char-to-digit:
   `(CA(s[i])+26)*58/59-57|0`
-- KT building: `G(KD)` → bit string → `R(n)` reads n bits → delta-decode
-  2048 kanji codepoints into `KT` string
-- `DC()`: **inside IIFE** — arithmetic decoder + cell parser
-  - All decoder state (a, d, e, W, Z, U, freq tables) scoped inside
-  - Returns a function `pf => [entries...]`
+- `DC()`: **single IIFE** containing all decoding:
+  1. Initialize arithmetic decoder with `G(KD)`, decode KT (2047 deltas)
+  2. Re-initialize arithmetic decoder with `G(DA)`
+  3. Return function `pf => [entries...]` for cell decoding
+  - All decoder state (a, d, e, W, Z, U, KT, freq tables) scoped inside
   - `pf` is the KN-encoded cell position string (row+col ASCII chars)
 
 ### Line 14: DOM utilities
@@ -218,8 +220,9 @@ Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 
 ## Known Constraints
 
-- KD still uses VLC + base-93 2:13 block code (not arithmetic coded)
-- DA uses arithmetic coding with 11 probability models (999-scale)
+- Both KD and DA use arithmetic coding with 12 probability models (999-scale)
+- KD and DA share the same arithmetic decoder; KD is decoded first, then
+  the decoder is re-initialized for DA
 - KT table has 2,048 entries; 690 kanji use raw 15-bit encoding
 - 24-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement

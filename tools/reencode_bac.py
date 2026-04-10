@@ -2,7 +2,7 @@
 """BAC encoder for DA data.
 
 Encodes cell data from snapshot.json using binary arithmetic coding
-with 11 probability models (999-scale) for low-cardinality fields
+with 12 probability models (999-scale) for low-cardinality fields
 and uniform encoding for high-cardinality fields (U(k) where k=log2(n)).
 
 Architecture:
