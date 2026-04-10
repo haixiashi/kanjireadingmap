@@ -79,11 +79,10 @@ class ArithDecoder:
         self._norm()
         return s
 
-    def decode_uniform(self, k):
-        """Decode uniform symbol 0..2^k-1 using k bits worth of range."""
-        n = 1 << k
+    def decode_uniform(self, n):
+        """Decode uniform symbol 0..n-1."""
         r = self.mx - self.mn + 1
-        q = r >> k
+        q = r // n
         s = (self.pk - self.mn) // q
         if s >= n:
             s = n - 1
@@ -101,7 +100,7 @@ def build_kt(kd_str):
     KD_CASE = [459, 877, 993]
     kt = [chr(0x4E00)]
     cp = 0x4E00
-    bit_counts = [2, 4, 6, 9]
+    bit_counts = [4, 16, 64, 512]
     offsets = [1, 5, 21, 85]
 
     for _ in range(2047):
@@ -147,9 +146,9 @@ def decode_da(da_str, kt, kana_str):
         if l == 0:
             return ord(K4[Z(K4M)]) + H + f
         elif l == 1:
-            return ord(K6[U(4)]) + H + f
+            return ord(K6[U(16)]) + H + f
         else:
-            return U(7) + H + f
+            return U(118) + H + f
 
     cells = {}
 
@@ -171,9 +170,9 @@ def decode_da(da_str, kt, kana_str):
                     if j == 2:
                         break
                     if j == 1:
-                        kl.append(FC(U(15) + 19968))
+                        kl.append(FC(U(20667) + 19968))
                     else:
-                        kl.append(kt[U(11)])
+                        kl.append(kt[U(2048)])
                 if not kl:
                     break
 

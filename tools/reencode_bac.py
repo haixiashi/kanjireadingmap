@@ -141,20 +141,13 @@ class ArithDecoder:
 
 
 def decode_kd(kd_str):
-    """Decode KD string to KT list."""
+    """Decode KD string using arithmetic decoder."""
     bits = decode_b93(kd_str)
-    kt = [chr(0x4E00)]; cp = 0x4E00; p = 0
-    def read(n):
-        nonlocal p; v = 0
-        for _ in range(n): v = v * 2 + bits[p]; p += 1
-        return v
+    dec = ArithDecoder(bits)
+    kt = [chr(0x4E00)]; cp = 0x4E00
     for _ in range(2047):
-        if read(1):
-            if read(1):
-                if read(1): cp += read(9) + 85
-                else: cp += read(6) + 21
-            else: cp += read(4) + 5
-        else: cp += read(2) + 1
+        q = dec.decode_model(M_KD_CASE)
+        cp += dec.decode_uniform([4, 16, 64, 512][q]) + [1, 5, 21, 85][q]
         kt.append(chr(cp))
     return kt
 
@@ -301,7 +294,7 @@ def main():
                         eu(kt_index[kc], 2048)
                     else:
                         em(M_KTYPE, 1)
-                        eu(ord(kc) - 0x4E00, 32768)
+                        eu(ord(kc) - 0x4E00, 20667)
                 em(M_KTYPE, 2)
 
                 em(M_ONKUN, 1 if is_on else 0)
@@ -330,7 +323,7 @@ def main():
                         eu(k6_codes[code], 16)
                     else:
                         em(M_KANA, 2)
-                        eu(code, 128)
+                        eu(code, 118)
                 em(M_EXTRA, 0)
 
                 if not is_on:
@@ -345,7 +338,7 @@ def main():
                             eu(k6_codes[code], 16)
                         else:
                             em(M_KANA, 2)
-                            eu(code, 128)
+                            eu(code, 118)
                     em(M_OKURI, 0)
 
             em(M_KTYPE, 2)  # end of cell

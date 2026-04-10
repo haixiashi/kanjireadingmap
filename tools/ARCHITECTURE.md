@@ -57,8 +57,8 @@ Char-to-digit mapping: `G = c => (charCode+26)*58/59-57|0`
 - `Z(c)`: decode symbol using cumulative frequency array `c` (999-scale,
   inner values only — implicit 0 and 999). Uses step-based lookup
   matching encoder boundaries.
-- `U(k)`: decode uniform symbol 0..2^k-1. Uses single-step division
-  `q=r>>k` (equivalent to `q=r/(1<<k)|0`), matching the encoder.
+- `U(n)`: decode uniform symbol 0..n-1. Uses `q=(r)/n|0` for
+  single-step range subdivision, matching the encoder.
 
 ### Symbol Encoding Order (per cell)
 
@@ -67,8 +67,8 @@ For each cell (row 0–43, col 0–45):
 1. **cell_present**: `Z(CP)` → 0=empty, 1=non-empty
 2. If non-empty, loop over kanji groups:
    a. **kanji_type**: `Z(KY)` → 0=KT lookup, 1=raw codepoint, 2=terminator
-      - If 0: `U(11)` → index into KT table (2048 = 2^11)
-      - If 1: `U(15)` → codepoint offset from U+4E00 (32768 = 2^15)
+      - If 0: `U(2048)` → index into KT table
+      - If 1: `U(20667)` → codepoint offset from U+4E00 (actual range)
       - If 2: end of kanji list. If list empty → end of cell (return).
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
    c. **tier_idx**: `Z(TI)` → index 0–5, mapped via `'345216'[idx]` to tier digit
@@ -76,7 +76,7 @@ For each cell (row 0–43, col 0–45):
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
    f. **Extra reading**: loop `Z(EF)` → 0=done, 1=more char
       - **kana_type**: `Z(KF)` → 0=K4 (top 4), 1=K6 (next 16), 2=raw
-      - Value: `Z(K4M)`, `U(4)`, or `U(7)` respectively
+      - Value: `Z(K4M)`, `U(16)`, or `U(118)` respectively
       - Kana code = value + H (+ ko for on-yomi)
    g. **Okurigana** (kun-yomi only): loop `Z(OF)` → 0=done, 1=more char
       - Same kana_type + value decoding as extra reading, but code + H only (no ko)
@@ -226,8 +226,8 @@ Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 - KT table has 2,048 entries; 690 kanji use raw 15-bit encoding
 - 24-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement
-- `U(k)` decodes uniform symbols using `q=r>>k` (single-step division),
-  not repeated halving, to match encoder rounding
+- `U(n)` decodes uniform symbols using actual ranges (e.g. `U(20667)`
+  for raw kanji) rather than rounding up to powers of 2
 - All decoder state must be inside the IIFE to avoid name collisions
   with outer scope (D=document, Q=querySelectorAll, etc.)
 - Base-93 decoding uses BigInt `.toString(2)` for 85-bit block conversion
