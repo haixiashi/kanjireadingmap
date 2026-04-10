@@ -19,19 +19,23 @@ SNAPSHOT_PATH = os.path.join(SCRIPT_DIR, 'snapshot.json')
 INDEX_PATH = os.path.join(ROOT_DIR, 'index.html')
 
 
-def decode_base85(s):
+def decode_b93(s):
     bits = []
-    for i in range(0, len(s), 5):
-        v = 0
-        for j in range(5):
-            v = v * 85 + (ord(s[i + j]) * 91 // 92) - 34
-        for j in range(31, -1, -1):
+    for i in range(0, len(s), 2):
+        d0 = ord(s[i]) - 0x20
+        if d0 > 2: d0 -= 1
+        if d0 > 59: d0 -= 1
+        d1 = ord(s[i + 1]) - 0x20
+        if d1 > 2: d1 -= 1
+        if d1 > 59: d1 -= 1
+        v = d0 * 93 + d1
+        for j in range(12, -1, -1):
             bits.append((v >> j) & 1)
     return bits
 
 
 def build_kt(kd_str):
-    bits = decode_base85(kd_str)
+    bits = decode_b93(kd_str)
     kt = [chr(0x4E00)]
     cp = 0x4E00
     p = 0
@@ -60,7 +64,7 @@ def build_kt(kd_str):
 
 
 def decode_da(da_str, kt, kana_str):
-    bits = decode_base85(da_str)
+    bits = decode_b93(da_str)
     p = 0
     H = 12318
     K4 = "m(&1"

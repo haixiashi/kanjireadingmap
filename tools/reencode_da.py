@@ -7,51 +7,52 @@ import re
 import sys
 
 
-def decode_base85(s):
-    """Decode base-85 string to bit array, matching JS BD() function."""
+def digit_to_char(d):
+    """Convert digit 0-92 to printable ASCII char, skipping \" and \\."""
+    if d >= 59:
+        d += 1  # skip \ (0x5C = 92, offset 60 from 0x20, but after " skip = 59)
+    if d >= 2:
+        d += 1  # skip " (0x22 = 34, offset 2 from 0x20)
+    return chr(d + 0x20)
+
+
+def char_to_digit(c):
+    """Convert printable ASCII char to digit 0-92, inverse of digit_to_char."""
+    d = ord(c) - 0x20
+    if d > 2:
+        d -= 1  # undo " skip
+    if d > 59:
+        d -= 1  # undo \ skip
+    return d
+
+
+def decode_b93(s):
+    """Decode base-93 string to bit array. 2 chars -> 13 bits."""
     bits = []
-    for i in range(0, len(s), 5):
-        v = 0
-        for j in range(5):
-            v = v * 85 + (ord(s[i + j]) * 91 // 92) - 34
-        for j in range(31, -1, -1):
+    for i in range(0, len(s), 2):
+        v = char_to_digit(s[i]) * 93 + char_to_digit(s[i + 1])
+        for j in range(12, -1, -1):
             bits.append((v >> j) & 1)
     return bits
 
 
-def encode_base85(bits):
-    """Encode bit array to base-85 string, inverse of BD()."""
-    # Pad bits to multiple of 32
-    while len(bits) % 32 != 0:
+def encode_b93(bits):
+    """Encode bit array to base-93 string. 13 bits -> 2 chars."""
+    while len(bits) % 13 != 0:
         bits.append(0)
     chars = []
-    for i in range(0, len(bits), 32):
+    for i in range(0, len(bits), 13):
         v = 0
-        for j in range(32):
+        for j in range(13):
             v = (v << 1) | bits[i + j]
-        # Convert to 5 base-85 digits
-        digits = []
-        for _ in range(5):
-            digits.append(v % 85)
-            v //= 85
-        digits.reverse()
-        for d in digits:
-            # Find c such that (ord(c) * 91 // 92) - 34 == d, skipping backslash
-            found = False
-            for c_val in range(33, 127):
-                if c_val == 92:  # skip backslash
-                    continue
-                if (c_val * 91 // 92) - 34 == d:
-                    chars.append(chr(c_val))
-                    found = True
-                    break
-            assert found, f"No char found for base-85 digit {d}"
+        chars.append(digit_to_char(v // 93))
+        chars.append(digit_to_char(v % 93))
     return ''.join(chars)
 
 
 def build_kt(kd_str):
     """Build KT (kanji table) from KD string, matching JS decoder."""
-    bits = decode_base85(kd_str)
+    bits = decode_b93(kd_str)
     kt = ['\u4e00']  # First char
     cp = 0x4E00
     p = 0
@@ -568,16 +569,16 @@ def main():
     print(f"Total bits: {len(bits)}", file=sys.stderr)
 
     # Encode to base-85
-    da_str = encode_base85(bits)
+    da_str = encode_b93(bits)
     print(f"DA string length: {len(da_str)}", file=sys.stderr)
 
     # Verify by decoding
-    verify_bits = decode_base85(da_str)
+    verify_bits = decode_b93(da_str)
     for i in range(len(bits)):
         assert verify_bits[i] == bits[i], f"Bit mismatch at position {i}"
     print("Base-85 round-trip verified", file=sys.stderr)
 
-    print(da_str)
+    sys.stdout.write(da_str)
 
 
 if __name__ == '__main__':
