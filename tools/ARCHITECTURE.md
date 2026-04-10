@@ -21,16 +21,16 @@ external dependencies.
 
 ### KD String (Kanji Dictionary / KT table)
 
-The KD string encodes a sorted list of 2,048 most-frequent kanji using
+The KD string encodes all 2,738 kanji as a sorted list using
 delta-encoded codepoints with **arithmetic coding**, packed into base-93
 via 2:13 block code (13 chars → 85 bits).
 
 **Encoding**: Each delta is encoded as a case selector (4 symbols,
-arithmetic coded via `Z(459,877,993)`) followed by a uniform value:
-- Case 0: `U(2)` + 1 → delta 1–4
-- Case 1: `U(4)` + 5 → delta 5–20
-- Case 2: `U(6)` + 21 → delta 21–84
-- Case 3: `U(9)` + 85 → delta 85–596
+arithmetic coded via `Z(535,927,997)`) followed by a uniform value:
+- Case 0: `U(4)` + 1 → delta 1–4
+- Case 1: `U(16)` + 5 → delta 5–20
+- Case 2: `U(64)` + 21 → delta 21–84
+- Case 3: `U(512)` + 85 → delta 85–596
 
 **Decoding** (JS, inside IIFE on line 13):
 KD is decoded first using the arithmetic decoder (Z/U), building the
@@ -66,10 +66,9 @@ For each cell (row 0–43, col 0–45):
 
 1. **cell_present**: `Z(CP)` → 0=empty, 1=non-empty
 2. If non-empty, loop over kanji groups:
-   a. **kanji_type**: `Z(KY)` → 0=KT lookup, 1=raw codepoint, 2=terminator
-      - If 0: `U(2048)` → index into KT table
-      - If 1: `U(20667)` → codepoint offset from U+4E00 (actual range)
-      - If 2: end of kanji list. If list empty → end of cell (return).
+   a. **kanji_type**: `Z(KY)` → 0=kanji, 1=terminator
+      - If 0: `U(2738)` → index into KT table (all kanji are in KT)
+      - If 1: end of kanji list. If list empty → end of cell (return).
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
    c. **tier_idx**: `Z(TI)` → index 0–5, mapped via `'345216'[idx]` to tier digit
    d. **variant**: `d1=Z(D1)`, then `d2=Z(D2|d1)-1` (conditional table)
@@ -91,9 +90,9 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 
 | Name | JS Array | Full cumulative | Symbols |
 |------|----------|-----------------|---------|
-| KD_CASE (delta bucket) | [459, 877, 993] | [0, 459, 877, 993, 999] | 2b / 4b / 6b / 9b |
+| KD_CASE (delta bucket) | [535, 927, 997] | [0, 535, 927, 997, 999] | 4 / 16 / 64 / 512 |
 | CP (cell_present) | [555] | [0, 555, 999] | empty / non-empty |
-| KY (kanji_type) | [472, 531] | [0, 472, 531, 999] | kt / raw / term |
+| KY (kanji_type) | [531] | [0, 531, 999] | kanji / terminator |
 | OK (on_kun) | [628] | [0, 628, 999] | kun / on |
 | TI (tier_idx) | [191, 477, 597, 769, 932] | [0, 191, 477, 597, 769, 932, 999] | tiers 0–5 |
 | D1 (d1 offset) | [885] | [0, 885, 999] | 0 / 1 |
@@ -223,7 +222,7 @@ Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 - Both KD and DA use arithmetic coding with 12 probability models (999-scale)
 - KD and DA share the same arithmetic decoder; KD is decoded first, then
   the decoder is re-initialized for DA
-- KT table has 2,048 entries; 690 kanji use raw 15-bit encoding
+- KT table has 2,738 entries (all kanji); no raw encoding path
 - 24-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement
 - `U(n)` decodes uniform symbols using actual ranges (e.g. `U(20667)`
