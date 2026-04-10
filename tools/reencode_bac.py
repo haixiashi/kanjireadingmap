@@ -19,7 +19,7 @@ from collections import Counter
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, TOOLS_DIR)
-from reencode_da import encode_b93, digit_to_char, char_to_digit
+from reencode_da import encode_b93, decode_b93, digit_to_char, char_to_digit
 
 # 24-bit arithmetic coder
 BITS = 24
@@ -141,18 +141,8 @@ class ArithDecoder:
 
 
 def decode_kd(kd_str):
-    """Decode KD string (current base from index.html) to KT list."""
-    # Auto-detect: check which G function the current index.html uses
-    def g93(c):
-        d = ord(c) - 0x20
-        if d > 2: d -= 1
-        if d > 59: d -= 1
-        return d
-    bits = []
-    for i in range(0, len(kd_str), 2):
-        v = g93(kd_str[i]) * 93 + g93(kd_str[i + 1])
-        for j in range(12, -1, -1):
-            bits.append((v >> j) & 1)
+    """Decode KD string to KT list."""
+    bits = decode_b93(kd_str)
     kt = [chr(0x4E00)]; cp = 0x4E00; p = 0
     def read(n):
         nonlocal p; v = 0

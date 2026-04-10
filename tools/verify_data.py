@@ -20,17 +20,24 @@ INDEX_PATH = os.path.join(ROOT_DIR, 'index.html')
 
 
 def decode_b93(s):
+    P = 2 ** 32
+    def g(c):
+        d = ord(c) - 0x20
+        if d > 2: d -= 1
+        if d > 59: d -= 1
+        return d
     bits = []
-    for i in range(0, len(s), 2):
-        d0 = ord(s[i]) - 0x20
-        if d0 > 2: d0 -= 1
-        if d0 > 59: d0 -= 1
-        d1 = ord(s[i + 1]) - 0x20
-        if d1 > 2: d1 -= 1
-        if d1 > 59: d1 -= 1
-        v = d0 * 93 + d1
-        for j in range(12, -1, -1):
-            bits.append((v >> j) & 1)
+    for i in range(0, len(s), 13):
+        l = m = h = 0
+        for j in range(13):
+            d = g(s[i+j]) if i+j < len(s) else 0
+            v = l*93+d; l = v%P; c = (v-l)//P
+            v = m*93+c; m = v%P; c = (v-m)//P
+            h = h*93+c
+        for j in range(84,-1,-1):
+            if j > 63: bits.append((h>>(j-64))&1)
+            elif j > 31: bits.append((m>>(j-32))&1)
+            else: bits.append((l>>j)&1)
     return bits
 
 

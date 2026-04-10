@@ -27,26 +27,49 @@ def char_to_digit(c):
 
 
 def decode_b93(s):
-    """Decode base-93 string to bit array. 2 chars -> 13 bits."""
+    """Decode base-93 string to bit array. 13 chars -> 85 bits."""
+    P = 2 ** 32
     bits = []
-    for i in range(0, len(s), 2):
-        v = char_to_digit(s[i]) * 93 + char_to_digit(s[i + 1])
-        for j in range(12, -1, -1):
-            bits.append((v >> j) & 1)
+    for i in range(0, len(s), 13):
+        l = m = h = 0
+        for j in range(13):
+            d = char_to_digit(s[i + j]) if i + j < len(s) else 0
+            v = l * 93 + d; l = v % P; c = (v - l) // P
+            v = m * 93 + c; m = v % P; c = (v - m) // P
+            h = h * 93 + c
+        for j in range(84, -1, -1):
+            if j > 63:
+                bits.append((h >> (j - 64)) & 1)
+            elif j > 31:
+                bits.append((m >> (j - 32)) & 1)
+            else:
+                bits.append((l >> j) & 1)
     return bits
 
 
 def encode_b93(bits):
-    """Encode bit array to base-93 string. 13 bits -> 2 chars."""
-    while len(bits) % 13 != 0:
+    """Encode bit array to base-93 string. 85 bits -> 13 chars."""
+    P = 2 ** 32
+    while len(bits) % 85 != 0:
         bits.append(0)
     chars = []
-    for i in range(0, len(bits), 13):
-        v = 0
-        for j in range(13):
-            v = (v << 1) | bits[i + j]
-        chars.append(digit_to_char(v // 93))
-        chars.append(digit_to_char(v % 93))
+    for i in range(0, len(bits), 85):
+        block = bits[i:i + 85]
+        hi = mi = lo = 0
+        for j in range(21):
+            hi = (hi << 1) | block[j]
+        for j in range(32):
+            mi = (mi << 1) | block[21 + j]
+        for j in range(32):
+            lo = (lo << 1) | block[53 + j]
+        digits = []
+        for _ in range(13):
+            r = hi % 93; hi = hi // 93
+            v = r * P + mi; r = v % 93; mi = v // 93
+            v = r * P + lo; r = v % 93; lo = v // 93
+            digits.append(r)
+        digits.reverse()
+        chars.extend(digit_to_char(d) for d in digits)
     return ''.join(chars)
 
 
