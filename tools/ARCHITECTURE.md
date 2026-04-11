@@ -202,8 +202,9 @@ arithmetic as decoder's `Z()`. The step-based lookup
 `while o+(r*c[s+1]/t|0) <= pk` ensures exact round-trip.
 
 ### reencode_da.py
-Legacy VLC encoder (superseded by reencode_bac.py). Provides
-`encode_b93`/`decode_b93` for base-93 2:13 block code conversion.
+Base-93 codec library. Provides `encode_b93`/`decode_b93` for 2:13
+block code conversion (85 bits ↔ 13 chars), used by reencode_bac.py
+and verify_data.py.
 
 ### verify_data.py
 Decodes DD from `index.html` using Python arithmetic decoder, compares
@@ -215,9 +216,6 @@ Rebuilds `snapshot.json` from KANJIDIC2/JMdict:
 2. Reassign tiers from frequency scores
 3. Re-sort entries by score descending
 
-### transform.js
-Legacy one-time migration script (pre-snapshot era). No longer functional
-with the current data format. Kept for historical reference only.
 
 ### resort_by_reading.py / expand_entries.py
 Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.

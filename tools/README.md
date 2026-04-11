@@ -72,9 +72,9 @@ decoder's step-based lookup.
 Usage: `python3 tools/reencode_bac.py > /tmp/da.txt`
 
 ### reencode_da.py
-Legacy VLC encoder (superseded by reencode_bac.py). Provides
-`encode_b93`/`decode_b93` for base-93 2:13 block code conversion,
-used by the DD pipeline.
+Base-93 codec library. Provides `encode_b93`/`decode_b93` for 2:13
+block code conversion (85 bits ↔ 13 chars), plus `digit_to_char`/
+`char_to_digit` helpers. Used by reencode_bac.py and verify_data.py.
 
 ### verify_data.py
 Decodes the DD string from index.html using a Python arithmetic decoder
