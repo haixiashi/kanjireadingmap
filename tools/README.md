@@ -72,11 +72,9 @@ decoder's step-based lookup.
 Usage: `python3 tools/reencode_bac.py > /tmp/da.txt`
 
 ### reencode_da.py
-Legacy VLC encoder. Still used for encoding the KD string (kanji
-dictionary table). Also provides `encode_b93`/`decode_b93` for base-93
-2:13 block code conversion, used by both KD and DD pipelines.
-
-Usage (KD only): `python3 tools/reencode_da.py`
+Legacy VLC encoder (superseded by reencode_bac.py). Provides
+`encode_b93`/`decode_b93` for base-93 2:13 block code conversion,
+used by the DD pipeline.
 
 ### verify_data.py
 Decodes the DD string from index.html using a Python arithmetic decoder

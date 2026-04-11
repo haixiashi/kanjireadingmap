@@ -202,8 +202,8 @@ arithmetic as decoder's `Z()`. The step-based lookup
 `while o+(r*c[s+1]/t|0) <= pk` ensures exact round-trip.
 
 ### reencode_da.py
-The VLC encoder (legacy, still used for KD). Encodes `snapshot.json`
-into VLC bitstream, packs into base-93 via `encode_b93()`.
+Legacy VLC encoder (superseded by reencode_bac.py). Provides
+`encode_b93`/`decode_b93` for base-93 2:13 block code conversion.
 
 ### verify_data.py
 Decodes DD from `index.html` using Python arithmetic decoder, compares
