@@ -179,16 +179,16 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ### Line 17: Table builder (IIFE)
 - Iterates 44 rows × 46 cols, calls `DC(rl+cl)` for each cell
-- Adds CSS classes: `.e` (empty), `.few` (1–2 entries), `.first-col`
+- Adds CSS classes: `.e` (empty), `.fw` (1–2 entries), `.fc` (first-col)
 - Groups borders: `.gb`, `.gt`, `.gr`, `.gbb`
 - Promotes first 1–2 entries to large font (`.lg` class)
-- Overflow entries go in `.more` span with `.toggle` button
+- Overflow entries go in `.mr` span with `.tg` button
 
 ### Lines 18–32: UI (IIFE)
 - Reading toggle (漢/訓/音) — filters on/kun entries
 - Theme toggle (light/dark)
 - Scale functions (`AS`, `RL`, `zr`)
-- Minimap (`UM`, `MN`, `SM`); viewport indicator `mw`
+- Minimap (`UM`, `MN`, `SM`); viewport indicator `mw`, CSS `.mm`/`.mv`
 - Drag functions (`SD`, `MV`, `ED`); velocity `vx`/`vy`, frame ID `af`
 - Update readings: `UR()`
 - Mouse, wheel, and touch event listeners
