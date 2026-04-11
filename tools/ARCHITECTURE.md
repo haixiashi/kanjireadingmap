@@ -153,7 +153,7 @@ Naming convention: uppercase 1-letter = global utility aliases,
 uppercase 2-letter = project functions/constants, lowercase = variables.
 Key mappings: `A`=addEventListener, `l`=classList, `cn`=className setter,
 `V`=table element, `S`=scale, `I`=mode index, `Y`=mode array.
-All locals use `let`; UI IIFE vars are `let`-scoped (not implicit globals).
+Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ### Line 12: DD data string (base-93, arithmetic coded)
 
