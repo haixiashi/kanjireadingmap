@@ -13,9 +13,8 @@ external dependencies.
 - Rows correspond to the first kana of the reading (あ–わ, 44 of 45 kana)
 - Columns: first column is a "header" (readings starting with just that
   kana), remaining 45 columns correspond to the second kana (あ–ん)
-- The kana mapping uses an ASCII encoding string `KN` where each ASCII
-  char maps to a kana via `charCode + 12318 (H constant)`
-- `KN = "$&(*,-/13579;=?ACFHJLMNOPQTWZ]\`abcdfhjklmnoqu"` (45 chars)
+- The 45 kana used for grid row/column layout are decoded from the DD
+  stream (Section 3) using `U(82)` offsets from `H` (0x3042 = あ)
 
 ## Data Encoding
 
