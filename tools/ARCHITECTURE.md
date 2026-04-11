@@ -142,23 +142,25 @@ Encoded directly as `Z(TI)+1` where idx 0→tier 1, idx 1→tier 2, etc.
 Each decoded entry is a JS array: `[kanji, reading, tier, okurigana, is_on]`
 
 Example: `['有', 'あ', 6, 'る', 0]` = kanji 有, reading あ, tier 6,
-okurigana る, kun-yomi. K() renders this directly as a DOM span with
+okurigana る, kun-yomi. MP() renders this directly as a DOM span with
 ruby annotation — no string parsing needed.
 
 In the snapshot, stored as `"6有あ|る"` (tier prefix, `|` separates okurigana).
 
 ## JS Code Structure (index.html)
 
-Most two-letter identifiers have been shortened to single letters for
-size. Key mappings: `A`=addEventListener helper, `l`=classList helper,
+Naming convention: uppercase 1-letter = global utility aliases,
+uppercase 2-letter = project functions/constants, lowercase = variables.
+Key mappings: `A`=addEventListener, `l`=classList, `cn`=className setter,
 `V`=table element, `S`=scale, `I`=mode index, `Y`=mode array.
+All locals use `let`; UI IIFE vars are `let`-scoped (not implicit globals).
 
 ### Line 12: DD data string (base-93, arithmetic coded)
 
 ### Line 13: Helper functions and aliases
 - `A=(o,...a)=>o.addEventListener(...a)` — addEventListener wrapper
 - `l=o=>o.classList` — classList accessor
-- `CN=(o,c)=>{o.className=c}` — className setter
+- `cn=(o,c)=>{o.className=c}` — className setter
 - `D=document`, `B=D.body`, `$=s=>D.createElement(s)`
 - `Q=s=>D.querySelectorAll(s)`, `L`=fromCharCode, `N`=charCodeAt
 - `H`=12354 (0x3042)
@@ -166,11 +168,12 @@ size. Key mappings: `A`=addEventListener helper, `l`=classList helper,
 ### Line 14: DC() decoder IIFE
 - Base-93 → bit string (BigInt, 13 chars → 85 bits)
 - Arithmetic decoder (24-bit precision): `W` (normalize), `Z` (model decode), `U` (uniform decode)
+- Bit position `p`, codepoint accumulator `k`
 - Decodes KT (2737 deltas), kana prob table (81 deltas), KN (45 values)
-- Returns function `pf => [entries...]` for cell decoding
-- All decoder state scoped inside to avoid collisions with outer `D`, `Q`, etc.
+- Returns function `s => [entries...]` for cell decoding
+- All decoder state `let`-scoped inside IIFE
 
-### Line 15: K() — renders one entry array as a DOM span with ruby annotation
+### Line 15: MP() — renders one entry array as a DOM span with ruby annotation
 
 ### Line 16: TM() — toggle expand/collapse of overflow entries
 
@@ -184,9 +187,10 @@ size. Key mappings: `A`=addEventListener helper, `l`=classList helper,
 ### Lines 18–32: UI (IIFE)
 - Reading toggle (漢/訓/音) — filters on/kun entries
 - Theme toggle (light/dark)
-- Scale functions (`AS`, `RL`, `Z`)
-- Minimap (`UM`, `MN`, `SM`)
-- Drag functions (`SD`, `MV`, `ED`)
+- Scale functions (`AS`, `RL`, `zr`)
+- Minimap (`UM`, `MN`, `SM`); viewport indicator `mw`
+- Drag functions (`SD`, `MV`, `ED`); velocity `vx`/`vy`, frame ID `af`
+- Update readings: `UR()`
 - Mouse, wheel, and touch event listeners
 - Random initial scroll position
 
