@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""BAC encoder for DA data.
+"""BAC encoder for DD data.
 
-Encodes cell data from snapshot.json using binary arithmetic coding
-with 10 hardcoded + 1 stream-decoded probability models (999-scale) for low-cardinality fields
-and uniform encoding for high-cardinality fields (U(k) where k=log2(n)).
+Encodes all data (KT, kana table, KN, cell data) from snapshot.json
+into a single arithmetic-coded stream with 10 hardcoded + 1 stream-decoded
+probability models (999-scale). Kana uses 82-symbol codepoint-order table.
 
 Architecture:
 1. Arithmetic encode symbols → bit stream (24-bit range coder)
@@ -243,7 +243,7 @@ def main():
     print(f"KT: {len(kt)} entries", file=sys.stderr)
 
     kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
-    H = 12318
+    H = 0x3042
     tier_to_idx = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}
 
     # Count kana frequencies for single prob table
@@ -264,33 +264,24 @@ def main():
                     for c in parts[1]:
                         kana_ct[ord(c) - H] += 1
 
-    # Build kana code list and prob table sorted by frequency
-    sorted_kana_codes = sorted(kana_ct.keys(), key=lambda k: -kana_ct[k])
-    kana_code_to_idx = {c: i for i, c in enumerate(sorted_kana_codes)}
-    n_kana = len(sorted_kana_codes)
-    max_kana_code = max(sorted_kana_codes)
-
-    # Build cumulative prob table (999-scale)
+    # Build 82-symbol kana prob table (codepoint order, unused get min prob)
     kana_total = sum(kana_ct.values())
+    counts_82 = [kana_ct.get(i, 0) for i in range(82)]
+    # Scale to 999 with min 1 per symbol
     kana_cum = [0]
-    for c in sorted_kana_codes:
-        kana_cum.append(kana_cum[-1] + kana_ct[c])
-    # Scale to 999, ensuring strictly increasing and all < 999
-    n_sym = len(sorted_kana_codes)
-    kana_scaled = []
-    for i, c in enumerate(kana_cum[1:-1]):
-        v = max(i + 1, round(c * 999 / kana_total))
-        v = min(v, 999 - (n_sym - 1 - i))  # leave room for remaining
-        if kana_scaled and v <= kana_scaled[-1]:
-            v = kana_scaled[-1] + 1
-        kana_scaled.append(v)
-
-    # Compute deltas for stream encoding
+    for i in range(82):
+        kana_cum.append(kana_cum[-1] + max(1, round(counts_82[i] * (999 - 82) / kana_total + 1)))
+    kana_cum[-1] = 999
+    kana_scaled = kana_cum[1:-1]
+    for i in range(len(kana_scaled)):
+        if i > 0 and kana_scaled[i] <= kana_scaled[i-1]:
+            kana_scaled[i] = kana_scaled[i-1] + 1
+        if kana_scaled[i] >= 999:
+            kana_scaled[i] = 999 - (len(kana_scaled) - i)
     kana_deltas = [kana_scaled[0]] + [kana_scaled[i] - kana_scaled[i-1] for i in range(1, len(kana_scaled))]
     max_delta = max(kana_deltas)
-
     M_KANA_ALL = [0] + kana_scaled + [999]
-    print(f"Kana: {n_kana} unique codes, max_code={max_kana_code}, max_delta={max_delta}", file=sys.stderr)
+    print(f"Kana: 82 symbols (codepoint order), max_delta={max_delta}", file=sys.stderr)
 
     enc = ArithEncoder()
     ops = []  # for verification
@@ -321,11 +312,13 @@ def main():
             em(M_KD_CASE, 3)
             eu(delta - 85, 512)
 
-    # Section 2: Kana table
-    for c in sorted_kana_codes:
-        eu(c, max_kana_code + 1)
+    # Section 2: Kana prob table (82 symbols, codepoint order)
     for d in kana_deltas:
         eu(d, max_delta + 1)
+
+    # Section 3: KN (kana row/col mapping)
+    for c in kana_str:
+        eu(ord(c) - H, 82)
 
     for ri in range(44):
         row = kana_str[ri]
@@ -383,14 +376,14 @@ def main():
                 for c in extra:
                     em(M_EXTRA, 1)
                     code = ord(c) - H - ko
-                    em(M_KANA_ALL, kana_code_to_idx[code])
+                    em(M_KANA_ALL, code)
                 em(M_EXTRA, 0)
 
                 if not is_on:
                     for c in okurigana:
                         em(M_OKURI, 1)
                         code = ord(c) - H
-                        em(M_KANA_ALL, kana_code_to_idx[code])
+                        em(M_KANA_ALL, code)
                     em(M_OKURI, 0)
 
             em(M_KTYPE, 1)  # end of cell
@@ -421,10 +414,9 @@ def main():
     if errors == 0:
         combined_str = encode_b93(bits)
         print(f"Combined: {len(combined_str)} chars", file=sys.stderr)
-        old_kd = re.search(r'KD="([^"]*)"', src).group(1)
-        old_da = re.search(r'DA="([^"]*)"', src)
-        old_total = len(old_kd) + (len(old_da.group(1)) if old_da else 0)
-        print(f"Old KD+DA: {old_total} chars, saving: {old_total - len(combined_str)}", file=sys.stderr)
+        old_dd = re.search(r'DD="([^"]*)"', src)
+        old_total = len(old_dd.group(1)) if old_dd else 0
+        print(f"Old DD: {old_total} chars, saving: {old_total - len(combined_str)}", file=sys.stderr)
     else:
         print("FAILED - not writing output", file=sys.stderr)
         sys.exit(1)

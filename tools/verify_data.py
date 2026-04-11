@@ -108,10 +108,10 @@ def decode_kt_from_decoder(dec):
     return kt
 
 
-def decode_da_from_decoder(dec, kt, kana_str):
+def decode_da_from_decoder(dec, kt):
     """Decode cell data from an existing arithmetic decoder."""
     FC = chr
-    H = 12318
+    H = 0x3042
 
     # Probability tables (999-scale, inner values only)
     CP = [555]
@@ -130,16 +130,20 @@ def decode_da_from_decoder(dec, kt, kana_str):
     def U(n):
         return dec.decode_uniform(n)
 
-    # Read kana table from stream
-    KX = [U(118) for _ in range(67)]
+    # Read kana prob table from stream (82 symbols, codepoint order)
     KA = []
     v = 0
-    for _ in range(66):
-        v += U(185)
+    for _ in range(81):
+        v += U(171)
         KA.append(v)
 
+    # Read KN (kana mapping) from stream - 45 values via U(82)
+    kana_str = ''
+    for _ in range(45):
+        kana_str += chr(U(82) + H)
+
     def RK(f):
-        return KX[Z(KA)] + H + f
+        return Z(KA) + H + f
 
     cells = {}
 
@@ -186,7 +190,7 @@ def decode_da_from_decoder(dec, kt, kana_str):
             if entries:
                 cells[cell_key] = entries
 
-    return cells
+    return cells, kana_str
 
 
 def main():
@@ -197,16 +201,13 @@ def main():
         src = f.read()
 
     dd = re.search(r'DD="([^"]*)"', src).group(1)
-    kn = re.search(r'KN="([^"]*)"', src).group(1)
-
-    # Recover kana_str from KN
-    kana_str = ''.join(chr(ord(c) + 12318) for c in kn)
+    # kana_str is decoded from the DD stream
 
     # Decode everything from single stream
     bits = decode_b93(dd)
     dec = ArithDecoder(bits)
     kt = decode_kt_from_decoder(dec)
-    decoded = decode_da_from_decoder(dec, kt, kana_str)
+    decoded, kana_str = decode_da_from_decoder(dec, kt)
 
     errors = 0
     warnings = 0

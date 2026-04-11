@@ -52,11 +52,15 @@ single arithmetic-coded bitstream (no re-initialization between sections):
   - Case 3: `U(512)` + 85 → delta 85–596
 - First char is `一` (U+4E00). Each subsequent = previous + delta.
 
-**Section 2: Kana probability table** (read at initialization)
-1. 67 kana codes: `U(118)` × 67 — kana code values sorted by frequency
-2. 66 cumulative deltas: `U(185)` × 66 — build the 999-scale prob table
+**Section 2: Kana probability table** (82 symbols in codepoint order)
+- 81 cumulative deltas: `U(171)` × 81 — build the 999-scale prob table
+  covering all 82 possible kana offsets (U+3042–U+3093)
+- No explicit kana code list needed; symbol index = codepoint offset
 
-**Section 3: Cell data** (read per cell, row 0–43, col 0–45)
+**Section 3: KN (kana row/col mapping)** — 45 kana for grid layout
+- 45 values: `U(82)` × 45 — kana codepoint offsets from H (0x3042)
+
+**Section 4: Cell data** (read per cell, row 0–43, col 0–45)
 
 1. **cell_present**: `Z(CP)` → 0=empty, 1=non-empty
 2. If non-empty, loop over kanji groups:
@@ -68,10 +72,10 @@ single arithmetic-coded bitstream (no re-initialization between sections):
    d. **variant**: `d1=Z(D1)`, then `d2=Z(D2|d1)-1` (conditional table)
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
    f. **Extra reading**: loop `Z(EF)` → 0=done, 1=more char
-      - **kana**: `Z(...KA)` → index into stream-decoded kana table KX
-      - Kana code = `KX[idx]` + H (+ ko for on-yomi)
+      - **kana**: `Z(...KA)+H+f` — symbol index = kana offset, + H (0x3042)
+      - No lookup table needed; Z() result is the codepoint offset directly
    g. **Okurigana** (kun-yomi only): loop `Z(OF)` → 0=done, 1=more char
-      - Same kana decoding as extra reading, but code + H only (no ko)
+      - Same: `Z(...KA)+H` (no ko offset for okurigana)
    h. Assemble entry: `kanji + prefix + extra_reading + tier_char + okurigana`
 
 ### Probability Models (999-scale cumulative frequency arrays)
@@ -93,17 +97,19 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 | D2\|d1=1 | [198, 997] | [0, 198, 997, 999] | -1 / 0 / 1 |
 | EF (extra_rd_flag) | [794] | [0, 794, 999] | done / more |
 | OF (okuri_flag) | [585] | [0, 585, 999] | done / more |
-| KA (kana) | (stream-decoded) | 67-symbol table | kana by frequency |
+| KA (kana) | (stream-decoded) | 82-symbol table | kana by codepoint |
 
 ### Kana Encoding
 
-All 67 unique kana codes are encoded using a single probability model
-`Z(...KA)` where `KA` is a 66-entry cumulative frequency table decoded
-from the DA stream at initialization. The lookup array `KX` (67 kana
-codes sorted by frequency) is also stream-decoded. No hardcoded kana
-strings or probability values in the JS source.
+All 82 possible kana codepoints (U+3042–U+3093) are covered by a
+single probability model `Z(...KA)` where `KA` is an 81-entry
+cumulative frequency table decoded from the DD stream. The symbol
+index directly equals the kana's codepoint offset from H (0x3042),
+so no lookup array is needed. Unused kana get minimal probability (1/999).
 
-The kana code is `KX[idx] + H + ko` where H=12318 and ko=96 for on-yomi.
+The kana codepoint is `Z(...KA) + H + ko` where H=12354 (0x3042)
+and ko=96 for on-yomi. The KN string (45 kana for the grid layout)
+is also decoded from the DD stream via `U(82)+H`.
 
 ### Variant Encoding
 
@@ -139,7 +145,7 @@ In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
 ## JS Code Structure (index.html)
 
 ### Line 12: Globals and data strings
-- `L` = String.fromCharCode, `N` = charCodeAt
+- `L` = String.fromCharCode, `N` = charCodeAt, `H` = 12354 (0x3042)
 - `DD` = combined data string (base-93, arithmetic coded)
 
 ### Line 13: Decoders
@@ -149,14 +155,14 @@ In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
   `(N(s[i])+26)*58/59-57|0`
 - `DC()`: **single IIFE** containing all decoding:
   1. Initialize arithmetic decoder with `G(DD)`
-  2. Decode KT (2737 deltas), kana table (67 codes + 66 deltas), then cell data
+  2. Decode KT (2737 deltas), kana prob table (81 deltas), KN (45 values), then cell data
   3. Return function `pf => [entries...]` for cell decoding
   - All decoder state (a, d, e, W, Z, U, KT, freq tables) scoped inside
-  - `pf` is the KN-encoded cell position string (row+col ASCII chars)
+  - `pf` is the cell position string (row+col kana chars from stream-decoded KN)
 
 ### Line 14: DOM utilities
-- `H=12318`, `AE='addEventListener'`, `D=document`, etc.
-- `AH()`: converts KN chars to kana for watermarks
+- `AE='addEventListener'`, `D=document`, etc.
+- `AH()`: applies offset to KN kana chars for watermarks
 
 ### Line 15: K() — renders one entry as a DOM span with ruby annotation
 
@@ -213,7 +219,10 @@ Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 ## Known Constraints
 
 - All data is in a single arithmetic-coded stream DD with 10 hardcoded
-  probability models (999-scale) plus 1 stream-decoded kana model (67 symbols)
+  probability models (999-scale) plus 1 stream-decoded kana model
+  (82 symbols in codepoint order, 15 unused get minimal probability)
+- KN (45 kana for grid layout) also stream-decoded, no ASCII mapping
+- H = 0x3042 (あ) used as kana base offset
 - No decoder re-initialization between sections
 - KT table has 2,738 entries (all kanji); no raw encoding path
 - 24-bit arithmetic precision; step-based symbol lookup required for
