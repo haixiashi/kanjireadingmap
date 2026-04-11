@@ -316,9 +316,13 @@ def main():
     for d in kana_deltas:
         eu(d, max_delta + 1)
 
-    # Section 3: KN (kana row/col mapping)
-    for c in kana_str:
-        eu(ord(c) - H, 82)
+    # Section 3: KN (kana row/col mapping) - delta encoded
+    prev = ord(kana_str[0]) - H
+    eu(prev, 82)  # first offset
+    for c in kana_str[1:]:
+        offset = ord(c) - H
+        eu(offset - prev - 1, 4)  # delta-1, range 0-3
+        prev = offset
 
     for ri in range(44):
         row = kana_str[ri]

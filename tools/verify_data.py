@@ -137,10 +137,12 @@ def decode_da_from_decoder(dec, kt):
         v += U(171)
         KA.append(v)
 
-    # Read KN (kana mapping) from stream - 45 values via U(82)
-    kana_str = ''
-    for _ in range(45):
-        kana_str += chr(U(82) + H)
+    # Read KN (kana mapping) from stream - delta encoded
+    v_kn = U(82)
+    kana_str = chr(v_kn + H)
+    for _ in range(44):
+        v_kn += U(4) + 1
+        kana_str += chr(v_kn + H)
 
     def RK(f):
         return Z(KA) + H + f

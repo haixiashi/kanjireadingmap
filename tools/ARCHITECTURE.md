@@ -58,7 +58,8 @@ single arithmetic-coded bitstream (no re-initialization between sections):
 - No explicit kana code list needed; symbol index = codepoint offset
 
 **Section 3: KN (kana row/col mapping)** — 45 kana for grid layout
-- 45 values: `U(82)` × 45 — kana codepoint offsets from H (0x3042)
+- First offset: `U(82)` — kana codepoint offset from H (0x3042)
+- 44 deltas: `U(4)` × 44 — each delta minus 1 (deltas 1–4, encoded as 0–3)
 
 **Section 4: Cell data** (read per cell, row 0–43, col 0–45)
 
