@@ -2,7 +2,7 @@
 """BAC encoder for DA data.
 
 Encodes cell data from snapshot.json using binary arithmetic coding
-with 12 probability models (999-scale) for low-cardinality fields
+with 10 hardcoded + 1 stream-decoded probability models (999-scale) for low-cardinality fields
 and uniform encoding for high-cardinality fields (U(k) where k=log2(n)).
 
 Architecture:
@@ -166,9 +166,7 @@ M_D1 = [0, 884, 999]              # d1: 0/1
 M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
 M_D2_1 = [0, 198, 997, 999]       # d2 when d1=1: -1/0/1
 M_EXTRA = [0, 794, 999]            # extra_rd_flag: no/yes
-M_KANA = [0, 420, 786, 999]        # kana_type: k4/k6/raw
 M_OKURI = [0, 585, 999]            # okurigana_flag: done/more
-M_K4 = [0, 452, 685, 859, 999]    # K4 kana index: る/う/い/く
 M_KD_CASE = [0, 535, 927, 997, 999]  # KD delta bucket: 2b/4b/6b/9b
 
 
@@ -245,10 +243,54 @@ def main():
     print(f"KT: {len(kt)} entries", file=sys.stderr)
 
     kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
-    H = 12318; K4 = "m(&1"; K6 = ";b9c*-knl3`LFqJ."
-    k4_codes = {ord(c): i for i, c in enumerate(K4)}
-    k6_codes = {ord(c): i for i, c in enumerate(K6)}
+    H = 12318
     tier_to_idx = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}
+
+    # Count kana frequencies for single prob table
+    kana_ct = Counter()
+    for ri in range(44):
+        row = kana_str[ri]
+        for ci in range(46):
+            col = '' if ci == 0 else kana_str[ci - 1]
+            for e in snap.get(row + '+' + col, []):
+                rest = e[2:]
+                parts = rest.split('|', 1) if '|' in rest else [rest, '']
+                is_on = any(0x30A0 <= ord(c) <= 0x30FF for c in parts[0]) if parts[0] else False
+                ko = 96 if is_on else 0
+                cell_kana = row + col
+                for c in parts[0][len(cell_kana):]:
+                    kana_ct[ord(c) - H - ko] += 1
+                if not is_on:
+                    for c in parts[1]:
+                        kana_ct[ord(c) - H] += 1
+
+    # Build kana code list and prob table sorted by frequency
+    sorted_kana_codes = sorted(kana_ct.keys(), key=lambda k: -kana_ct[k])
+    kana_code_to_idx = {c: i for i, c in enumerate(sorted_kana_codes)}
+    n_kana = len(sorted_kana_codes)
+    max_kana_code = max(sorted_kana_codes)
+
+    # Build cumulative prob table (999-scale)
+    kana_total = sum(kana_ct.values())
+    kana_cum = [0]
+    for c in sorted_kana_codes:
+        kana_cum.append(kana_cum[-1] + kana_ct[c])
+    # Scale to 999, ensuring strictly increasing and all < 999
+    n_sym = len(sorted_kana_codes)
+    kana_scaled = []
+    for i, c in enumerate(kana_cum[1:-1]):
+        v = max(i + 1, round(c * 999 / kana_total))
+        v = min(v, 999 - (n_sym - 1 - i))  # leave room for remaining
+        if kana_scaled and v <= kana_scaled[-1]:
+            v = kana_scaled[-1] + 1
+        kana_scaled.append(v)
+
+    # Compute deltas for stream encoding
+    kana_deltas = [kana_scaled[0]] + [kana_scaled[i] - kana_scaled[i-1] for i in range(1, len(kana_scaled))]
+    max_delta = max(kana_deltas)
+
+    M_KANA_ALL = [0] + kana_scaled + [999]
+    print(f"Kana: {n_kana} unique codes, max_code={max_kana_code}, max_delta={max_delta}", file=sys.stderr)
 
     enc = ArithEncoder()
     ops = []  # for verification
@@ -260,6 +302,12 @@ def main():
     def eu(val, n):
         enc.encode_uniform(val, n)
         ops.append(('U', n, val))
+
+    # Encode kana table at start of DA stream
+    for c in sorted_kana_codes:
+        eu(c, max_kana_code + 1)
+    for d in kana_deltas:
+        eu(d, max_delta + 1)
 
     for ri in range(44):
         row = kana_str[ri]
@@ -317,30 +365,14 @@ def main():
                 for c in extra:
                     em(M_EXTRA, 1)
                     code = ord(c) - H - ko
-                    if code in k4_codes:
-                        em(M_KANA, 0)
-                        em(M_K4, k4_codes[code])
-                    elif code in k6_codes:
-                        em(M_KANA, 1)
-                        eu(k6_codes[code], 16)
-                    else:
-                        em(M_KANA, 2)
-                        eu(code, 118)
+                    em(M_KANA_ALL, kana_code_to_idx[code])
                 em(M_EXTRA, 0)
 
                 if not is_on:
                     for c in okurigana:
                         em(M_OKURI, 1)
                         code = ord(c) - H
-                        if code in k4_codes:
-                            em(M_KANA, 0)
-                            em(M_K4, k4_codes[code])
-                        elif code in k6_codes:
-                            em(M_KANA, 1)
-                            eu(k6_codes[code], 16)
-                        else:
-                            em(M_KANA, 2)
-                            eu(code, 118)
+                        em(M_KANA_ALL, kana_code_to_idx[code])
                     em(M_OKURI, 0)
 
             em(M_KTYPE, 1)  # end of cell

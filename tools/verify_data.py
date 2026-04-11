@@ -116,8 +116,6 @@ def decode_da(da_str, kt, kana_str):
     dec = ArithDecoder(bits)
     FC = chr
     H = 12318
-    K4 = "m(&1"
-    K6 = ";b9c*-knl3`LFqJ."
 
     # Probability tables (999-scale, inner values only)
     CP = [555]
@@ -128,27 +126,24 @@ def decode_da(da_str, kt, kana_str):
     D2_0 = [71, 886]
     D2_1 = [198, 997]
     EF = [794]
-    KF = [420, 786]
     OF = [585]
-    K4M = [452, 685, 859]
-
-    k4_codes = {ord(c): i for i, c in enumerate(K4)}
-    k6_codes = {ord(c): i for i, c in enumerate(K6)}
 
     def Z(c):
         return dec.decode_model(c)
 
-    def U(k):
-        return dec.decode_uniform(k)
+    def U(n):
+        return dec.decode_uniform(n)
+
+    # Read kana table from stream
+    KX = [U(118) for _ in range(67)]
+    KA = []
+    v = 0
+    for _ in range(66):
+        v += U(185)
+        KA.append(v)
 
     def RK(f):
-        l = Z(KF)
-        if l == 0:
-            return ord(K4[Z(K4M)]) + H + f
-        elif l == 1:
-            return ord(K6[U(16)]) + H + f
-        else:
-            return U(118) + H + f
+        return KX[Z(KA)] + H + f
 
     cells = {}
 

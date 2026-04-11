@@ -60,9 +60,16 @@ Char-to-digit mapping: `G = c => (charCode+26)*58/59-57|0`
 - `U(n)`: decode uniform symbol 0..n-1. Uses `q=(r)/n|0` for
   single-step range subdivision, matching the encoder.
 
-### Symbol Encoding Order (per cell)
+### DA Stream Layout
 
-For each cell (row 0–43, col 0–45):
+The DA stream contains two sections, decoded sequentially:
+
+**Section 1: Kana probability table** (read at initialization)
+1. 67 kana codes: `U(118)` × 67 — kana code values sorted by frequency
+2. 66 cumulative deltas: `U(185)` × 66 — build the 999-scale prob table
+   for `Z(...)` decoding of kana symbols
+
+**Section 2: Cell data** (read per cell, row 0–43, col 0–45)
 
 1. **cell_present**: `Z(CP)` → 0=empty, 1=non-empty
 2. If non-empty, loop over kanji groups:
@@ -74,11 +81,10 @@ For each cell (row 0–43, col 0–45):
    d. **variant**: `d1=Z(D1)`, then `d2=Z(D2|d1)-1` (conditional table)
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
    f. **Extra reading**: loop `Z(EF)` → 0=done, 1=more char
-      - **kana_type**: `Z(KF)` → 0=K4 (top 4), 1=K6 (next 16), 2=raw
-      - Value: `Z(K4M)`, `U(16)`, or `U(118)` respectively
-      - Kana code = value + H (+ ko for on-yomi)
+      - **kana**: `Z(...KA)` → index into stream-decoded kana table KX
+      - Kana code = `KX[idx]` + H (+ ko for on-yomi)
    g. **Okurigana** (kun-yomi only): loop `Z(OF)` → 0=done, 1=more char
-      - Same kana_type + value decoding as extra reading, but code + H only (no ko)
+      - Same kana decoding as extra reading, but code + H only (no ko)
    h. Assemble entry: `kanji + prefix + extra_reading + tier_char + okurigana`
 
 ### Probability Models (999-scale cumulative frequency arrays)
@@ -99,25 +105,26 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 | D2\|d1=0 | [71, 886] | [0, 71, 886, 999] | -1 / 0 / 1 |
 | D2\|d1=1 | [198, 997] | [0, 198, 997, 999] | -1 / 0 / 1 |
 | EF (extra_rd_flag) | [794] | [0, 794, 999] | done / more |
-| KF (kana_type) | [420, 786] | [0, 420, 786, 999] | K4 / K6 / raw |
 | OF (okuri_flag) | [585] | [0, 585, 999] | done / more |
-| K4M (k4_index) | [452, 685, 859] | [0, 452, 685, 859, 999] | る / う / い / く |
+| KA (kana) | (stream-decoded) | 67-symbol table | kana by frequency |
 
 ### Kana Encoding
 
-Two lookup strings for frequent kana codes:
-- `K4 = "m(&1"` — top 4 kana (る, う, い, く)
-- `K6 = ";b9c*-knl3\`LFqJ."` — next 16 kana
+All 67 unique kana codes are encoded using a single probability model
+`Z(...KA)` where `KA` is a 66-entry cumulative frequency table decoded
+from the DA stream at initialization. The lookup array `KX` (67 kana
+codes sorted by frequency) is also stream-decoded. No hardcoded kana
+strings or probability values in the JS source.
 
-The kana code is `charCode - H - ko` where H=12318 and ko=96 for on-yomi.
+The kana code is `KX[idx] + H + ko` where H=12318 and ko=96 for on-yomi.
 
 ### Variant Encoding
 
 Offsets `d1` (first char, 0 or 1) and `d2` (rest, -1/0/1) are applied
 to the cell's kana prefix for readings with dakuten/handakuten.
 They are encoded as two separate fields with conditional probability:
-1. `d1 = Z(885)` — 0 (88.5%) or 1 (11.5%)
-2. `d2 = Z(D2|d1) - 1` — uses `Z(71,886)` when d1=0, `Z(199,998)` when d1=1
+1. `d1 = Z(884)` — 0 (88.4%) or 1 (11.6%)
+2. `d2 = Z(D2|d1) - 1` — uses `Z(71,886)` when d1=0, `Z(198,997)` when d1=1
 
 The conditional tables capture the correlation (d1=1, d2=1 is nearly
 impossible) without wasting bits on a joint 6-symbol table.
@@ -219,7 +226,8 @@ Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 
 ## Known Constraints
 
-- Both KD and DA use arithmetic coding with 12 probability models (999-scale)
+- KD and DA use arithmetic coding with 10 hardcoded probability models
+  (999-scale) plus 1 stream-decoded kana model (67 symbols)
 - KD and DA share the same arithmetic decoder; KD is decoded first, then
   the decoder is re-initialized for DA
 - KT table has 2,738 entries (all kanji); no raw encoding path
