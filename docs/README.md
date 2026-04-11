@@ -5,8 +5,6 @@ Japanese kanji organized by reading (pronunciation). All data is
 serialized inline as encoded strings. The page is ~31KB and has no
 external dependencies.
 
-## Overview
-
 ## Grid Structure
 
 - **44 rows** × **46 columns** = 2,024 cells
@@ -24,11 +22,11 @@ All data is encoded in a single arithmetic-coded stream `DD`, packed
 into base-93 via 2:13 block code (13 chars → 85 bits).
 
 **Base-93 alphabet**: U+0020–U+007E excluding `"` and `\` (93 chars).
-`G()` decodes base-93 to a bit string using BigInt: each group of 13
+Base-93 is decoded to a bit string using BigInt: each group of 13
 chars is converted via multiply-accumulate, then `.toString(2).padStart(85,0)`
 extracts 85 bits. Char-to-digit: `(charCode+26)*58/59-57|0`
 
-**Arithmetic decoder** (24-bit precision, inside IIFE on line 13):
+**Arithmetic decoder** (24-bit precision, inside DC IIFE on line 14):
 - State: `a` (low), `d` (high), `e` (value), all 24-bit
 - Constants: `T=1<<23` (TOP), `Q=T/2` (QUARTER), `M=T*2-1` (MASK)
 - `W()`: normalization — shifts out resolved bits, reads new bits
@@ -181,7 +179,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 ### Line 17: Table builder (IIFE)
 - Iterates 44 rows × 46 cols, calls `DC(rl+cl)` for each cell
 - Adds CSS classes: `.e` (empty), `.fw` (1–2 entries), `.fc` (first-col)
-- Groups borders: `.gb`, `.gt`, `.gr`, `.gbb`
+- Groups borders: `.gl`, `.gt`, `.gr`, `.gb`
 - Promotes first 1–2 entries to large font (`.lg` class)
 - Overflow entries go in `.mr` span with `.tg` button
 
@@ -199,17 +197,16 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 - All data is in a single arithmetic-coded stream DD with 10 hardcoded
   probability models (999-scale) plus 1 stream-decoded kana model
-  (82 symbols in codepoint order, 15 unused get minimal probability)
+  (82 symbols in codepoint order, unused get minimal probability)
 - KN (45 kana for grid layout) also stream-decoded, no ASCII mapping
 - H = 0x3042 (あ) used as kana base offset
 - No decoder re-initialization between sections
 - KT table has 2,698 entries (all kanji); no raw encoding path
 - 24-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement
-- `U(n)` decodes uniform symbols using actual ranges (e.g. `U(20667)`
-  for raw kanji) rather than rounding up to powers of 2
-- All decoder state must be inside the IIFE to avoid name collisions
-  with outer scope (D=document, Q=querySelectorAll, etc.)
+- `U(n)` decodes uniform symbols using actual ranges rather than
+  rounding up to powers of 2
+- All decoder state is `let`-scoped inside the DC IIFE
 - Base-93 decoding uses BigInt `.toString(2)` for 85-bit block conversion
 
 ## Python Tools
