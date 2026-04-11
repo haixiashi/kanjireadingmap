@@ -4,7 +4,7 @@
 
 A single-file HTML page (`index.html`) that displays a 44×46 grid of
 Japanese kanji organized by reading (pronunciation). All data is
-serialized inline as encoded strings. The page is ~36KB and has no
+serialized inline as encoded strings. The page is ~35KB and has no
 external dependencies.
 
 ## Grid Structure
@@ -148,27 +148,28 @@ In the snapshot, stored as `"6有あ|る"` (tier prefix, `|` separates okurigana
 
 ## JS Code Structure (index.html)
 
-### Line 12: Globals and data strings
-- `L` = String.fromCharCode, `N` = charCodeAt, `H` = 12354 (0x3042)
-- `DD` = combined data string (base-93, arithmetic coded)
+Most two-letter identifiers have been shortened to single letters for
+size. Key mappings: `A`=addEventListener helper, `l`=classList helper,
+`V`=table element, `S`=scale, `I`=mode index, `Y`=mode array.
 
-### Line 13: Decoders
-- `G(s)`: base-93 → bit string. Uses BigInt: each 13-char block is
-  converted via multiply-accumulate (`v=v*93n+BigInt(digit)`), then
-  `v.toString(2).padStart(85,0)` extracts 85 bits. Char-to-digit:
-  `(N(s[i])+26)*58/59-57|0`
-- `DC()`: **single IIFE** containing all decoding:
-  1. Initialize arithmetic decoder with `G(DD)`
-  2. Decode KT (2737 deltas), kana prob table (81 deltas), KN (45 values), then cell data
-  3. Return function `pf => [entries...]` for cell decoding
-  - All decoder state (a, d, e, W, Z, U, KT, freq tables) scoped inside
-  - `pf` is the cell position string (row+col kana chars from stream-decoded KN)
+### Line 12: DD data string (base-93, arithmetic coded)
 
-### Line 14: DOM utilities
-- `AE='addEventListener'`, `D=document`, etc.
-- `AH()`: applies offset to KN kana chars for watermarks
+### Line 13: Helper functions and aliases
+- `A=(o,...a)=>o.addEventListener(...a)` — addEventListener wrapper
+- `l=o=>o.classList` — classList accessor
+- `CN=(o,c)=>{o.className=c}` — className setter
+- `D=document`, `B=D.body`, `$=s=>D.createElement(s)`
+- `Q=s=>D.querySelectorAll(s)`, `L`=fromCharCode, `N`=charCodeAt
+- `H`=12354 (0x3042)
 
-### Line 15: K() — renders one entry array `[kanji, reading, tier, okurigana, is_on]` as a DOM span with ruby annotation
+### Line 14: DC() decoder IIFE
+- Base-93 → bit string (BigInt, 13 chars → 85 bits)
+- Arithmetic decoder (24-bit precision): `W` (normalize), `Z` (model decode), `U` (uniform decode)
+- Decodes KT (2737 deltas), kana prob table (81 deltas), KN (45 values)
+- Returns function `pf => [entries...]` for cell decoding
+- All decoder state scoped inside to avoid collisions with outer `D`, `Q`, etc.
+
+### Line 15: K() — renders one entry array as a DOM span with ruby annotation
 
 ### Line 16: TM() — toggle expand/collapse of overflow entries
 
@@ -179,12 +180,13 @@ In the snapshot, stored as `"6有あ|る"` (tier prefix, `|` separates okurigana
 - Promotes first 1–2 entries to large font (`.lg` class)
 - Overflow entries go in `.more` span with `.toggle` button
 
-### Lines 18–39: UI (IIFE)
+### Lines 18–32: UI (IIFE)
 - Reading toggle (漢/訓/音) — filters on/kun entries
 - Theme toggle (light/dark)
-- Pan/zoom with mouse drag, scroll wheel, touch gestures
-- Inertia scrolling
-- Minimap with viewport indicator
+- Scale functions (`AS`, `RL`, `Z`)
+- Minimap (`UM`, `MN`, `SM`)
+- Drag functions (`SD`, `MV`, `ED`)
+- Mouse, wheel, and touch event listeners
 - Random initial scroll position
 
 ## Python Tools
@@ -192,7 +194,7 @@ In the snapshot, stored as `"6有あ|る"` (tier prefix, `|` separates okurigana
 ### reencode_bac.py
 The BAC encoder. Reads `snapshot.json`, encodes each cell's symbols
 using `ArithEncoder` with probability models, converts bits to base-93
-via `encode_b93()`, outputs the DA string. Includes built-in
+via `encode_b93()`, outputs the DD string. Includes built-in
 `ArithDecoder` for verification.
 
 **Key**: encoder's `encode_model(cum, sym)` must use the same interval
@@ -204,7 +206,7 @@ The VLC encoder (legacy, still used for KD). Encodes `snapshot.json`
 into VLC bitstream, packs into base-93 via `encode_b93()`.
 
 ### verify_data.py
-Decodes DA from `index.html` using Python arithmetic decoder, compares
+Decodes DD from `index.html` using Python arithmetic decoder, compares
 against `snapshot.json`. Must match the JS decoder's arithmetic exactly.
 
 ### rebuild_snapshot.py

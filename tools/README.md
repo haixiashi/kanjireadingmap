@@ -58,7 +58,7 @@ Full rebuild pipeline for snapshot.json. Runs three phases:
 Usage: `PYTHONPATH=tools python3 tools/rebuild_snapshot.py`
 
 ### reencode_bac.py
-Encodes snapshot.json into the DA string using binary arithmetic coding
+Encodes snapshot.json into the DD string using binary arithmetic coding
 with probability models. Outputs a base-93 string (2:13 block code).
 
 The encoder uses 24-bit precision and 10 hardcoded + 1 stream-decoded
@@ -74,12 +74,12 @@ Usage: `python3 tools/reencode_bac.py > /tmp/da.txt`
 ### reencode_da.py
 Legacy VLC encoder. Still used for encoding the KD string (kanji
 dictionary table). Also provides `encode_b93`/`decode_b93` for base-93
-2:13 block code conversion, used by both KD and DA pipelines.
+2:13 block code conversion, used by both KD and DD pipelines.
 
 Usage (KD only): `python3 tools/reencode_da.py`
 
 ### verify_data.py
-Decodes the DA string from index.html using a Python arithmetic decoder
+Decodes the DD string from index.html using a Python arithmetic decoder
 (24-bit, 999-scale probability tables, `U(k)` uniform decoding) and
 compares every entry against snapshot.json. Run after any data or
 encoding change.
@@ -92,21 +92,21 @@ Usage: `python3 tools/verify_data.py`
 # 1. Rebuild snapshot (fixes readings, tiers, sort order)
 PYTHONPATH=tools python3 tools/rebuild_snapshot.py
 
-# 2. Re-encode DA string (arithmetic coded)
+# 2. Re-encode DD string (arithmetic coded)
 python3 tools/reencode_bac.py > /tmp/da.txt
 
-# 3. Replace DA in index.html
+# 3. Replace DD in index.html
 python3 -c "
 import re
 with open('index.html') as f: src = f.read()
 with open('/tmp/da.txt') as f: da = f.read()
-old = re.search(r'DA=\"([^\"]*)\"', src).group(1)
-with open('index.html', 'w') as f: f.write(src.replace('DA=\"'+old+'\"', 'DA=\"'+da+'\"'))
+old = re.search(r'DD=\"([^\"]*)\"', src).group(1)
+with open('index.html', 'w') as f: f.write(src.replace('DD=\"'+old+'\"', 'DD=\"'+da+'\"'))
 "
 
 # 4. Verify
 python3 tools/verify_data.py
 ```
 
-Note: do NOT use `.strip()` on the DA string — space (U+0020) is a
+Note: do NOT use `.strip()` on the DD string — space (U+0020) is a
 valid base-93 digit and may appear at the start or end.
