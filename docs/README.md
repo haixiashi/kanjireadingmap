@@ -1,11 +1,11 @@
-# Kanjimap Architecture
-
-## Overview
+# Kanjimap
 
 A single-file HTML page (`index.html`) that displays a 44×46 grid of
 Japanese kanji organized by reading (pronunciation). All data is
 serialized inline as encoded strings. The page is ~31KB and has no
 external dependencies.
+
+## Overview
 
 ## Grid Structure
 
@@ -170,7 +170,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 - Base-93 → bit string (BigInt, 13 chars → 85 bits)
 - Arithmetic decoder (24-bit precision): `W` (normalize), `Z` (model decode), `U` (uniform decode)
 - Bit position `p`, codepoint accumulator `k`
-- Decodes KT (2737 deltas), kana prob table (81 deltas), KN (45 values)
+- Decodes KT (2697 deltas), kana prob table (81 deltas), KN (45 values)
 - Returns function `s => [entries...]` for cell decoding
 - All decoder state `let`-scoped inside IIFE
 
@@ -195,37 +195,6 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 - Mouse, wheel, and touch event listeners
 - Random initial scroll position
 
-## Python Tools
-
-### reencode_bac.py
-The BAC encoder. Reads `snapshot.json`, encodes each cell's symbols
-using `ArithEncoder` with probability models, converts bits to base-93
-via `encode_b93()`, outputs the DD string. Includes built-in
-`ArithDecoder` for verification.
-
-**Key**: encoder's `encode_model(cum, sym)` must use the same interval
-arithmetic as decoder's `Z()`. The step-based lookup
-`while o+(r*c[s+1]/t|0) <= pk` ensures exact round-trip.
-
-### reencode_da.py
-Base-93 codec library. Provides `encode_b93`/`decode_b93` for 2:13
-block code conversion (85 bits ↔ 13 chars), used by reencode_bac.py
-and verify_data.py.
-
-### verify_data.py
-Decodes DD from `index.html` using Python arithmetic decoder, compares
-against `snapshot.json`. Must match the JS decoder's arithmetic exactly.
-
-### rebuild_snapshot.py
-Rebuilds `snapshot.json` from KANJIDIC2/JMdict:
-1. Fix reading choices (pick highest-scoring reading per cell)
-2. Reassign tiers from frequency scores
-3. Re-sort entries by score descending
-
-
-### resort_by_reading.py / expand_entries.py
-Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
-
 ## Known Constraints
 
 - All data is in a single arithmetic-coded stream DD with 10 hardcoded
@@ -242,15 +211,13 @@ Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 - All decoder state must be inside the IIFE to avoid name collisions
   with outer scope (D=document, Q=querySelectorAll, etc.)
 - Base-93 decoding uses BigInt `.toString(2)` for 85-bit block conversion
-# Tools
+
+## Python Tools
 
 Scripts for maintaining the kanji reading data. The authoritative data
 lives in `snapshot.json`; all other files are derived from it.
 
-See `ARCHITECTURE.md` for detailed documentation of the data encoding,
-decoder structure, and probability models.
-
-## Data sources
+### Data sources
 
 - `kanjidic2.xml` — KANJIDIC2 dictionary (kanji readings, grades, frequencies)
 - `JMdict_e.xml` — JMdict dictionary (word readings and frequency tags)
@@ -258,8 +225,6 @@ decoder structure, and probability models.
 Both are gitignored. Download from:
 - https://www.edrdg.org/wiki/index.php/KANJIDIC_Project
 - https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project
-
-## Files
 
 ### snapshot.json
 Authoritative reference for all cell data. Keyed by cell position
@@ -286,7 +251,7 @@ Key design decisions:
 ### expand_entries.py
 Expands the dataset with new entries from KANJIDIC2/JMdict and assigns
 tiers. Tier thresholds (in `TIER_THRESHOLDS`) are calibrated to
-concentrate entries in the middle tiers (j3/j4 ~46%).
+concentrate entries in the middle tiers (j2/j3 ~54%).
 
 Also handles archaic variant removal: traditional kanji forms (e.g. 國)
 are removed when their standard Joyo form (国) exists in the same cell.
@@ -328,7 +293,7 @@ encoding change.
 
 Usage: `python3 tools/verify_data.py`
 
-## Full rebuild procedure
+### Full rebuild procedure
 
 ```bash
 # 1. Rebuild snapshot (fixes readings, tiers, sort order)
