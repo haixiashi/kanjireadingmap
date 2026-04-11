@@ -77,7 +77,7 @@ single arithmetic-coded bitstream (no re-initialization between sections):
       - No lookup table needed; Z() result is the codepoint offset directly
    g. **Okurigana** (kun-yomi only): loop `Z(OF)` → 0=done, 1=more char
       - Same: `Z(...KA)+H` (no ko offset for okurigana)
-   h. Assemble entry: `kanji + prefix + extra_reading + tier_char + okurigana`
+   h. Return entry as array: `[kanji, reading, tier, okurigana, is_on]`
 
 ### Probability Models (999-scale cumulative frequency arrays)
 
@@ -138,10 +138,13 @@ Encoded directly as `Z(TI)+1` where idx 0→tier 1, idx 1→tier 2, etc.
 
 ## Entry Format
 
-Each decoded entry is a string: `<kanji><reading><tier_digit><okurigana>`
+Each decoded entry is a JS array: `[kanji, reading, tier, okurigana, is_on]`
 
-Example: `有あ6る` = kanji 有, reading あ, tier 6, okurigana る.
-In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
+Example: `['有', 'あ', 6, 'る', 0]` = kanji 有, reading あ, tier 6,
+okurigana る, kun-yomi. K() renders this directly as a DOM span with
+ruby annotation — no string parsing needed.
+
+In the snapshot, stored as `"6有あ|る"` (tier prefix, `|` separates okurigana).
 
 ## JS Code Structure (index.html)
 
@@ -165,7 +168,7 @@ In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
 - `AE='addEventListener'`, `D=document`, etc.
 - `AH()`: applies offset to KN kana chars for watermarks
 
-### Line 15: K() — renders one entry as a DOM span with ruby annotation
+### Line 15: K() — renders one entry array `[kanji, reading, tier, okurigana, is_on]` as a DOM span with ruby annotation
 
 ### Line 16: TM() — toggle expand/collapse of overflow entries
 
