@@ -303,7 +303,25 @@ def main():
         enc.encode_uniform(val, n)
         ops.append(('U', n, val))
 
-    # Encode kana table at start of DA stream
+    # Section 1: KT deltas
+    prev = ord(kt[0])  # 0x4E00
+    for i in range(1, len(kt)):
+        delta = ord(kt[i]) - prev
+        prev = ord(kt[i])
+        if delta <= 4:
+            em(M_KD_CASE, 0)
+            eu(delta - 1, 4)
+        elif delta <= 20:
+            em(M_KD_CASE, 1)
+            eu(delta - 5, 16)
+        elif delta <= 84:
+            em(M_KD_CASE, 2)
+            eu(delta - 21, 64)
+        else:
+            em(M_KD_CASE, 3)
+            eu(delta - 85, 512)
+
+    # Section 2: Kana table
     for c in sorted_kana_codes:
         eu(c, max_kana_code + 1)
     for d in kana_deltas:
@@ -401,27 +419,17 @@ def main():
     print(f"Verify: {errors} errors in {len(ops)} ops", file=sys.stderr)
 
     if errors == 0:
-        da_str = encode_b93(bits)
-        print(f"DA: {len(da_str)} chars", file=sys.stderr)
-        old_da = re.search(r'DA="([^"]*)"', src).group(1)
-        print(f"Old DA: {len(old_da)} chars, saving: {len(old_da) - len(da_str)}", file=sys.stderr)
-    else:
-        print("DA FAILED - not writing output", file=sys.stderr)
-        sys.exit(1)
-
-    # Encode KD
-    kd_bits, kd_errors = encode_kd(kt)
-    if kd_errors == 0:
-        kd_new = encode_b93(kd_bits)
-        print(f"KD: {len(kd_new)} chars", file=sys.stderr)
+        combined_str = encode_b93(bits)
+        print(f"Combined: {len(combined_str)} chars", file=sys.stderr)
         old_kd = re.search(r'KD="([^"]*)"', src).group(1)
-        print(f"Old KD: {len(old_kd)} chars, saving: {len(old_kd) - len(kd_new)}", file=sys.stderr)
+        old_da = re.search(r'DA="([^"]*)"', src)
+        old_total = len(old_kd) + (len(old_da.group(1)) if old_da else 0)
+        print(f"Old KD+DA: {old_total} chars, saving: {old_total - len(combined_str)}", file=sys.stderr)
     else:
-        print("KD FAILED", file=sys.stderr)
+        print("FAILED - not writing output", file=sys.stderr)
         sys.exit(1)
 
-    # Output both: KD\nDA
-    sys.stdout.write(kd_new + '\n' + da_str)
+    sys.stdout.write(combined_str)
 
 
 if __name__ == '__main__':

@@ -93,10 +93,8 @@ class ArithDecoder:
         return s
 
 
-def build_kt(kd_str):
-    """Decode KD string using arithmetic decoder (matching JS)."""
-    bits = decode_b93(kd_str)
-    dec = ArithDecoder(bits)
+def decode_kt_from_decoder(dec):
+    """Decode KT from an existing arithmetic decoder."""
     KD_CASE = [535, 927, 997]
     kt = [chr(0x4E00)]
     cp = 0x4E00
@@ -110,10 +108,8 @@ def build_kt(kd_str):
     return kt
 
 
-def decode_da(da_str, kt, kana_str):
-    """Decode DA string using arithmetic decoder, matching JS DC()."""
-    bits = decode_b93(da_str)
-    dec = ArithDecoder(bits)
+def decode_da_from_decoder(dec, kt, kana_str):
+    """Decode cell data from an existing arithmetic decoder."""
     FC = chr
     H = 12318
 
@@ -200,15 +196,17 @@ def main():
     with open(INDEX_PATH, 'r') as f:
         src = f.read()
 
-    kd = re.search(r'KD="([^"]*)"', src).group(1)
-    da = re.search(r'DA="([^"]*)"', src).group(1)
+    dd = re.search(r'DD="([^"]*)"', src).group(1)
     kn = re.search(r'KN="([^"]*)"', src).group(1)
 
     # Recover kana_str from KN
     kana_str = ''.join(chr(ord(c) + 12318) for c in kn)
 
-    kt = build_kt(kd)
-    decoded = decode_da(da, kt, kana_str)
+    # Decode everything from single stream
+    bits = decode_b93(dd)
+    dec = ArithDecoder(bits)
+    kt = decode_kt_from_decoder(dec)
+    decoded = decode_da_from_decoder(dec, kt, kana_str)
 
     errors = 0
     warnings = 0

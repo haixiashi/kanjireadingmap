@@ -19,36 +19,15 @@ external dependencies.
 
 ## Data Encoding
 
-### KD String (Kanji Dictionary / KT table)
+### DD String (Combined Data)
 
-The KD string encodes all 2,738 kanji as a sorted list using
-delta-encoded codepoints with **arithmetic coding**, packed into base-93
-via 2:13 block code (13 chars → 85 bits).
-
-**Encoding**: Each delta is encoded as a case selector (4 symbols,
-arithmetic coded via `Z(535,927,997)`) followed by a uniform value:
-- Case 0: `U(4)` + 1 → delta 1–4
-- Case 1: `U(16)` + 5 → delta 5–20
-- Case 2: `U(64)` + 21 → delta 21–84
-- Case 3: `U(512)` + 85 → delta 85–596
-
-**Decoding** (JS, inside IIFE on line 13):
-KD is decoded first using the arithmetic decoder (Z/U), building the
-KT string. Then the decoder is re-initialized with DA for cell data.
-
-`G()` decodes base-93 to a bit string using BigInt: each group of 13
-chars is converted to a BigInt via multiply-accumulate, then
-`.toString(2).padStart(85,0)` extracts 85 bits.
-
-The first char is `一` (U+4E00). Each subsequent char is previous + delta.
-
-### DA String (Data / cell contents)
-
-The DA string encodes all cell data using **binary arithmetic coding**
-with probability models, packed into base-93 via 2:13 block code.
+All data is encoded in a single arithmetic-coded stream `DD`, packed
+into base-93 via 2:13 block code (13 chars → 85 bits).
 
 **Base-93 alphabet**: U+0020–U+007E excluding `"` and `\` (93 chars).
-Char-to-digit mapping: `G = c => (charCode+26)*58/59-57|0`
+`G()` decodes base-93 to a bit string using BigInt: each group of 13
+chars is converted via multiply-accumulate, then `.toString(2).padStart(85,0)`
+extracts 85 bits. Char-to-digit: `(charCode+26)*58/59-57|0`
 
 **Arithmetic decoder** (24-bit precision, inside IIFE on line 13):
 - State: `a` (low), `d` (high), `e` (value), all 24-bit
@@ -60,16 +39,24 @@ Char-to-digit mapping: `G = c => (charCode+26)*58/59-57|0`
 - `U(n)`: decode uniform symbol 0..n-1. Uses `q=(r)/n|0` for
   single-step range subdivision, matching the encoder.
 
-### DA Stream Layout
+### DD Stream Layout
 
-The DA stream contains two sections, decoded sequentially:
+The DD stream contains three sections, decoded sequentially from a
+single arithmetic-coded bitstream (no re-initialization between sections):
 
-**Section 1: Kana probability table** (read at initialization)
+**Section 1: KT (Kanji Table)** — 2,738 kanji as delta-encoded codepoints
+- 2,737 deltas, each: case selector `Z(535,927,997)` + uniform value
+  - Case 0: `U(4)` + 1 → delta 1–4
+  - Case 1: `U(16)` + 5 → delta 5–20
+  - Case 2: `U(64)` + 21 → delta 21–84
+  - Case 3: `U(512)` + 85 → delta 85–596
+- First char is `一` (U+4E00). Each subsequent = previous + delta.
+
+**Section 2: Kana probability table** (read at initialization)
 1. 67 kana codes: `U(118)` × 67 — kana code values sorted by frequency
 2. 66 cumulative deltas: `U(185)` × 66 — build the 999-scale prob table
-   for `Z(...)` decoding of kana symbols
 
-**Section 2: Cell data** (read per cell, row 0–43, col 0–45)
+**Section 3: Cell data** (read per cell, row 0–43, col 0–45)
 
 1. **cell_present**: `Z(CP)` → 0=empty, 1=non-empty
 2. If non-empty, loop over kanji groups:
@@ -153,8 +140,7 @@ In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
 
 ### Line 12: Globals and data strings
 - `L` = String.fromCharCode, `N` = charCodeAt
-- `KD` = kanji dictionary string (base-93)
-- `DA` = cell data string (base-93, arithmetic coded)
+- `DD` = combined data string (base-93, arithmetic coded)
 
 ### Line 13: Decoders
 - `G(s)`: base-93 → bit string. Uses BigInt: each 13-char block is
@@ -162,8 +148,8 @@ In the snapshot, stored as `6有あ|る` (tier prefix, `|` separates okurigana).
   `v.toString(2).padStart(85,0)` extracts 85 bits. Char-to-digit:
   `(N(s[i])+26)*58/59-57|0`
 - `DC()`: **single IIFE** containing all decoding:
-  1. Initialize arithmetic decoder with `G(KD)`, decode KT (2047 deltas)
-  2. Re-initialize arithmetic decoder with `G(DA)`
+  1. Initialize arithmetic decoder with `G(DD)`
+  2. Decode KT (2737 deltas), kana table (67 codes + 66 deltas), then cell data
   3. Return function `pf => [entries...]` for cell decoding
   - All decoder state (a, d, e, W, Z, U, KT, freq tables) scoped inside
   - `pf` is the KN-encoded cell position string (row+col ASCII chars)
@@ -226,10 +212,9 @@ Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 
 ## Known Constraints
 
-- KD and DA use arithmetic coding with 10 hardcoded probability models
-  (999-scale) plus 1 stream-decoded kana model (67 symbols)
-- KD and DA share the same arithmetic decoder; KD is decoded first, then
-  the decoder is re-initialized for DA
+- All data is in a single arithmetic-coded stream DD with 10 hardcoded
+  probability models (999-scale) plus 1 stream-decoded kana model (67 symbols)
+- No decoder re-initialization between sections
 - KT table has 2,738 entries (all kanji); no raw encoding path
 - 24-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement
