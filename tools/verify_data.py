@@ -130,11 +130,12 @@ def decode_da_from_decoder(dec, kt):
     def U(n):
         return dec.decode_uniform(n)
 
-    # Read kana prob table from stream (82 symbols, codepoint order)
+    # Read kana prob table from stream (82 symbols, k² deltas)
     KA = []
     v = 0
     for _ in range(81):
-        v += U(171)
+        k = U(14)
+        v += k * k
         KA.append(v)
 
     # Read KN (kana mapping) from stream - delta encoded

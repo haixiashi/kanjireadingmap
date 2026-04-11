@@ -264,24 +264,42 @@ def main():
                     for c in parts[1]:
                         kana_ct[ord(c) - H] += 1
 
-    # Build 82-symbol kana prob table (codepoint order, unused get min prob)
+    # Build 82-symbol kana prob table (codepoint order)
+    # Deltas are k² values (k=0..13 encoded as U(14)) for compact encoding
+    import math
     kana_total = sum(kana_ct.values())
     counts_82 = [kana_ct.get(i, 0) for i in range(82)]
-    # Scale to 999 with min 1 per symbol
+    # Only 81 deltas are encoded; last symbol gets 999 - sum
+    targets = [c / kana_total * 999 for c in counts_82[:81]]
+    KANA_K_MAX = 14  # U(14) gives k in 0..13, max delta = 169
+    squares = [k * k for k in range(KANA_K_MAX)]
+    # For each target, find floor and ceil in squares
+    cands = []
+    for t in targets:
+        below = max((p for p in squares if p <= t), default=0)
+        above = min((p for p in squares if p >= t), default=squares[-1])
+        cands.append([below] if below == above else [below, above])
+    kana_deltas = [c[0] for c in cands]  # start with floors
+    # Greedily upgrade to ceil where KL benefit/cost is best
+    upgrades = []
+    for i, (c, t) in enumerate(zip(cands, targets)):
+        if len(c) > 1 and t > 0:
+            cost = c[1] - c[0]
+            benefit = t * math.log2(t / max(c[0], 0.01)) - t * math.log2(t / c[1])
+            upgrades.append((benefit / max(cost, 1), i, cost))
+    upgrades.sort(reverse=True)
+    budget = 999 - sum(kana_deltas)
+    for ratio, i, cost in upgrades:
+        if cost <= budget and ratio > 0:
+            kana_deltas[i] = cands[i][1]
+            budget -= cost
+    kana_k_values = [int(round(math.sqrt(d))) for d in kana_deltas]
     kana_cum = [0]
-    for i in range(82):
-        kana_cum.append(kana_cum[-1] + max(1, round(counts_82[i] * (999 - 82) / kana_total + 1)))
-    kana_cum[-1] = 999
-    kana_scaled = kana_cum[1:-1]
-    for i in range(len(kana_scaled)):
-        if i > 0 and kana_scaled[i] <= kana_scaled[i-1]:
-            kana_scaled[i] = kana_scaled[i-1] + 1
-        if kana_scaled[i] >= 999:
-            kana_scaled[i] = 999 - (len(kana_scaled) - i)
-    kana_deltas = [kana_scaled[0]] + [kana_scaled[i] - kana_scaled[i-1] for i in range(1, len(kana_scaled))]
-    max_delta = max(kana_deltas)
-    M_KANA_ALL = [0] + kana_scaled + [999]
-    print(f"Kana: 82 symbols (codepoint order), max_delta={max_delta}", file=sys.stderr)
+    for d in kana_deltas:
+        kana_cum.append(kana_cum[-1] + d)
+    kana_cum.append(999)  # 82nd symbol gets remainder
+    M_KANA_ALL = kana_cum
+    print(f"Kana: 82 symbols (k² deltas, U({KANA_K_MAX})), sum={sum(kana_deltas)}", file=sys.stderr)
 
     enc = ArithEncoder()
     ops = []  # for verification
@@ -312,9 +330,9 @@ def main():
             em(M_KD_CASE, 3)
             eu(delta - 85, 512)
 
-    # Section 2: Kana prob table (82 symbols, codepoint order)
-    for d in kana_deltas:
-        eu(d, max_delta + 1)
+    # Section 2: Kana prob table (82 symbols, k² deltas)
+    for k in kana_k_values:
+        eu(k, KANA_K_MAX)
 
     # Section 3: KN (kana row/col mapping) - delta encoded
     prev = 0  # first kana is always あ = H

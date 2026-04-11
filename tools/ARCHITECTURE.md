@@ -53,8 +53,10 @@ single arithmetic-coded bitstream (no re-initialization between sections):
 - First char is `一` (U+4E00). Each subsequent = previous + delta.
 
 **Section 2: Kana probability table** (82 symbols in codepoint order)
-- 81 cumulative deltas: `U(171)` × 81 — build the 999-scale prob table
-  covering all 82 possible kana offsets (U+3042–U+3093)
+- 81 k² deltas: `U(14)` × 81 — each value k is squared to get the delta,
+  building the 999-scale prob table covering all 82 kana offsets (U+3042–U+3093)
+- k² approximation saves ~27 bytes vs raw deltas (U(171)) with minimal
+  compression loss; the 82nd symbol gets the remainder (999 − sum)
 - No explicit kana code list needed; symbol index = codepoint offset
 
 **Section 3: KN (kana row/col mapping)** — 45 kana for grid layout
