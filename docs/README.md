@@ -174,18 +174,18 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ### Line 15: MP() — renders one entry array as a DOM span with ruby annotation
 
-### Line 16: TM() — toggle expand/collapse of overflow entries
-
-### Line 17: Table builder (IIFE)
+### Line 16: Table builder (IIFE)
 - Iterates 44 rows × 46 cols, calls `DC(rl+cl)` for each cell
-- Adds CSS classes: `.e` (empty), `.fw` (1–2 entries), `.fc` (first-col)
+- Adds CSS classes: `.e` (empty), `.fc` (first-col)
 - Groups borders: `.gl`, `.gt`, `.gr`, `.gb`
-- Promotes first 1–2 entries to large font (`.lg` class)
-- Overflow entries go in `.mr` span with `.tg` button
+- First entry gets large font (`.lg` class)
+- All entries wrapped in `.ct` div (overflow:hidden, gradient fade)
+- Stores decoded entries on `td._E` for hover card access
 
-### Lines 18–32: UI (IIFE)
+### Lines 17–31: UI (IIFE)
 - Reading toggle (漢/訓/音) — filters on/kun entries
 - Theme toggle (light/dark)
+- Hover card (`HC`): tap cell to show all entries in popup, tap outside to dismiss
 - Scale functions (`AS`, `RL`, `zr`)
 - Minimap (`UM`, `MN`, `SM`); viewport indicator `mw`, CSS `.mm`/`.mv`
 - Drag functions (`SD`, `MV`, `ED`); velocity `vx`/`vy`, frame ID `af`
