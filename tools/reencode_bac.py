@@ -161,7 +161,7 @@ def uniform_cum(n):
 M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
 M_KTYPE = [0, 531, 999]            # kanji_type: kanji/term
 M_ONKUN = [0, 628, 999]            # on_kun: kun/on
-M_TIER = [0, 163, 335, 526, 811, 932, 999]  # tier 1-6 (natural order)
+M_TIER = [0, 210, 417, 748, 910, 999]  # tier 1-5 (natural order)
 M_D1 = [0, 884, 999]              # d1: 0/1
 M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
 M_D2_1 = [0, 198, 997, 999]       # d2 when d1=1: -1/0/1
@@ -244,7 +244,7 @@ def main():
 
     kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
     H = 0x3042
-    tier_to_idx = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}
+    tier_to_idx = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4}
 
     # Count kana frequencies for single prob table
     kana_ct = Counter()
@@ -280,6 +280,10 @@ def main():
         above = min((p for p in squares if p >= t), default=squares[-1])
         cands.append([below] if below == above else [below, above])
     kana_deltas = [c[0] for c in cands]  # start with floors
+    # Ensure minimum delta=1 for any symbol with data (avoid zero-width)
+    for i in range(81):
+        if counts_82[i] > 0 and kana_deltas[i] == 0:
+            kana_deltas[i] = 1
     # Greedily upgrade to ceil where KL benefit/cost is best
     upgrades = []
     for i, (c, t) in enumerate(zip(cands, targets)):

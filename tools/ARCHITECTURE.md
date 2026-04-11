@@ -4,7 +4,7 @@
 
 A single-file HTML page (`index.html`) that displays a 44×46 grid of
 Japanese kanji organized by reading (pronunciation). All data is
-serialized inline as encoded strings. The page is ~35KB and has no
+serialized inline as encoded strings. The page is ~31KB and has no
 external dependencies.
 
 ## Grid Structure
@@ -43,8 +43,8 @@ extracts 85 bits. Char-to-digit: `(charCode+26)*58/59-57|0`
 The DD stream contains three sections, decoded sequentially from a
 single arithmetic-coded bitstream (no re-initialization between sections):
 
-**Section 1: KT (Kanji Table)** — 2,738 kanji as delta-encoded codepoints
-- 2,737 deltas, each: case selector `Z(535,927,997)` + uniform value
+**Section 1: KT (Kanji Table)** — 2,698 kanji as delta-encoded codepoints
+- 2,697 deltas, each: case selector `Z(535,927,997)` + uniform value
   - Case 0: `U(4)` + 1 → delta 1–4
   - Case 1: `U(16)` + 5 → delta 5–20
   - Case 2: `U(64)` + 21 → delta 21–84
@@ -67,10 +67,10 @@ single arithmetic-coded bitstream (no re-initialization between sections):
 1. **cell_present**: `Z(CP)` → 0=empty, 1=non-empty
 2. If non-empty, loop over kanji groups:
    a. **kanji_type**: `Z(KY)` → 0=kanji, 1=terminator
-      - If 0: `U(2738)` → index into KT table (all kanji are in KT)
+      - If 0: `U(2698)` → index into KT table (all kanji are in KT)
       - If 1: end of kanji list. If list empty → end of cell (return).
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
-   c. **tier_idx**: `Z(TI)+1` → tier 1–6 (natural order, no lookup string)
+   c. **tier_idx**: `Z(TI)+1` → tier 1–5 (natural order, no lookup string)
    d. **variant**: `d1=Z(D1)`, then `d2=Z(D2|d1)-1` (conditional table)
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
    f. **Extra reading**: loop `Z(EF)` → 0=done, 1=more char
@@ -93,7 +93,7 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 | CP (cell_present) | [555] | [0, 555, 999] | empty / non-empty |
 | KY (kanji_type) | [531] | [0, 531, 999] | kanji / terminator |
 | OK (on_kun) | [628] | [0, 628, 999] | kun / on |
-| TI (tier_idx) | [163, 335, 526, 811, 932] | [0, 163, 335, 526, 811, 932, 999] | tier 1–6 |
+| TI (tier_idx) | [210, 417, 748, 910] | [0, 210, 417, 748, 910, 999] | tier 1–5 |
 | D1 (d1 offset) | [884] | [0, 884, 999] | 0 / 1 |
 | D2\|d1=0 | [71, 886] | [0, 71, 886, 999] | -1 / 0 / 1 |
 | D2\|d1=1 | [198, 997] | [0, 198, 997, 999] | -1 / 0 / 1 |
@@ -126,13 +126,14 @@ impossible) without wasting bits on a joint 6-symbol table.
 
 ### Tier System
 
-6 tiers assigned by JMdict word frequency (max-per-word scoring):
-- Tier 6 (j6): score ≥ 98 (~8%) — core readings
-- Tier 5 (j5): score ≥ 93 (~14%) — very common
-- Tier 4 (j4): score ≥ 49 (~28%) — common
-- Tier 3 (j3): score ≥ 5 (~18%) — moderate
-- Tier 2 (j2): score ≥ 0.5 (~17%) — attested, low frequency
-- Tier 1 (j1): score = 0 (~15%) — rare / not in JMdict
+5 tiers assigned by JMdict word frequency (max-per-word scoring).
+Archaic/rarely-used kanji forms (JMdict oK/rK/uk/arch/obs tags) are
+excluded entirely.
+- Tier 5 (j5): score ≥ 98 (~9%) — core readings
+- Tier 4 (j4): score ≥ 93 (~16%) — very common
+- Tier 3 (j3): score ≥ 49 (~33%) — common
+- Tier 2 (j2): score ≥ 5 (~21%) — moderate
+- Tier 1 (j1): score < 5 (~21%) — attested, low frequency
 
 Encoded directly as `Z(TI)+1` where idx 0→tier 1, idx 1→tier 2, etc.
 (natural order; no lookup string needed with arithmetic coding).
@@ -141,11 +142,11 @@ Encoded directly as `Z(TI)+1` where idx 0→tier 1, idx 1→tier 2, etc.
 
 Each decoded entry is a JS array: `[kanji, reading, tier, okurigana, is_on]`
 
-Example: `['有', 'あ', 6, 'る', 0]` = kanji 有, reading あ, tier 6,
+Example: `['有', 'あ', 5, 'る', 0]` = kanji 有, reading あ, tier 5,
 okurigana る, kun-yomi. MP() renders this directly as a DOM span with
 ruby annotation — no string parsing needed.
 
-In the snapshot, stored as `"6有あ|る"` (tier prefix, `|` separates okurigana).
+In the snapshot, stored as `"5有あ|る"` (tier prefix, `|` separates okurigana).
 
 ## JS Code Structure (index.html)
 
@@ -233,7 +234,7 @@ Core scoring and data expansion libraries. Used by `rebuild_snapshot.py`.
 - KN (45 kana for grid layout) also stream-decoded, no ASCII mapping
 - H = 0x3042 (あ) used as kana base offset
 - No decoder re-initialization between sections
-- KT table has 2,738 entries (all kanji); no raw encoding path
+- KT table has 2,698 entries (all kanji); no raw encoding path
 - 24-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement
 - `U(n)` decodes uniform symbols using actual ranges (e.g. `U(20667)`

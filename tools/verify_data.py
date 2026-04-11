@@ -101,7 +101,7 @@ def decode_kt_from_decoder(dec):
     bit_counts = [4, 16, 64, 512]
     offsets = [1, 5, 21, 85]
 
-    for _ in range(2737):
+    for _ in range(2697):
         q = dec.decode_model(KD_CASE)
         cp += dec.decode_uniform(bit_counts[q]) + offsets[q]
         kt.append(chr(cp))
@@ -117,7 +117,7 @@ def decode_da_from_decoder(dec, kt):
     CP = [555]
     KY = [531]
     OK = [628]
-    TI = [163, 335, 526, 811, 932]
+    TI = [210, 417, 748, 910]
     D1 = [884]
     D2_0 = [71, 886]
     D2_1 = [198, 997]
