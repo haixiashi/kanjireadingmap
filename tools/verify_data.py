@@ -95,15 +95,13 @@ class ArithDecoder:
 
 def decode_kt_from_decoder(dec):
     """Decode KT from an existing arithmetic decoder."""
-    KD_CASE = [535, 927, 997]
+    KD_CASE = [1, 2, 7, 38, 138, 347, 660]
     kt = [chr(0x4E00)]
     cp = 0x4E00
-    bit_counts = [4, 16, 64, 512]
-    offsets = [1, 5, 21, 85]
 
     for _ in range(2697):
-        q = dec.decode_model(KD_CASE)
-        cp += dec.decode_uniform(bit_counts[q]) + offsets[q]
+        q = 256 >> dec.decode_model(KD_CASE)
+        cp += dec.decode_uniform(q) + q - 1
         kt.append(chr(cp))
     return kt
 

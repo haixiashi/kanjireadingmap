@@ -176,7 +176,7 @@ M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
 M_D2_1 = [0, 198, 997, 999]       # d2 when d1=1: -1/0/1
 M_EXTRA = [0, 794, 999]            # extra_rd_flag: no/yes
 M_OKURI = [0, 585, 999]            # okurigana_flag: done/more
-M_KD_CASE = [0, 535, 927, 997, 999]  # KD delta bucket: 2b/4b/6b/9b
+M_KD_CASE = [0, 1, 2, 7, 38, 138, 347, 660, 999]  # KD delta bucket: 8 doubling cases (flipped)
 
 
 def encode_kd(kt):
@@ -325,23 +325,19 @@ def main():
         enc.encode_uniform(val, n)
         ops.append(('U', n, val))
 
-    # Section 1: KT deltas
+    # Section 1: KT deltas (8 doubling cases, flipped: q=256>>z)
     prev = ord(kt[0])  # 0x4E00
     for i in range(1, len(kt)):
         delta = ord(kt[i]) - prev
         prev = ord(kt[i])
-        if delta <= 4:
-            em(M_KD_CASE, 0)
-            eu(delta - 1, 4)
-        elif delta <= 20:
-            em(M_KD_CASE, 1)
-            eu(delta - 5, 16)
-        elif delta <= 84:
-            em(M_KD_CASE, 2)
-            eu(delta - 21, 64)
-        else:
-            em(M_KD_CASE, 3)
-            eu(delta - 85, 512)
+        # Find smallest q that covers delta: q >= (delta+1)/2, q is power of 2
+        # z=7 is smallest q (q=2), z=0 is largest (q=256)
+        for z in range(7, -1, -1):
+            q = 256 >> z
+            if delta >= q - 1 and delta <= 2 * q - 2:
+                em(M_KD_CASE, z)
+                eu(delta - (q - 1), q)
+                break
 
     # Section 2: Kana prob table (82 symbols, k² deltas)
     for k in kana_k_values:
