@@ -95,7 +95,8 @@ class ArithDecoder:
 
 def decode_kt_from_decoder(dec):
     """Decode KT from an existing arithmetic decoder."""
-    KD_CASE = [1, 2, 7, 38, 138, 347, 660]
+    from reencode_bac import M_KD_CASE
+    KD_CASE = M_KD_CASE[1:-1]
     kt = [chr(0x4E00)]
     cp = 0x4E00
 
@@ -111,18 +112,20 @@ def decode_da_from_decoder(dec, kt):
     FC = chr
     H = 0x3042
 
-    # Probability tables (999-scale, inner values only)
-    CP = [571]
-    KT0 = [[470],[772],[846],[916],[989]]  # by pt (1-5)
-    KT1 = [262]
-    OK = [588]
-    TDP = [None, [], [575], [603, 866], [436, 880, 943], [259, 525, 829, 939]]
-    D1K = [977]
-    D1O = [725]
-    D2_0 = [78, 897]
-    D2_1 = [202, 997]
-    EF = [814]
-    OF = [580]
+    # Probability tables — imported from encoder (single source of truth)
+    from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN, M_TDP,
+                               M_D1K, M_D1O, M_D2_0, M_D2_1, M_EXTRA, M_OKURI)
+    CP = M_CELL[1:-1]
+    KT0 = [m[1:-1] for m in M_KT0]
+    KT1 = M_KT1[1:-1]
+    OK = M_ONKUN[1:-1]
+    TDP = [None] + [m[1:-1] for m in M_TDP[1:]]
+    D1K = M_D1K[1:-1]
+    D1O = M_D1O[1:-1]
+    D2_0 = M_D2_0[1:-1]
+    D2_1 = M_D2_1[1:-1]
+    EF = M_EXTRA[1:-1]
+    OF = M_OKURI[1:-1]
 
     def Z(c):
         return dec.decode_model(c)
