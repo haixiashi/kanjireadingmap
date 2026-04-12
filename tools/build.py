@@ -124,10 +124,13 @@ def main():
         '</html>\n'
     )
 
-    with open(os.path.join(ROOT_DIR, 'index.html'), 'w') as f:
+    out_path = os.path.join(ROOT_DIR, 'index.html')
+    with open(out_path, 'w') as f:
         f.write(out)
 
-    print(f"Output: {len(out)} bytes", file=sys.stderr)
+    file_size = os.path.getsize(out_path)
+    print(f"Output: {file_size} bytes", file=sys.stderr)
+
 
 
 if __name__ == '__main__':
