@@ -29,7 +29,6 @@ def main():
         html = f.read()
 
     dd = re.search(r'DD="([^"]*)"', html).group(1)
-    style = re.search(r'<style>(.*?)</style>', html, re.DOTALL).group(1)
 
     # Gzip the JS payload
     gz = gzip.compress(js_payload.encode('utf-8'), compresslevel=9)
@@ -52,19 +51,20 @@ def main():
     bootstrap = (
         'DD="' + dd + '";\n'
         'GZ="' + gz_b93 + '";\n'
-        # Decode base-93 to Uint8Array
+        # Decode base-93 to Uint8Array, truncated to exact gzip length
         '(async()=>{'
         'let b="",v=0n;'
         'GZ.replace(/./g,(c,i)=>{'
         'v=v*93n+BigInt((c.charCodeAt(0)+26)*58/59-57|0);'
         '++i%13||(b+=v.toString(2).padStart(85,0),v=0n)});'
-        'let a=new Uint8Array(b.length>>3);'
+        'let a=new Uint8Array(' + str(len(gz)) + ');'
         'for(let i=0;i<a.length;i++){'
         'let v=0;for(let j=0;j<8;j++)v=v*2|+b[i*8+j];a[i]=v}'
         # Decompress via DecompressionStream
         'let s=new Blob([a]).stream().pipeThrough(new DecompressionStream("gzip"));'
-        'let r=new Response(s);'
-        'let t=await r.text();'
+        'let d=new TextDecoderStream(),t="";s.pipeTo(d.writable);'
+        'let R=d.readable.getReader();'
+        'for(;;){let{done:n,value:c}=await R.read();if(n)break;t+=c}'
         'eval(t)'
         '})()'
     )
@@ -77,7 +77,6 @@ def main():
         '<meta charset="UTF-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">\n'
         '<title>漢字読み表</title>\n'
-        '<style>' + style + '</style>\n'
         '</head>\n'
         '<body>\n'
         '<div class="wp"><table id="kt"><tbody id="tb"></tbody></table></div>\n'
