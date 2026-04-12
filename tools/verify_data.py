@@ -208,7 +208,7 @@ def main():
     with open(INDEX_PATH, 'r') as f:
         src = f.read()
 
-    dd = re.search(r'DD="([^"]*)"', src).group(1)
+    dd = re.search(r'D="([^"]*)"', src).group(1)
     # kana_str is decoded from the DD stream
 
     # Decode everything from single stream

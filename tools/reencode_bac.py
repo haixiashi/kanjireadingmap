@@ -450,7 +450,7 @@ def main():
     if errors == 0:
         combined_str = encode_b93(bits)
         print(f"Combined: {len(combined_str)} chars", file=sys.stderr)
-        old_dd = re.search(r'DD="([^"]*)"', src)
+        old_dd = re.search(r'D="([^"]*)"', src)
         old_total = len(old_dd.group(1)) if old_dd else 0
         print(f"Old DD: {old_total} chars, saving: {old_total - len(combined_str)}", file=sys.stderr)
     else:
