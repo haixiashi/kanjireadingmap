@@ -160,10 +160,10 @@ In the snapshot, stored as `"5有あ|る"` (tier prefix, `|` separates okurigana
 ## JS Code Structure
 
 The JS is split into two parts:
-- **Bootstrap** (inline in index.html): sets `DD` (arithmetic-coded data)
-  and `GZ` (gzip-compressed CSS+JS as base-93), decodes base-93 to bytes
-  (truncated to exact gzip length), decompresses via `DecompressionStream`,
-  and `eval()`s the result.
+- **Bootstrap** (inline in index.html): defines `B93` (shared base-93
+  decoder used by both bootstrap and DC decoder), sets `DD` (arithmetic-coded
+  data) and `GZ` (gzip-compressed CSS+JS as base-93), decodes `GZ` via
+  `B93`, decompresses via `DecompressionStream`, and `eval()`s the result.
 - **Payload** (`tools/kanjimap.js`): CSS injection + application code,
   gzipped and stored as `GZ` in the HTML. Edit this file and run
   `python3 tools/build.py` to rebuild index.html.
