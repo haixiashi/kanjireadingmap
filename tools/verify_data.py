@@ -117,7 +117,8 @@ def decode_da_from_decoder(dec, kt):
     CP = [555]
     KY = [531]
     OK = [628]
-    TI = [210, 417, 748, 910]
+    TI = [77, 201, 558, 780]
+    TD = [637, 931, 990, 998]
     D1 = [884]
     D2_0 = [71, 886]
     D2_1 = [198, 997]
@@ -161,6 +162,7 @@ def decode_da_from_decoder(dec, kt):
                 continue
 
             entries = []
+            prev_tier = None
             while True:
                 kl = []
                 while not Z(KY):
@@ -169,7 +171,12 @@ def decode_da_from_decoder(dec, kt):
                     break
 
                 on = Z(OK)
-                tr = str(Z(TI) + 1)
+                if prev_tier is None:
+                    tier = Z(TI) + 1
+                else:
+                    tier = prev_tier - Z(TD)
+                prev_tier = tier
+                tr = str(tier)
                 d1 = Z(D1)
                 d2 = Z(D2_1 if d1 else D2_0) - 1
                 ko = on * 96

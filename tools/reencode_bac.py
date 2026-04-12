@@ -161,7 +161,8 @@ def uniform_cum(n):
 M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
 M_KTYPE = [0, 531, 999]            # kanji_type: kanji/term
 M_ONKUN = [0, 628, 999]            # on_kun: kun/on
-M_TIER = [0, 210, 417, 748, 910, 999]  # tier 1-5 (natural order)
+M_TIER = [0, 77, 201, 558, 780, 999]   # first tier in cell (absolute)
+M_TDELTA = [0, 637, 931, 990, 998, 999]  # tier delta (0-4, prev-curr)
 M_D1 = [0, 884, 999]              # d1: 0/1
 M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
 M_D2_1 = [0, 198, 997, 999]       # d2 when d1=1: -1/0/1
@@ -373,6 +374,7 @@ def main():
                 else:
                     groups.append((key, [kanji]))
 
+            prev_tier = None
             for (tier, furigana, okurigana, is_on), kanji_list in groups:
                 encodable = [k for k in kanji_list if k in kt_index]
                 if not encodable:
@@ -384,7 +386,11 @@ def main():
                 em(M_KTYPE, 1)  # terminator
 
                 em(M_ONKUN, 1 if is_on else 0)
-                em(M_TIER, tier_to_idx[tier])
+                if prev_tier is None:
+                    em(M_TIER, tier_to_idx[tier])
+                else:
+                    em(M_TDELTA, prev_tier - tier)
+                prev_tier = tier
 
                 ko = 96 if is_on else 0
                 prefix = cell_kana
