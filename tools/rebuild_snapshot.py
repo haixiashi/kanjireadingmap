@@ -141,8 +141,8 @@ def main():
                 new_entries.append(e)
                 continue
 
-            # Sort: lowest priority number first, then highest score
-            candidates.sort(key=lambda c: (c[0], -c[1]))
+            # Sort: suffixes always last, then highest score, then prefer okurigana
+            candidates.sort(key=lambda c: (1 if c[0]==2 else 0, -c[1], c[0]))
             best_pri, best_score, best_raw, best_rtype = candidates[0]
 
             candidate, _ = make_entry(tier_char, kanji, best_raw, best_rtype)
