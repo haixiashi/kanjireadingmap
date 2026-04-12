@@ -159,11 +159,13 @@ def uniform_cum(n):
 
 # Non-uniform models (enable one at a time)
 M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
-M_KTYPE = [0, 531, 999]            # kanji_type: kanji/term
+M_KT0 = [0, 819, 999]             # kanji_type first in group: kanji/term
+M_KT1 = [0, 271, 999]             # kanji_type subsequent: kanji/term
 M_ONKUN = [0, 628, 999]            # on_kun: kun/on
 M_TIER = [0, 77, 201, 558, 780, 999]   # first tier in cell (absolute)
 M_TDELTA = [0, 637, 931, 990, 998, 999]  # tier delta (0-4, prev-curr)
-M_D1 = [0, 884, 999]              # d1: 0/1
+M_D1K = [0, 979, 999]             # d1 kun: 0/1
+M_D1O = [0, 719, 999]             # d1 on: 0/1
 M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
 M_D2_1 = [0, 198, 997, 999]       # d2 when d1=1: -1/0/1
 M_EXTRA = [0, 794, 999]            # extra_rd_flag: no/yes
@@ -380,10 +382,10 @@ def main():
                 if not encodable:
                     continue
 
-                for kc in encodable:
-                    em(M_KTYPE, 0)
+                for ki, kc in enumerate(encodable):
+                    em(M_KT1 if ki else M_KT0, 0)
                     eu(kt_index[kc], len(kt))
-                em(M_KTYPE, 1)  # terminator
+                em(M_KT1, 1)  # terminator
 
                 em(M_ONKUN, 1 if is_on else 0)
                 if prev_tier is None:
@@ -400,7 +402,7 @@ def main():
                 d2 = act[1] - exp[1] if len(act) > 1 and len(exp) > 1 else 0
                 if len(prefix) <= 1:
                     d2 = 0
-                em(M_D1, d1)
+                em(M_D1O if is_on else M_D1K, d1)
                 em(M_D2_1 if d1 else M_D2_0, d2 + 1)  # d2 is -1/0/1, encode as 0/1/2
 
                 extra = furigana[len(prefix):]
@@ -417,7 +419,7 @@ def main():
                         em(M_KANA_ALL, code)
                     em(M_OKURI, 0)
 
-            em(M_KTYPE, 1)  # end of cell
+            em(M_KT0, 1)  # end of cell (first position = no more groups)
 
     bits = enc.finish()
     print(f"Ops: {len(ops)}, bits: {len(bits)}", file=sys.stderr)
