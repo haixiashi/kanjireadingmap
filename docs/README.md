@@ -2,7 +2,7 @@
 
 A single-file HTML page (`index.html`) that displays a 44×46 grid of
 Japanese kanji organized by reading (pronunciation). All data is
-serialized inline as encoded strings. The page is ~31KB and has no
+serialized inline as encoded strings. The page is ~30KB and has no
 external dependencies.
 
 ## Grid Structure
@@ -68,7 +68,8 @@ single arithmetic-coded bitstream (no re-initialization between sections):
       - If 0: `U(2698)` → index into KT table (all kanji are in KT)
       - If 1: end of kanji list. If list empty → end of cell (return).
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
-   c. **tier_idx**: `Z(TI)+1` → tier 1–5 (natural order, no lookup string)
+   c. **tier**: first group in cell: `Z(TI)+1` (absolute, tier 1–5);
+      subsequent groups: `prev_tier - Z(TD)` (delta-coded, 0–4)
    d. **variant**: `d1=Z(D1)`, then `d2=Z(D2|d1)-1` (conditional table)
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
    f. **Extra reading**: loop `Z(EF)` → 0=done, 1=more char
@@ -91,7 +92,8 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 | CP (cell_present) | [555] | [0, 555, 999] | empty / non-empty |
 | KY (kanji_type) | [531] | [0, 531, 999] | kanji / terminator |
 | OK (on_kun) | [628] | [0, 628, 999] | kun / on |
-| TI (tier_idx) | [210, 417, 748, 910] | [0, 210, 417, 748, 910, 999] | tier 1–5 |
+| TI (first tier) | [77, 201, 558, 780] | [0, 77, 201, 558, 780, 999] | tier 1–5 (absolute) |
+| TD (tier delta) | [637, 931, 990, 998] | [0, 637, 931, 990, 998, 999] | delta 0–4 (prev−curr) |
 | D1 (d1 offset) | [884] | [0, 884, 999] | 0 / 1 |
 | D2\|d1=0 | [71, 886] | [0, 71, 886, 999] | -1 / 0 / 1 |
 | D2\|d1=1 | [198, 997] | [0, 198, 997, 999] | -1 / 0 / 1 |
@@ -133,8 +135,10 @@ excluded entirely.
 - Tier 2 (j2): score ≥ 5 (~21%) — moderate
 - Tier 1 (j1): score < 5 (~21%) — attested, low frequency
 
-Encoded directly as `Z(TI)+1` where idx 0→tier 1, idx 1→tier 2, etc.
-(natural order; no lookup string needed with arithmetic coding).
+Within each cell, tiers are non-increasing (sorted by score descending).
+First group encoded absolute: `Z(TI)+1`. Subsequent groups delta-coded:
+`prev_tier - Z(TD)`. Delta is 64% zero (same tier), 29% one, so the
+delta model compresses much better than flat absolute encoding.
 
 ## Entry Format
 
@@ -195,7 +199,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ## Known Constraints
 
-- All data is in a single arithmetic-coded stream DD with 10 hardcoded
+- All data is in a single arithmetic-coded stream DD with 11 hardcoded
   probability models (999-scale) plus 1 stream-decoded kana model
   (82 symbols in codepoint order, unused get minimal probability)
 - KN (45 kana for grid layout) also stream-decoded, no ASCII mapping
