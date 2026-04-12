@@ -53,7 +53,7 @@ def main():
         'GZ="' + gz_b93 + '";\n'
         # Shared base-93 decoder (used by bootstrap and eval'd DC decoder)
         'B93=s=>{let b="",v=0n;'
-        's.replace(/./g,(c,i)=>{'
+        '[...s].map((c,i)=>{'
         'v=v*93n+BigInt((c.charCodeAt(0)+26)*58/59-57|0);'
         '++i%13||(b+=v.toString(2).padStart(85,0),v=0n)});'
         'return b};\n'
