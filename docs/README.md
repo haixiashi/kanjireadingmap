@@ -70,8 +70,8 @@ single arithmetic-coded bitstream (no re-initialization between sections):
       - Subsequent: `Z(KT1)` → 0=kanji (27%), 1=end of group
       - If kanji: `U(2698)` → index into KT table
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
-   c. **tier**: `pt` starts at 5; `pt -= Z(TD0|TD)` (delta-coded)
-      First group uses `Z(TD0)`, subsequent `Z(TD)`
+   c. **tier**: `pt` starts at 5; if `pt>1`: `pt -= Z(...TP[pt-1])`
+      Per-pt probability tables tuned to each tier level's distribution
    d. **variant**: `d1=Z(D1K|D1O)` (conditional on on/kun), then
       `d2=Z(D2|d1)-1` (conditional on d1)
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
@@ -96,8 +96,7 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 | KT0 (kanji_type first) | KP[pt-1] | varies by pt | kanji / end-of-cell |
 | KT1 (kanji_type subseq) | [271] | [0, 271, 999] | kanji / end-of-group |
 | OK (on_kun) | [628] | [0, 628, 999] | kun / on |
-| TD0 (first tier delta) | [218, 440, 797, 921] | [0, 218, 440, 797, 921, 999] | delta 0–4 from 5 |
-| TD (tier delta) | [637, 931, 990, 998] | [0, 637, 931, 990, 998, 999] | delta 0–4 (prev−curr) |
+| TP (tier delta, per-pt) | TP[pt-1] | varies by pt | delta from pt (pt=5..2) |
 | D1K (d1 kun) | [979] | [0, 979, 999] | 0 / 1 |
 | D1O (d1 on) | [719] | [0, 719, 999] | 0 / 1 |
 | D2\|d1=0 | [71, 886] | [0, 71, 886, 999] | -1 / 0 / 1 |
@@ -141,11 +140,11 @@ excluded entirely.
 - Tier 1 (j1): score < 5 (~21%) — attested, low frequency
 
 Within each cell, tiers are non-increasing (sorted by score descending).
-Encoded as deltas from `pt` (starts at 5): `pt -= Z(TD0|TD)`.
-First group uses `TD0`, subsequent groups use `TD`. The KT0 model
-(more groups vs end-of-cell) is also conditioned on `pt`, exploiting
-the fact that high-pt cells almost always have more groups (99% at pt=5)
-while low-pt cells are close to 50/50.
+Encoded as deltas from `pt` (starts at 5): `pt -= Z(...TP[pt-1])`.
+Each pt level has its own probability table, exploiting the fact that
+higher tiers have flatter delta distributions while lower tiers are
+heavily skewed toward delta=0. The KT0 model (more groups vs
+end-of-cell) is also conditioned on `pt` (99% more at pt=5, 47% at pt=1).
 
 ## Entry Format
 
@@ -206,7 +205,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ## Known Constraints
 
-- All data is in a single arithmetic-coded stream DD with 13 hardcoded
+- All data is in a single arithmetic-coded stream DD with multiple hardcoded
   probability models (999-scale) plus 1 stream-decoded kana model
   (82 symbols in codepoint order, unused get minimal probability)
 - KN (45 kana for grid layout) also stream-decoded, no ASCII mapping
