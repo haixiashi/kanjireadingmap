@@ -51,12 +51,15 @@ def main():
     bootstrap = (
         'DD="' + dd + '";\n'
         'GZ="' + gz_b93 + '";\n'
-        # Decode base-93 to Uint8Array, truncated to exact gzip length
-        '(async()=>{'
-        'let b="",v=0n;'
-        'GZ.replace(/./g,(c,i)=>{'
+        # Shared base-93 decoder (used by bootstrap and eval'd DC decoder)
+        'B93=s=>{let b="",v=0n;'
+        's.replace(/./g,(c,i)=>{'
         'v=v*93n+BigInt((c.charCodeAt(0)+26)*58/59-57|0);'
         '++i%13||(b+=v.toString(2).padStart(85,0),v=0n)});'
+        'return b};\n'
+        # Decode GZ from base-93, truncated to exact gzip length
+        '(async()=>{'
+        'let b=B93(GZ);'
         'let a=new Uint8Array(' + str(len(gz)) + ');'
         'for(let i=0;i<a.length;i++){'
         'let v=0;for(let j=0;j<8;j++)v=v*2|+b[i*8+j];a[i]=v}'
