@@ -42,11 +42,10 @@ The DD stream contains three sections, decoded sequentially from a
 single arithmetic-coded bitstream (no re-initialization between sections):
 
 **Section 1: KT (Kanji Table)** — 2,698 kanji as delta-encoded codepoints
-- 2,697 deltas, each: case selector `Z(535,927,997)` + uniform value
-  - Case 0: `U(4)` + 1 → delta 1–4
-  - Case 1: `U(16)` + 5 → delta 5–20
-  - Case 2: `U(64)` + 21 → delta 21–84
-  - Case 3: `U(512)` + 85 → delta 85–596
+- 2,697 deltas using Exponential-Golomb variant:
+  `q = 256 >> Z(1,2,7,38,138,347,660); delta = U(q) + q - 1`
+  8 doubling cases: q=2 (delta 1–2) through q=256 (delta 255–510)
+  Arithmetic-coded case selector replaces fixed-length prefix
 - First char is `一` (U+4E00). Each subsequent = previous + delta.
 
 **Section 2: Kana probability table** (82 symbols in codepoint order)
@@ -91,7 +90,7 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 
 | Name | JS Array | Full cumulative | Symbols |
 |------|----------|-----------------|---------|
-| KD_CASE (delta bucket) | [535, 927, 997] | [0, 535, 927, 997, 999] | 4 / 16 / 64 / 512 |
+| KD_CASE (delta bucket) | [1,2,7,38,138,347,660] | [0,1,2,7,38,138,347,660,999] | 8 exp-Golomb cases |
 | CP (cell_present) | [555] | [0, 555, 999] | empty / non-empty |
 | KT0 (kanji_type first) | KP[pt-1] | varies by pt | kanji / end-of-cell |
 | KT1 (kanji_type subseq) | [271] | [0, 271, 999] | kanji / end-of-group |
