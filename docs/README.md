@@ -70,7 +70,7 @@ single arithmetic-coded bitstream (no re-initialization between sections):
       - Subsequent: `Z(KT1)` → 0=kanji (27%), 1=end of group
       - If kanji: `U(2698)` → index into KT table
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
-   c. **tier**: `pt` starts at 5; if `pt>1`: `pt -= Z(...TP[pt-1])`
+   c. **tier**: `pt` starts at 5; if `pt>1`: `pt -= Z(...TP[pt-2])`
       Per-pt probability tables tuned to each tier level's distribution
    d. **variant**: `d1=Z(D1K|D1O)` (conditional on on/kun), then
       `d2=Z(D2|d1)-1` (conditional on d1)
@@ -140,7 +140,7 @@ excluded entirely.
 - Tier 1 (j1): score < 5 (~21%) — attested, low frequency
 
 Within each cell, tiers are non-increasing (sorted by score descending).
-Encoded as deltas from `pt` (starts at 5): `pt -= Z(...TP[pt-1])`.
+Encoded as deltas from `pt` (starts at 5): `pt -= Z(...TP[pt-2])`.
 Each pt level has its own probability table, exploiting the fact that
 higher tiers have flatter delta distributions while lower tiers are
 heavily skewed toward delta=0. The KT0 model (more groups vs
