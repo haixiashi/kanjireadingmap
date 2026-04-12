@@ -87,8 +87,11 @@ def main():
         snap = json.load(f)
 
     # --- Phase 1: Fix reading choices ---
-    # For each entry, check if a higher-scoring reading from KANJIDIC2
-    # exists for the same kanji in the same cell.
+    # For each entry, pick the best KANJIDIC2 reading in the same cell.
+    # Priority: 1) non-suffix okurigana form (e.g. たか.い)
+    #           2) non-suffix bare form (e.g. たか)
+    #           3) suffix form (e.g. -だか)
+    # Within each priority level, pick the highest scoring reading.
     upgraded = 0
     for cell, entries in snap.items():
         row, col = cell.split('+', 1)
@@ -96,16 +99,13 @@ def main():
         for e in entries:
             tier_char = e[0]
             kanji = e[1]
-            current_reading = e[2:].replace('|', '')
-            current_score = get_reading_freq(kanji, current_reading, freq_map)
 
             if kanji not in kanjidic_readings:
                 new_entries.append(e)
                 continue
 
-            # Find best reading for this kanji in this cell
-            best_entry = e
-            best_score = current_score
+            # Collect all readings for this kanji in this cell
+            candidates = []  # (priority, score, raw_reading, r_type)
             for raw_reading, r_type in kanjidic_readings[kanji]:
                 clean = raw_reading.strip('-')
                 if not clean:
@@ -122,18 +122,35 @@ def main():
                 if check_row != row or check_col != col:
                     continue
 
-                # Same cell — check score
                 full_hira = kata_to_hira(clean.replace('.', ''))
-                alt_score = get_reading_freq(kanji, full_hira, freq_map)
-                if alt_score > best_score:
-                    candidate, _ = make_entry(tier_char, kanji, raw_reading, r_type)
-                    if candidate:
-                        best_entry = candidate
-                        best_score = alt_score
+                score = get_reading_freq(kanji, full_hira, freq_map)
 
-            if best_entry != e:
+                is_suffix = raw_reading.startswith('-')
+                has_okuri = '.' in raw_reading
+
+                if is_suffix:
+                    priority = 2  # lowest
+                elif has_okuri:
+                    priority = 0  # highest
+                else:
+                    priority = 1  # middle
+
+                candidates.append((priority, score, raw_reading, r_type))
+
+            if not candidates:
+                new_entries.append(e)
+                continue
+
+            # Sort: lowest priority number first, then highest score
+            candidates.sort(key=lambda c: (c[0], -c[1]))
+            best_pri, best_score, best_raw, best_rtype = candidates[0]
+
+            candidate, _ = make_entry(tier_char, kanji, best_raw, best_rtype)
+            if candidate and candidate != e:
                 upgraded += 1
-            new_entries.append(best_entry)
+                new_entries.append(candidate)
+            else:
+                new_entries.append(e)
         snap[cell] = new_entries
 
     print(f"Phase 1: Upgraded {upgraded} entries to higher-scoring readings")
