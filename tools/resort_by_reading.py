@@ -213,13 +213,14 @@ def parse_jmdict(path, kanji_readings):
                 if restrs and keb not in restrs:
                     continue
 
-                # Use reading priority if available; only fall back to kanji
-                # priority when reading also has its own tags (avoids
-                # archaic readings inheriting the kanji form's high score)
-                if r_pri:
-                    all_pri = list(set(k_pri + r_pri))
+                # Use this keb's own ke_pri tags as primary signal.
+                # Combine with re_pri only if keb has its own ke_pri
+                # (prevents rare alternate kebs like 詩 inheriting
+                # the reading's priority from the primary keb 歌).
+                if k_pri:
+                    all_pri = list(set(k_pri + r_pri)) if r_pri else k_pri
                 else:
-                    all_pri = k_pri if not any(rp for _, rp, _ in r_eles) else []
+                    all_pri = []
                 score = compute_entry_score(all_pri)
 
                 # Convert reading to hiragana
