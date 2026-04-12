@@ -69,8 +69,8 @@ single arithmetic-coded bitstream (no re-initialization between sections):
       - Subsequent: `Z(KT1)` → 0=kanji (27%), 1=end of group
       - If kanji: `U(2698)` → index into KT table
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
-   c. **tier**: `pt` starts at 5; if `pt>1`: `pt -= Z(...TP[pt-2])`
-      Per-pt probability tables tuned to each tier level's distribution
+   c. **tier**: `pt` starts at 5; `pt -= Z(...TP[pt-1])`
+      Per-pt probability tables (TP[0] is empty for pt=1, no-op)
    d. **variant**: `d1=Z(D1K|D1O)` (conditional on on/kun), then
       `d2=Z(D2|d1)-1` (conditional on d1)
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
@@ -121,7 +121,8 @@ is also decoded from the DD stream via `U(82)+H`.
 Offsets `d1` (first char, 0 or 1) and `d2` (rest, -1/0/1) are applied
 to the cell's kana prefix for readings with dakuten/handakuten.
 They are encoded as two separate fields with conditional probability:
-1. `d1 = Z(884)` — 0 (88.4%) or 1 (11.6%)
+1. `d1 = Z(D1K|D1O)` — conditional on on/kun: kun `Z(979)` (2% d1=1),
+   on `Z(719)` (28% d1=1)
 2. `d2 = Z(D2|d1) - 1` — uses `Z(71,886)` when d1=0, `Z(198,997)` when d1=1
 
 The conditional tables capture the correlation (d1=1, d2=1 is nearly
@@ -139,7 +140,7 @@ excluded entirely.
 - Tier 1 (j1): score < 5 (~21%) — attested, low frequency
 
 Within each cell, tiers are non-increasing (sorted by score descending).
-Encoded as deltas from `pt` (starts at 5): `pt -= Z(...TP[pt-2])`.
+Encoded as deltas from `pt` (starts at 5): `pt -= Z(...TP[pt-1])`.
 Each pt level has its own probability table, exploiting the fact that
 higher tiers have flatter delta distributions while lower tiers are
 heavily skewed toward delta=0. The KT0 model (more groups vs
@@ -169,9 +170,11 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 - `A=(o,...a)=>o.addEventListener(...a)` — addEventListener wrapper
 - `l=o=>o.classList` — classList accessor
 - `cn=(o,c)=>{o.className=c}` — className setter
+- `tc=(o,v)=>{o.textContent=v}` — textContent setter
 - `D=document`, `B=D.body`, `$=s=>D.createElement(s)`
 - `Q=s=>D.querySelectorAll(s)`, `L`=fromCharCode, `N`=charCodeAt
-- `H`=12354 (0x3042)
+- `H`=12354 (0x3042), `pn`=performance.now
+- `ca`=cancelAnimationFrame, `mn`=Math.min, `ma`=Math.max
 
 ### Line 14: DC() decoder IIFE
 - Base-93 → bit string (BigInt, 13 chars → 85 bits)
@@ -188,7 +191,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 - Adds CSS classes: `.e` (empty), `.fc` (first-col)
 - Groups borders: `.gl`, `.gt`, `.gr`, `.gb`
 - First entry gets large font (`.lg` class)
-- All entries wrapped in `.ct` div (overflow:hidden, gradient fade)
+- All entries wrapped in `.ct` div (overflow:hidden)
 - Stores decoded entries on `td._E` for hover card access
 
 ### Lines 17–31: UI (IIFE)
@@ -276,8 +279,8 @@ Usage: `PYTHONPATH=tools python3 tools/rebuild_snapshot.py`
 Encodes snapshot.json into the DD string using binary arithmetic coding
 with probability models. Outputs a base-93 string (2:13 block code).
 
-The encoder uses 24-bit precision and 10 hardcoded + 1 stream-decoded
-probability models. The kana model covers all 82 codepoints in order
+The encoder uses 24-bit precision with multiple hardcoded and conditional
+probability models (see table above) plus 1 stream-decoded kana model. The kana model covers all 82 codepoints in order
 (no lookup table needed). KN (grid kana mapping) is also stream-encoded.
 
 Includes a built-in `ArithDecoder` that verifies the round-trip before
