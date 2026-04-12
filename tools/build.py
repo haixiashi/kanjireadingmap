@@ -61,14 +61,11 @@ def main():
         '(async()=>{'
         'let b=B93(GZ);'
         'let a=new Uint8Array(' + str(len(gz)) + ');'
-        'for(let i=0;i<a.length;i++){'
-        'let v=0;for(let j=0;j<8;j++)v=v*2|+b[i*8+j];a[i]=v}'
+        'for(let i=0;i<' + str(len(gz)) + ';i++)'
+        'a[i]=parseInt(b.substr(i*8,8),2);'
         # Decompress via DecompressionStream
         'let s=new Blob([a]).stream().pipeThrough(new DecompressionStream("gzip"));'
-        'let d=new TextDecoderStream(),t="";s.pipeTo(d.writable);'
-        'let R=d.readable.getReader();'
-        'for(;;){let{done:n,value:c}=await R.read();if(n)break;t+=c}'
-        'eval(t)'
+        'eval(await new Response(s).text())'
         '})()'
     )
 
