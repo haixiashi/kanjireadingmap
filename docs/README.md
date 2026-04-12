@@ -64,13 +64,14 @@ single arithmetic-coded bitstream (no re-initialization between sections):
 
 1. **cell_present**: `Z(CP)` → 0=empty, 1=non-empty
 2. If non-empty, loop over kanji groups:
-   a. **kanji_type**: position-dependent model
-      - First in group: `Z(KT0)` → 0=kanji (82%), 1=end of cell
+   a. **kanji_type**: position-dependent model, KT0 conditioned on `pt`
+      - First in group: `Z(KP[pt-1])` → 0=kanji, 1=end of cell
+        (pt=5: 99.3% kanji, pt=1: 47%)
       - Subsequent: `Z(KT1)` → 0=kanji (27%), 1=end of group
       - If kanji: `U(2698)` → index into KT table
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
-   c. **tier**: first group in cell: `Z(TI)+1` (absolute, tier 1–5);
-      subsequent groups: `prev_tier - Z(TD)` (delta-coded, 0–4)
+   c. **tier**: `pt` starts at 5; `pt -= Z(TD0|TD)` (delta-coded)
+      First group uses `Z(TD0)`, subsequent `Z(TD)`
    d. **variant**: `d1=Z(D1K|D1O)` (conditional on on/kun), then
       `d2=Z(D2|d1)-1` (conditional on d1)
    e. **Furigana prefix**: reconstructed from cell position + on/kun + variant
@@ -92,10 +93,10 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 |------|----------|-----------------|---------|
 | KD_CASE (delta bucket) | [535, 927, 997] | [0, 535, 927, 997, 999] | 4 / 16 / 64 / 512 |
 | CP (cell_present) | [555] | [0, 555, 999] | empty / non-empty |
-| KT0 (kanji_type first) | [819] | [0, 819, 999] | kanji / end-of-cell |
+| KT0 (kanji_type first) | KP[pt-1] | varies by pt | kanji / end-of-cell |
 | KT1 (kanji_type subseq) | [271] | [0, 271, 999] | kanji / end-of-group |
 | OK (on_kun) | [628] | [0, 628, 999] | kun / on |
-| TI (first tier) | [77, 201, 558, 780] | [0, 77, 201, 558, 780, 999] | tier 1–5 (absolute) |
+| TD0 (first tier delta) | [218, 440, 797, 921] | [0, 218, 440, 797, 921, 999] | delta 0–4 from 5 |
 | TD (tier delta) | [637, 931, 990, 998] | [0, 637, 931, 990, 998, 999] | delta 0–4 (prev−curr) |
 | D1K (d1 kun) | [979] | [0, 979, 999] | 0 / 1 |
 | D1O (d1 on) | [719] | [0, 719, 999] | 0 / 1 |
@@ -140,9 +141,11 @@ excluded entirely.
 - Tier 1 (j1): score < 5 (~21%) — attested, low frequency
 
 Within each cell, tiers are non-increasing (sorted by score descending).
-First group encoded absolute: `Z(TI)+1`. Subsequent groups delta-coded:
-`prev_tier - Z(TD)`. Delta is 64% zero (same tier), 29% one, so the
-delta model compresses much better than flat absolute encoding.
+Encoded as deltas from `pt` (starts at 5): `pt -= Z(TD0|TD)`.
+First group uses `TD0`, subsequent groups use `TD`. The KT0 model
+(more groups vs end-of-cell) is also conditioned on `pt`, exploiting
+the fact that high-pt cells almost always have more groups (99% at pt=5)
+while low-pt cells are close to 50/50.
 
 ## Entry Format
 
