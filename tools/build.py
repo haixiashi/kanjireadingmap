@@ -79,7 +79,6 @@ def main():
         '<title>漢字読み表</title>\n'
         '</head>\n'
         '<body>\n'
-        '<div class="wp"><table id="kt"><tbody id="tb"></tbody></table></div>\n'
         '<script>\n'
         + bootstrap + '\n'
         '</script>\n'
