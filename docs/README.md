@@ -2,7 +2,7 @@
 
 A single-file HTML page (`index.html`) that displays a 44×46 grid of
 Japanese kanji organized by reading (pronunciation). All data is
-serialized inline as encoded strings. The page is ~30KB and has no
+serialized inline as encoded strings. The page is ~29KB and has no
 external dependencies.
 
 ## Grid Structure
