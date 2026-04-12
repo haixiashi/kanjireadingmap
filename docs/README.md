@@ -2,8 +2,9 @@
 
 A single-file HTML page (`index.html`) that displays a 44×46 grid of
 Japanese kanji organized by reading (pronunciation). All data is
-serialized inline as encoded strings. The page is ~29KB and has no
-external dependencies.
+serialized inline as encoded strings. The page is ~26KB and has no
+external dependencies. JS code is gzip-compressed and decompressed
+at runtime via `DecompressionStream`.
 
 ## Grid Structure
 
@@ -156,7 +157,15 @@ ruby annotation — no string parsing needed.
 
 In the snapshot, stored as `"5有あ|る"` (tier prefix, `|` separates okurigana).
 
-## JS Code Structure (index.html)
+## JS Code Structure
+
+The JS is split into two parts:
+- **Bootstrap** (inline in index.html): sets `DD` (arithmetic-coded data)
+  and `GZ` (gzip-compressed JS as base-93), decodes and decompresses
+  `GZ` via `DecompressionStream`, and `eval()`s the result.
+- **Payload** (`tools/kanjimap.js`): the actual application code,
+  gzipped and stored as `GZ` in the HTML. Edit this file and run
+  `python3 tools/build.py` to rebuild index.html.
 
 Naming convention: uppercase 1-letter = global utility aliases,
 uppercase 2-letter = project functions/constants, lowercase = variables.
@@ -164,9 +173,9 @@ Key mappings: `A`=addEventListener, `l`=classList, `cn`=className setter,
 `V`=table element, `S`=scale, `I`=mode index, `Y`=mode array.
 Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
-### Line 12: DD data string (base-93, arithmetic coded)
+### DD data string (base-93, arithmetic coded)
 
-### Line 13: Helper functions and aliases
+### Helper functions and aliases
 - `A=(o,...a)=>o.addEventListener(...a)` — addEventListener wrapper
 - `l=o=>o.classList` — classList accessor
 - `cn=(o,c)=>{o.className=c}` — className setter
@@ -176,7 +185,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 - `H`=12354 (0x3042), `pn`=performance.now
 - `ca`=cancelAnimationFrame, `mn`=Math.min, `ma`=Math.max
 
-### Line 14: DC() decoder IIFE
+### DC() decoder IIFE
 - Base-93 → bit string (BigInt, 13 chars → 85 bits)
 - Arithmetic decoder (24-bit precision): `W` (normalize), `Z` (model decode), `U` (uniform decode)
 - Bit position `p`, codepoint accumulator `k`
@@ -184,9 +193,9 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 - Returns function `s => [entries...]` for cell decoding
 - All decoder state `let`-scoped inside IIFE
 
-### Line 15: MP() — renders one entry array as a DOM span with ruby annotation
+### MP() — renders one entry array as a DOM span with ruby annotation
 
-### Line 16: Table builder (IIFE)
+### Table builder (IIFE)
 - Iterates 44 rows × 46 cols, calls `DC(rl+cl)` for each cell
 - Adds CSS classes: `.e` (empty), `.fc` (first-col)
 - Groups borders: `.gl`, `.gt`, `.gr`, `.gb`
@@ -194,7 +203,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 - All entries wrapped in `.ct` div (overflow:hidden)
 - Stores decoded entries on `td._E` for hover card access
 
-### Lines 17–31: UI (IIFE)
+### UI (IIFE)
 - Reading toggle (漢/訓/音) — filters on/kun entries
 - Theme toggle (light/dark)
 - Hover card (`HC`): tap cell to show all entries in popup, tap outside to dismiss
@@ -275,6 +284,17 @@ Full rebuild pipeline for snapshot.json. Runs three phases:
 
 Usage: `PYTHONPATH=tools python3 tools/rebuild_snapshot.py`
 
+### kanjimap.js
+The uncompressed JS payload. Edit this file for JS/UI changes, then
+run `python3 tools/build.py` to gzip-compress and embed in index.html.
+
+### build.py
+Builds index.html by gzip-compressing `kanjimap.js`, encoding it as
+base-93, and embedding it with a bootstrap that decodes, decompresses
+via `DecompressionStream`, and `eval()`s at runtime.
+
+Usage: `python3 tools/build.py`
+
 ### reencode_bac.py
 Encodes snapshot.json into the DD string using binary arithmetic coding
 with probability models. Outputs a base-93 string (2:13 block code).
@@ -308,10 +328,8 @@ Usage: `python3 tools/verify_data.py`
 # 1. Rebuild snapshot (fixes readings, tiers, sort order)
 PYTHONPATH=tools python3 tools/rebuild_snapshot.py
 
-# 2. Re-encode DD string (arithmetic coded)
+# 2. Re-encode DD string and update index.html
 python3 tools/reencode_bac.py > /tmp/da.txt
-
-# 3. Replace DD in index.html
 python3 -c "
 import re
 with open('index.html') as f: src = f.read()
@@ -319,6 +337,9 @@ with open('/tmp/da.txt') as f: da = f.read()
 old = re.search(r'DD=\"([^\"]*)\"', src).group(1)
 with open('index.html', 'w') as f: f.write(src.replace('DD=\"'+old+'\"', 'DD=\"'+da+'\"'))
 "
+
+# 3. Rebuild index.html (re-compress JS payload)
+python3 tools/build.py
 
 # 4. Verify
 python3 tools/verify_data.py
