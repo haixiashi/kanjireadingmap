@@ -112,7 +112,11 @@ def decode_da_from_decoder(dec, kt):
     FC = chr
     H = 0x3042
 
-    # Probability tables — imported from encoder (single source of truth)
+    # Probability tables — computed from snapshot via encoder
+    import json as _json
+    from reencode_bac import compute_models
+    with open(SNAPSHOT_PATH) as _f:
+        compute_models(_json.load(_f))
     from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN, M_TDP,
                                M_D1K, M_D1O, M_D2_0, M_D2_1, M_EXTRA, M_OKURI)
     CP = M_CELL[1:-1]

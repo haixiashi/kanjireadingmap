@@ -24,7 +24,45 @@ def main():
     with open(os.path.join(TOOLS_DIR, 'kanjimap.js')) as f:
         js_payload = f.read()
 
-    # Read current index.html for D string and CSS
+    # Compute models from snapshot and inject into JS
+    import json as _json
+    from reencode_bac import (compute_models, M_CELL, M_KT0, M_KT1, M_ONKUN,
+                               M_TDP, M_D1K, M_D1O, M_D2_0, M_D2_1,
+                               M_EXTRA, M_OKURI)
+    with open(os.path.join(TOOLS_DIR, 'snapshot.json')) as f:
+        snap = _json.load(f)
+    compute_models(snap)
+    from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN,
+                               M_TDP, M_D1K, M_D1O, M_D2_0, M_D2_1,
+                               M_EXTRA, M_OKURI)
+
+    # Inline model values into JS (replace variable refs with literals)
+    def inner(m):
+        return m[1:-1] if isinstance(m[0], int) else m
+
+    # Remove the model declaration line
+    lines = js_payload.split('\n')
+    js_payload = '\n'.join(l for l in lines if not l.startswith('CP='))
+
+    # Replace variable references with computed values
+    kp = ','.join(str(inner(m)[0]) for m in M_KT0)
+    tp = ','.join(str(inner(m)) for m in M_TDP[1:])
+    replacements = [
+        ('Z(CP)', f'Z({inner(M_CELL)[0]})'),
+        ('Z(K1)', f'Z({inner(M_KT1)[0]})'),
+        ('Z(OK)', f'Z({inner(M_ONKUN)[0]})'),
+        ('Z(x?DO:DK)', f'Z(x?{inner(M_D1O)[0]}:{inner(M_D1K)[0]})'),
+        ('Z(...D0)', f'Z({",".join(str(x) for x in inner(M_D2_0))})'),
+        ('Z(...D1)', f'Z({",".join(str(x) for x in inner(M_D2_1))})'),
+        ('Z(EF)', f'Z({inner(M_EXTRA)[0]})'),
+        ('Z(OF)', f'Z({inner(M_OKURI)[0]})'),
+        ('KP[pt-1]', f'[{kp}][pt-1]'),
+        ('TP[pt-1]', f'[{tp.replace(" ","")}][pt-1]'),
+    ]
+    for old, new in replacements:
+        js_payload = js_payload.replace(old, new)
+
+    # Read current index.html for D string
     with open(os.path.join(ROOT_DIR, 'index.html')) as f:
         html = f.read()
 

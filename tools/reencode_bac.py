@@ -152,31 +152,124 @@ def decode_kd(kd_str):
     return kt
 
 
-# Probability models (cumulative frequencies)
-# All-uniform versions for initial testing
-def uniform_cum(n):
-    return list(range(n + 1))
-
-# Non-uniform models (enable one at a time)
-M_CELL = [0, 571, 999]              # cell_present: empty/non-empty
-M_KT0 = [[0,460,999],[0,771,999],[0,852,999],[0,934,999],[0,991,999]]  # kanji_type first, by pt (1-5)
-M_KT1 = [0, 276, 999]             # kanji_type subsequent: kanji/term
-M_ONKUN = [0, 594, 999]            # on_kun: kun/on
-M_TDP = [
-    None,                              # pt=0 (unused)
-    [0, 999],                          # pt=1: always delta=0 (skip)
-    [0, 653, 999],                     # pt=2
-    [0, 650, 907, 999],                # pt=3
-    [0, 476, 913, 973, 999],           # pt=4
-    [0, 278, 544, 850, 945, 999],      # pt=5
-]
-M_D1K = [0, 983, 999]             # d1 kun: 0/1
-M_D1O = [0, 718, 999]             # d1 on: 0/1
-M_D2_0 = [0, 76, 894, 999]        # d2 when d1=0: -1/0/1
-M_D2_1 = [0, 206, 997, 999]       # d2 when d1=1: -1/0/1
-M_EXTRA = [0, 814, 999]            # extra_rd_flag: no/yes
-M_OKURI = [0, 576, 999]            # okurigana_flag: done/more
+# Fixed model (data-independent)
 M_KD_CASE = [0, 1, 2, 7, 38, 138, 347, 660, 999]  # KD delta bucket: 8 doubling cases (flipped)
+
+# All other models are computed from snapshot data at encode time.
+# Call compute_models(snap) before encoding.
+M_CELL = M_KT0 = M_KT1 = M_ONKUN = M_TDP = None
+M_D1K = M_D1O = M_D2_0 = M_D2_1 = M_EXTRA = M_OKURI = None
+
+
+def _m999(ct):
+    """Convert a Counter to a 999-scale cumulative frequency array."""
+    total = sum(ct.values())
+    keys = sorted(ct.keys())
+    cum = [0]
+    for k in keys:
+        cum.append(cum[-1] + round(ct[k] / total * 999))
+    cum[-1] = 999
+    return cum
+
+
+def compute_models(snap):
+    """Compute all probability models from snapshot data."""
+    global M_CELL, M_KT0, M_KT1, M_ONKUN, M_TDP
+    global M_D1K, M_D1O, M_D2_0, M_D2_1, M_EXTRA, M_OKURI
+
+    kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
+    cell_ct = Counter()
+    kt1_ct = Counter()
+    ok_ct = Counter()
+    d1k_ct = Counter()
+    d1o_ct = Counter()
+    d2_0_ct = Counter()
+    d2_1_ct = Counter()
+    ef_ct = Counter()
+    of_ct = Counter()
+    more_ct = Counter()
+    done_ct = Counter()
+    delta_by_pt = {pt: Counter() for pt in range(1, 6)}
+
+    for ri in range(44):
+        row = kana_str[ri]
+        for ci in range(46):
+            col = '' if ci == 0 else kana_str[ci - 1]
+            entries = snap.get(row + '+' + col, [])
+            if not entries:
+                cell_ct[0] += 1
+                continue
+            cell_ct[1] += 1
+
+            parsed = []
+            for e in entries:
+                kanji = e[1]; rest = e[2:]
+                parts = rest.split('|', 1) if '|' in rest else [rest, '']
+                is_on = any(0x30A0 <= ord(c) <= 0x30FF for c in parts[0]) if parts[0] else False
+                parsed.append((kanji, int(e[0]), parts[0], parts[1], is_on))
+
+            groups = []
+            for kanji, tier, furigana, okurigana, is_on in parsed:
+                key = (tier, furigana, okurigana, is_on)
+                if groups and groups[-1][0] == key:
+                    groups[-1][1].append(kanji)
+                else:
+                    groups.append((key, [kanji]))
+
+            pt = 5
+            for (tier, furigana, okurigana, is_on), kanji_list in groups:
+                more_ct[pt] += 1
+                delta_by_pt[pt][pt - tier] += 1
+                for i in range(1, len(kanji_list)):
+                    kt1_ct[0] += 1
+                kt1_ct[1] += 1
+                ok_ct[1 if is_on else 0] += 1
+
+                cell_kana = row + col
+                ko = 96 if is_on else 0
+                exp = [ord(c) + ko for c in cell_kana]
+                act = [ord(c) for c in furigana[:len(cell_kana)]]
+                d1 = act[0] - exp[0] if act else 0
+                d2 = act[1] - exp[1] if len(act) > 1 and len(exp) > 1 else 0
+                if len(cell_kana) <= 1:
+                    d2 = 0
+                if is_on:
+                    d1o_ct[d1] += 1
+                else:
+                    d1k_ct[d1] += 1
+                if d1:
+                    d2_1_ct[d2] += 1
+                else:
+                    d2_0_ct[d2] += 1
+
+                extra = furigana[len(cell_kana):]
+                for c in extra:
+                    ef_ct[1] += 1
+                ef_ct[0] += 1
+
+                if not is_on:
+                    for c in okurigana:
+                        of_ct[1] += 1
+                    of_ct[0] += 1
+
+                pt = tier
+            done_ct[pt] += 1
+
+    M_CELL = _m999(cell_ct)
+    M_KT0 = [[0, round(more_ct[pt] / (more_ct[pt] + done_ct[pt]) * 999), 999]
+              for pt in range(1, 6)]
+    M_KT1 = _m999(kt1_ct)
+    M_ONKUN = _m999(ok_ct)
+    M_TDP = [None] + [_m999(delta_by_pt[pt]) for pt in range(1, 6)]
+    M_D1K = _m999(d1k_ct)
+    M_D1O = _m999(d1o_ct)
+    M_D2_0 = _m999(d2_0_ct)
+    M_D2_1 = _m999(d2_1_ct)
+    M_EXTRA = _m999(ef_ct)
+    M_OKURI = _m999(of_ct)
+
+    print(f"Models computed from {sum(cell_ct.values())} cells, "
+          f"{sum(more_ct.values())} groups", file=sys.stderr)
 
 
 def encode_kd(kt):
@@ -237,6 +330,7 @@ def encode_kd(kt):
 def main():
     with open(os.path.join(TOOLS_DIR, 'snapshot.json')) as f:
         snap = json.load(f)
+    compute_models(snap)
     with open(os.path.join(TOOLS_DIR, '..', 'index.html')) as f:
         src = f.read()
 
