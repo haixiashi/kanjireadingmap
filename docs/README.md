@@ -2,8 +2,8 @@
 
 A single-file HTML page (`index.html`) that displays a 44×46 grid of
 Japanese kanji organized by reading (pronunciation). All data is
-serialized inline as encoded strings. The page is ~26KB and has no
-external dependencies. JS code is gzip-compressed and decompressed
+serialized inline as encoded strings. The page is ~24KB and has no
+external dependencies. JS and CSS are gzip-compressed and decompressed
 at runtime via `DecompressionStream`.
 
 ## Grid Structure
@@ -161,9 +161,10 @@ In the snapshot, stored as `"5有あ|る"` (tier prefix, `|` separates okurigana
 
 The JS is split into two parts:
 - **Bootstrap** (inline in index.html): sets `DD` (arithmetic-coded data)
-  and `GZ` (gzip-compressed JS as base-93), decodes and decompresses
-  `GZ` via `DecompressionStream`, and `eval()`s the result.
-- **Payload** (`tools/kanjimap.js`): the actual application code,
+  and `GZ` (gzip-compressed CSS+JS as base-93), decodes base-93 to bytes
+  (truncated to exact gzip length), decompresses via `DecompressionStream`,
+  and `eval()`s the result.
+- **Payload** (`tools/kanjimap.js`): CSS injection + application code,
   gzipped and stored as `GZ` in the HTML. Edit this file and run
   `python3 tools/build.py` to rebuild index.html.
 
