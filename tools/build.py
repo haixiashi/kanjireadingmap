@@ -76,7 +76,7 @@ def main():
         '<head>\n'
         '<meta charset="UTF-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">\n'
-        '<title>漢字読み表</title>\n'
+        '<title>漢字読み方表</title>\n'
         '</head>\n'
         '<body>\n'
         '<script>\n'
