@@ -24,11 +24,11 @@ def main():
     with open(os.path.join(TOOLS_DIR, 'kanjimap.js')) as f:
         js_payload = f.read()
 
-    # Read current index.html for DD string and CSS
+    # Read current index.html for D string and CSS
     with open(os.path.join(ROOT_DIR, 'index.html')) as f:
         html = f.read()
 
-    dd = re.search(r'DD="([^"]*)"', html).group(1)
+    dd = re.search(r'D="([^"]*)"', html).group(1)
 
     # Gzip the JS payload
     gz = gzip.compress(js_payload.encode('utf-8'), compresslevel=9)
@@ -44,22 +44,22 @@ def main():
     print(f"Base-93: {len(gz_b93)} chars", file=sys.stderr)
 
     # Bootstrap: decode base-93 → bytes → decompress → eval
-    # GZ contains the base-93 gzipped JS
-    # DD contains the arithmetic-coded data
-    # The bootstrap decodes GZ, decompresses, and evals the result
-    # The eval'd code can access DD as a global
+    # F contains the base-93 gzipped JS
+    # D contains the arithmetic-coded data
+    # The bootstrap decodes F, decompresses, and evals the result
+    # The eval'd code can access D as a global
     bootstrap = (
-        'DD="' + dd + '";\n'
-        'GZ="' + gz_b93 + '";\n'
+        'D="' + dd + '";\n'
+        'F="' + gz_b93 + '";\n'
         # Shared base-93 decoder (used by bootstrap and eval'd DC decoder)
-        'B93=s=>{let b="",v=0n;'
+        'B=s=>{let b="",v=0n;'
         '[...s].map((c,i)=>{'
         'v=v*93n+BigInt((c.charCodeAt(0)+26)*58/59-57|0);'
         '++i%13||(b+=v.toString(2).padStart(85,0),v=0n)});'
         'return b};\n'
-        # Decode GZ from base-93, truncated to exact gzip length
+        # Decode F from base-93, truncated to exact gzip length
         '(async()=>{'
-        'let b=B93(GZ);'
+        'let b=B(F);'
         'let a=new Uint8Array(' + str(len(gz)) + ');'
         'for(let i=0;i<' + str(len(gz)) + ';i++)'
         'a[i]=parseInt(b.substr(i*8,8),2);'

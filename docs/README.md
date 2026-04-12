@@ -2,7 +2,7 @@
 
 A single-file HTML page (`index.html`) that displays a 44×46 grid of
 Japanese kanji organized by reading (pronunciation). All data is
-serialized inline as encoded strings. The page is ~24KB and has no
+serialized inline as encoded strings. The page is under 24KB and has no
 external dependencies. JS and CSS are gzip-compressed and decompressed
 at runtime via `DecompressionStream`.
 
@@ -12,14 +12,14 @@ at runtime via `DecompressionStream`.
 - Rows correspond to the first kana of the reading (あ–わ, 44 of 45 kana)
 - Columns: first column is a "header" (readings starting with just that
   kana), remaining 45 columns correspond to the second kana (あ–ん)
-- The 45 kana used for grid row/column layout are decoded from the DD
+- The 45 kana used for grid row/column layout are decoded from the D
   stream (Section 3) using `U(82)` offsets from `H` (0x3042 = あ)
 
 ## Data Encoding
 
-### DD String (Combined Data)
+### D String (Combined Data)
 
-All data is encoded in a single arithmetic-coded stream `DD`, packed
+All data is encoded in a single arithmetic-coded stream `D`, packed
 into base-93 via 2:13 block code (13 chars → 85 bits).
 
 **Base-93 alphabet**: U+0020–U+007E excluding `"` and `\` (93 chars).
@@ -27,7 +27,7 @@ Base-93 is decoded to a bit string using BigInt: each group of 13
 chars is converted via multiply-accumulate, then `.toString(2).padStart(85,0)`
 extracts 85 bits. Char-to-digit: `(charCode+26)*58/59-57|0`
 
-**Arithmetic decoder** (24-bit precision, inside DC IIFE on line 14):
+**Arithmetic decoder** (24-bit precision, inside DC IIFE):
 - State: `a` (low), `d` (high), `e` (value), all 24-bit
 - Constants: `T=1<<23` (TOP), `Q=T/2` (QUARTER), `M=T*2-1` (MASK)
 - `W()`: normalization — shifts out resolved bits, reads new bits
@@ -37,9 +37,9 @@ extracts 85 bits. Char-to-digit: `(charCode+26)*58/59-57|0`
 - `U(n)`: decode uniform symbol 0..n-1. Uses `q=(r)/n|0` for
   single-step range subdivision, matching the encoder.
 
-### DD Stream Layout
+### D Stream Layout
 
-The DD stream contains three sections, decoded sequentially from a
+The D stream contains three sections, decoded sequentially from a
 single arithmetic-coded bitstream (no re-initialization between sections):
 
 **Section 1: KT (Kanji Table)** — 2,698 kanji as delta-encoded codepoints
@@ -109,13 +109,13 @@ parameters (`Z=(...c)=>`) to collect them into an array.
 
 All 82 possible kana codepoints (U+3042–U+3093) are covered by a
 single probability model `Z(...KA)` where `KA` is an 81-entry
-cumulative frequency table decoded from the DD stream. The symbol
+cumulative frequency table decoded from the D stream. The symbol
 index directly equals the kana's codepoint offset from H (0x3042),
 so no lookup array is needed. Unused kana get minimal probability (1/999).
 
 The kana codepoint is `Z(...KA) + H + ko` where H=12354 (0x3042)
 and ko=96 for on-yomi. The KN string (45 kana for the grid layout)
-is also decoded from the DD stream via `U(82)+H`.
+is also decoded from the D stream via `U(82)+H`.
 
 ### Variant Encoding
 
@@ -160,12 +160,12 @@ In the snapshot, stored as `"5有あ|る"` (tier prefix, `|` separates okurigana
 ## JS Code Structure
 
 The JS is split into two parts:
-- **Bootstrap** (inline in index.html): defines `B93` (shared base-93
-  decoder used by both bootstrap and DC decoder), sets `DD` (arithmetic-coded
-  data) and `GZ` (gzip-compressed CSS+JS as base-93), decodes `GZ` via
-  `B93`, decompresses via `DecompressionStream`, and `eval()`s the result.
+- **Bootstrap** (inline in index.html): defines `B` (shared base-93
+  decoder used by both bootstrap and DC decoder), sets `D` (arithmetic-coded
+  data) and `F` (gzip-compressed CSS+JS as base-93), decodes `F` via
+  `B`, decompresses via `DecompressionStream`, and `eval()`s the result.
 - **Payload** (`tools/kanjimap.js`): CSS injection + application code,
-  gzipped and stored as `GZ` in the HTML. Edit this file and run
+  gzipped and stored as `F` in the HTML. Edit this file and run
   `python3 tools/build.py` to rebuild index.html.
 
 Naming convention: uppercase 1-letter = global utility aliases,
@@ -174,17 +174,12 @@ Key mappings: `A`=addEventListener, `l`=classList, `cn`=className setter,
 `V`=table element, `S`=scale, `I`=mode index, `Y`=mode array.
 Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
-### DD data string (base-93, arithmetic coded)
+### D data string (base-93, arithmetic coded)
 
-### Helper functions and aliases
-- `A=(o,...a)=>o.addEventListener(...a)` — addEventListener wrapper
-- `l=o=>o.classList` — classList accessor
-- `cn=(o,c)=>{o.className=c}` — className setter
-- `tc=(o,v)=>{o.textContent=v}` — textContent setter
-- `D=document`, `B=D.body`, `$=s=>D.createElement(s)`
-- `Q=s=>D.querySelectorAll(s)`, `L`=fromCharCode, `N`=charCodeAt
-- `H`=12354 (0x3042), `pn`=performance.now
-- `ca`=cancelAnimationFrame, `mn`=Math.min, `ma`=Math.max
+### Helper aliases (in kanjimap.js)
+No single-letter aliases for browser APIs — gzip handles repetition
+natively, making aliases counterproductive. All browser APIs are called
+by their full names (e.g. `document.createElement`, `Math.min`).
 
 ### DC() decoder IIFE
 - Base-93 → bit string (BigInt, 13 chars → 85 bits)
@@ -217,7 +212,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ## Known Constraints
 
-- All data is in a single arithmetic-coded stream DD with multiple hardcoded
+- All data is in a single arithmetic-coded stream D with multiple hardcoded
   probability models (999-scale) plus 1 stream-decoded kana model
   (82 symbols in codepoint order, unused get minimal probability)
 - KN (45 kana for grid layout) also stream-decoded, no ASCII mapping
@@ -297,7 +292,7 @@ via `DecompressionStream`, and `eval()`s at runtime.
 Usage: `python3 tools/build.py`
 
 ### reencode_bac.py
-Encodes snapshot.json into the DD string using binary arithmetic coding
+Encodes snapshot.json into the D string using binary arithmetic coding
 with probability models. Outputs a base-93 string (2:13 block code).
 
 The encoder uses 24-bit precision with multiple hardcoded and conditional
@@ -316,7 +311,7 @@ block code conversion (85 bits ↔ 13 chars), plus `digit_to_char`/
 `char_to_digit` helpers. Used by reencode_bac.py and verify_data.py.
 
 ### verify_data.py
-Decodes the DD string from index.html using a Python arithmetic decoder
+Decodes the D string from index.html using a Python arithmetic decoder
 (24-bit, 999-scale probability tables, `U(k)` uniform decoding) and
 compares every entry against snapshot.json. Run after any data or
 encoding change.
@@ -329,14 +324,14 @@ Usage: `python3 tools/verify_data.py`
 # 1. Rebuild snapshot (fixes readings, tiers, sort order)
 PYTHONPATH=tools python3 tools/rebuild_snapshot.py
 
-# 2. Re-encode DD string and update index.html
+# 2. Re-encode D string and update index.html
 python3 tools/reencode_bac.py > /tmp/da.txt
 python3 -c "
 import re
 with open('index.html') as f: src = f.read()
 with open('/tmp/da.txt') as f: da = f.read()
-old = re.search(r'DD=\"([^\"]*)\"', src).group(1)
-with open('index.html', 'w') as f: f.write(src.replace('DD=\"'+old+'\"', 'DD=\"'+da+'\"'))
+old = re.search(r'D=\"([^\"]*)\"', src).group(1)
+with open('index.html', 'w') as f: f.write(src.replace('D=\"'+old+'\"', 'D=\"'+da+'\"'))
 "
 
 # 3. Rebuild index.html (re-compress JS payload)
@@ -346,5 +341,5 @@ python3 tools/build.py
 python3 tools/verify_data.py
 ```
 
-Note: do NOT use `.strip()` on the DD string — space (U+0020) is a
+Note: do NOT use `.strip()` on the D string — space (U+0020) is a
 valid base-93 digit and may appear at the start or end.
