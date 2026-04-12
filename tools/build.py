@@ -8,7 +8,7 @@ decompresses, and evals at runtime.
 Usage: python3 tools/build.py
 """
 
-import gzip
+import zlib
 import os
 import re
 import sys
@@ -69,7 +69,7 @@ def main():
     dd = re.search(r'D="([^"]*)"', html).group(1)
 
     # Gzip the JS payload
-    gz = gzip.compress(js_payload.encode('utf-8'), compresslevel=9)
+    gz = zlib.compress(js_payload.encode('utf-8'), level=9, wbits=-15)
     print(f"JS: {len(js_payload)} bytes → gzip: {len(gz)} bytes", file=sys.stderr)
 
     # Encode gzipped bytes as base-93
@@ -102,7 +102,7 @@ def main():
         'for(let i=0;i<' + str(len(gz)) + ';i++)'
         'a[i]=parseInt(b.substr(i*8,8),2);'
         # Decompress via DecompressionStream
-        'let s=new Blob([a]).stream().pipeThrough(new DecompressionStream("gzip"));'
+        'let s=new Blob([a]).stream().pipeThrough(new DecompressionStream("deflate-raw"));'
         'eval(await new Response(s).text())'
         '})()'
     )
