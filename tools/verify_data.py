@@ -118,8 +118,7 @@ def decode_da_from_decoder(dec, kt):
     KT0 = [[470],[789],[860],[931],[992]]  # by pt (1-5)
     KT1 = [271]
     OK = [628]
-    TD0 = [218, 440, 797, 921]
-    TD = [637, 931, 990, 998]
+    TDP = [None, [], [635], [652, 905], [466, 911, 974], [266, 536, 835, 937]]
     D1K = [979]
     D1O = [719]
     D2_0 = [71, 886]
@@ -165,7 +164,6 @@ def decode_da_from_decoder(dec, kt):
 
             entries = []
             pt = 5
-            first_group = True
             while True:
                 kl = []
                 if Z(KT0[pt - 1]):  # conditioned on pt
@@ -175,9 +173,8 @@ def decode_da_from_decoder(dec, kt):
                     kl.append(kt[U(len(kt))])
 
                 on = Z(OK)
-                delta = Z(TD0 if first_group else TD)
-                pt -= delta
-                first_group = False
+                if pt > 1:
+                    pt -= Z(TDP[pt])
                 tier = pt
                 tr = str(tier)
                 d1 = Z(D1O if on else D1K)

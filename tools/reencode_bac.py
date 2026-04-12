@@ -162,8 +162,14 @@ M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
 M_KT0 = [[0,470,999],[0,789,999],[0,860,999],[0,931,999],[0,992,999]]  # kanji_type first, by pt (1-5)
 M_KT1 = [0, 271, 999]             # kanji_type subsequent: kanji/term
 M_ONKUN = [0, 628, 999]            # on_kun: kun/on
-M_TD0 = [0, 218, 440, 797, 921, 999]  # first tier delta from 5
-M_TD = [0, 637, 931, 990, 998, 999]   # subsequent tier delta
+M_TDP = [
+    None,                              # pt=0 (unused)
+    [0, 999],                          # pt=1: always delta=0 (skip)
+    [0, 635, 999],                     # pt=2
+    [0, 652, 905, 999],                # pt=3
+    [0, 466, 911, 974, 999],           # pt=4
+    [0, 266, 536, 835, 937, 999],      # pt=5
+]
 M_D1K = [0, 979, 999]             # d1 kun: 0/1
 M_D1O = [0, 719, 999]             # d1 on: 0/1
 M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
@@ -377,7 +383,6 @@ def main():
                     groups.append((key, [kanji]))
 
             pt = 5
-            first_group = True
             for (tier, furigana, okurigana, is_on), kanji_list in groups:
                 encodable = [k for k in kanji_list if k in kt_index]
                 if not encodable:
@@ -392,9 +397,9 @@ def main():
 
                 em(M_ONKUN, 1 if is_on else 0)
                 delta = pt - tier
-                em(M_TD0 if first_group else M_TD, delta)
+                if pt > 1:
+                    em(M_TDP[pt], delta)
                 pt = tier
-                first_group = False
 
                 ko = 96 if is_on else 0
                 prefix = cell_kana
