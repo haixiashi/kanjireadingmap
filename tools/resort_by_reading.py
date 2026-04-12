@@ -179,12 +179,14 @@ def parse_jmdict(path, kanji_readings):
         entry_text = m.group(1)
 
         # Extract kanji elements
+        ke_inf_pattern = re.compile(r'<ke_inf>&(\w+);</ke_inf>')
         k_eles = []
         for km in re.finditer(r'<k_ele>(.*?)</k_ele>', entry_text, re.DOTALL):
             keb = keb_pattern.search(km.group(1))
             pri_tags = ke_pri_pattern.findall(km.group(1))
+            inf_tags = set(ke_inf_pattern.findall(km.group(1)))
             if keb:
-                k_eles.append((keb.group(1), pri_tags))
+                k_eles.append((keb.group(1), pri_tags, inf_tags))
 
         if not k_eles:
             continue  # No kanji forms, skip
@@ -200,11 +202,11 @@ def parse_jmdict(path, kanji_readings):
 
         total_entries += 1
 
-        # For each kanji-reading pair.
-        # Only score the first (primary) kanji form; alternate spellings
-        # (e.g. 噺 as variant of 話) should not inherit the word's score.
-        for k_idx, (keb, k_pri) in enumerate(k_eles):
-            if k_idx > 0:
+        # Score all kanji forms except those tagged as rare/archaic (oK, rK, iK).
+        # This allows legitimate alternate spellings (e.g. 代わる vs 替わる)
+        # to receive proper scores while keeping archaic variants low.
+        for k_idx, (keb, k_pri, k_inf) in enumerate(k_eles):
+            if k_inf & {'oK', 'rK', 'iK'}:
                 continue
             for reb, r_pri, restrs in r_eles:
                 # If re_restr exists, this reading only applies to specific kanji forms

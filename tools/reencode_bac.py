@@ -158,24 +158,24 @@ def uniform_cum(n):
     return list(range(n + 1))
 
 # Non-uniform models (enable one at a time)
-M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
-M_KT0 = [[0,470,999],[0,789,999],[0,860,999],[0,931,999],[0,992,999]]  # kanji_type first, by pt (1-5)
-M_KT1 = [0, 271, 999]             # kanji_type subsequent: kanji/term
-M_ONKUN = [0, 628, 999]            # on_kun: kun/on
+M_CELL = [0, 571, 999]              # cell_present: empty/non-empty
+M_KT0 = [[0,470,999],[0,772,999],[0,846,999],[0,916,999],[0,989,999]]  # kanji_type first, by pt (1-5)
+M_KT1 = [0, 262, 999]             # kanji_type subsequent: kanji/term
+M_ONKUN = [0, 588, 999]            # on_kun: kun/on
 M_TDP = [
     None,                              # pt=0 (unused)
     [0, 999],                          # pt=1: always delta=0 (skip)
-    [0, 635, 999],                     # pt=2
-    [0, 652, 905, 999],                # pt=3
-    [0, 466, 911, 974, 999],           # pt=4
-    [0, 266, 536, 835, 937, 999],      # pt=5
+    [0, 575, 999],                     # pt=2
+    [0, 603, 866, 999],                # pt=3
+    [0, 436, 880, 943, 999],           # pt=4
+    [0, 259, 525, 829, 939, 999],      # pt=5
 ]
-M_D1K = [0, 979, 999]             # d1 kun: 0/1
-M_D1O = [0, 719, 999]             # d1 on: 0/1
-M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
-M_D2_1 = [0, 198, 997, 999]       # d2 when d1=1: -1/0/1
-M_EXTRA = [0, 794, 999]            # extra_rd_flag: no/yes
-M_OKURI = [0, 585, 999]            # okurigana_flag: done/more
+M_D1K = [0, 977, 999]             # d1 kun: 0/1
+M_D1O = [0, 725, 999]             # d1 on: 0/1
+M_D2_0 = [0, 78, 897, 999]        # d2 when d1=0: -1/0/1
+M_D2_1 = [0, 202, 997, 999]       # d2 when d1=1: -1/0/1
+M_EXTRA = [0, 814, 999]            # extra_rd_flag: no/yes
+M_OKURI = [0, 580, 999]            # okurigana_flag: done/more
 M_KD_CASE = [0, 1, 2, 7, 38, 138, 347, 660, 999]  # KD delta bucket: 8 doubling cases (flipped)
 
 
