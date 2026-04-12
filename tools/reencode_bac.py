@@ -159,11 +159,11 @@ def uniform_cum(n):
 
 # Non-uniform models (enable one at a time)
 M_CELL = [0, 555, 999]              # cell_present: empty/non-empty
-M_KT0 = [0, 819, 999]             # kanji_type first in group: kanji/term
+M_KT0 = [[0,470,999],[0,789,999],[0,860,999],[0,931,999],[0,992,999]]  # kanji_type first, by pt (1-5)
 M_KT1 = [0, 271, 999]             # kanji_type subsequent: kanji/term
 M_ONKUN = [0, 628, 999]            # on_kun: kun/on
-M_TIER = [0, 77, 201, 558, 780, 999]   # first tier in cell (absolute)
-M_TDELTA = [0, 637, 931, 990, 998, 999]  # tier delta (0-4, prev-curr)
+M_TD0 = [0, 218, 440, 797, 921, 999]  # first tier delta from 5
+M_TD = [0, 637, 931, 990, 998, 999]   # subsequent tier delta
 M_D1K = [0, 979, 999]             # d1 kun: 0/1
 M_D1O = [0, 719, 999]             # d1 on: 0/1
 M_D2_0 = [0, 71, 886, 999]        # d2 when d1=0: -1/0/1
@@ -376,23 +376,25 @@ def main():
                 else:
                     groups.append((key, [kanji]))
 
-            prev_tier = None
+            pt = 5
+            first_group = True
             for (tier, furigana, okurigana, is_on), kanji_list in groups:
                 encodable = [k for k in kanji_list if k in kt_index]
                 if not encodable:
                     continue
 
-                for ki, kc in enumerate(encodable):
-                    em(M_KT1 if ki else M_KT0, 0)
+                em(M_KT0[pt - 1], 0)  # first kanji, conditioned on pt
+                eu(kt_index[encodable[0]], len(kt))
+                for kc in encodable[1:]:
+                    em(M_KT1, 0)
                     eu(kt_index[kc], len(kt))
                 em(M_KT1, 1)  # terminator
 
                 em(M_ONKUN, 1 if is_on else 0)
-                if prev_tier is None:
-                    em(M_TIER, tier_to_idx[tier])
-                else:
-                    em(M_TDELTA, prev_tier - tier)
-                prev_tier = tier
+                delta = pt - tier
+                em(M_TD0 if first_group else M_TD, delta)
+                pt = tier
+                first_group = False
 
                 ko = 96 if is_on else 0
                 prefix = cell_kana
@@ -419,7 +421,7 @@ def main():
                         em(M_KANA_ALL, code)
                     em(M_OKURI, 0)
 
-            em(M_KT0, 1)  # end of cell (first position = no more groups)
+            em(M_KT0[pt - 1], 1)  # end of cell, conditioned on pt
 
     bits = enc.finish()
     print(f"Ops: {len(ops)}, bits: {len(bits)}", file=sys.stderr)

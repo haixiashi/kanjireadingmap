@@ -115,10 +115,10 @@ def decode_da_from_decoder(dec, kt):
 
     # Probability tables (999-scale, inner values only)
     CP = [555]
-    KT0 = [819]
+    KT0 = [[470],[789],[860],[931],[992]]  # by pt (1-5)
     KT1 = [271]
     OK = [628]
-    TI = [77, 201, 558, 780]
+    TD0 = [218, 440, 797, 921]
     TD = [637, 931, 990, 998]
     D1K = [979]
     D1O = [719]
@@ -164,21 +164,21 @@ def decode_da_from_decoder(dec, kt):
                 continue
 
             entries = []
-            prev_tier = None
+            pt = 5
+            first_group = True
             while True:
                 kl = []
-                if Z(KT0):  # first position: kanji or end-of-cell
+                if Z(KT0[pt - 1]):  # conditioned on pt
                     break
                 kl.append(kt[U(len(kt))])
-                while not Z(KT1):  # subsequent: kanji or end-of-group
+                while not Z(KT1):
                     kl.append(kt[U(len(kt))])
 
                 on = Z(OK)
-                if prev_tier is None:
-                    tier = Z(TI) + 1
-                else:
-                    tier = prev_tier - Z(TD)
-                prev_tier = tier
+                delta = Z(TD0 if first_group else TD)
+                pt -= delta
+                first_group = False
+                tier = pt
                 tr = str(tier)
                 d1 = Z(D1O if on else D1K)
                 d2 = Z(D2_1 if d1 else D2_0) - 1
