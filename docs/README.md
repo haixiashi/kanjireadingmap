@@ -273,8 +273,9 @@ are removed when their standard Joyo form (国) exists in the same cell.
 ### rebuild_snapshot.py
 Full rebuild pipeline for snapshot.json. Runs three phases:
 1. **Fix reading choices**: for each kanji in each cell, pick the
-   KANJIDIC2 reading with the highest JMdict score (among readings that
-   map to the same cell).
+   best KANJIDIC2 reading. Suffixes (dash-prefixed) are deprioritized.
+   Among non-suffix forms, highest score wins; okurigana forms win
+   ties. Tier assigned by max score across all readings in the cell.
 2. **Reassign tiers** based on current thresholds.
 3. **Re-sort** entries within each cell by score descending.
 
