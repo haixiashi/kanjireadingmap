@@ -140,12 +140,12 @@ class ArithDecoder:
         return s
 
 
-def decode_kd(kd_str):
+def decode_kd(kd_str, kt_count):
     """Decode KD string using arithmetic decoder."""
     bits = decode_b93(kd_str)
     dec = ArithDecoder(bits)
     kt = [chr(0x4E00)]; cp = 0x4E00
-    while cp < 0x9EBA:  # decode until last kanji
+    for _ in range(kt_count - 1):
         q = dec.decode_model(M_KD_CASE)
         cp += dec.decode_uniform([4, 16, 64, 512][q]) + [1, 5, 21, 85][q]
         kt.append(chr(cp))

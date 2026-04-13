@@ -93,14 +93,25 @@ class ArithDecoder:
         return s
 
 
-def decode_kt_from_decoder(dec):
+def count_kanji(snapshot):
+    """Count unique kanji in snapshot."""
+    kanji = set()
+    for entries in snapshot.values():
+        for e in entries:
+            cp = ord(e[1])
+            if 0x4E00 <= cp < 0x10000:
+                kanji.add(e[1])
+    return len(kanji)
+
+
+def decode_kt_from_decoder(dec, kt_count):
     """Decode KT from an existing arithmetic decoder."""
     from reencode_bac import M_KD_CASE
     KD_CASE = M_KD_CASE[1:-1]
     kt = [chr(0x4E00)]
     cp = 0x4E00
 
-    for _ in range(2697):
+    for _ in range(kt_count - 1):
         q = 2 << dec.decode_model(KD_CASE)
         cp += dec.decode_uniform(q) + q - 1
         kt.append(chr(cp))
@@ -221,7 +232,7 @@ def main():
     # Decode everything from single stream
     bits = decode_b93(dd)
     dec = ArithDecoder(bits)
-    kt = decode_kt_from_decoder(dec)
+    kt = decode_kt_from_decoder(dec, count_kanji(snapshot))
     decoded, kana_str = decode_da_from_decoder(dec, kt)
 
     errors = 0
