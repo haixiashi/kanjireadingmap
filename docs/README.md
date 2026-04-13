@@ -41,9 +41,9 @@ extracts 85 bits. Char-to-digit: `(charCode+26)*58/59-57|0`
 The D stream contains three sections, decoded sequentially from a
 single arithmetic-coded bitstream (no re-initialization between sections):
 
-**Section 1: KT (Kanji Table)** — 2,698 kanji as delta-encoded codepoints
-- 2,697 deltas using Exponential-Golomb variant:
-  `q = 256 >> Z(1,2,7,38,138,347,660); delta = U(q) + q - 1`
+**Section 1: KT (Kanji Table)** — kanji as delta-encoded codepoints
+- KL-1 deltas using Exponential-Golomb variant:
+  `q = 2 << Z(KD); delta = U(q) + q - 1`
   8 doubling cases: q=2 (delta 1–2) through q=256 (delta 255–510)
   Arithmetic-coded case selector replaces fixed-length prefix
 - First char is `一` (U+4E00). Each subsequent = previous + delta.
@@ -56,18 +56,19 @@ single arithmetic-coded bitstream (no re-initialization between sections):
 - No explicit kana code list needed; symbol index = codepoint offset
 
 **Section 3: KN (kana row/col mapping)** — 45 kana for grid layout
-- First offset: `U(82)` — kana codepoint offset from H (0x3042)
+- First kana is always あ (H = 0x3042)
 - 44 deltas: `U(4)` × 44 — each delta minus 1 (deltas 1–4, encoded as 0–3)
 
 **Section 4: Cell data** (read per cell, row 0–43, col 0–45)
 
-1. **cell_present**: `Z(CP)` → 0=empty, 1=non-empty
+1. **cell_present**: `Z(CP)` → 0=empty, 1=non-empty (skipped for
+   first column, which is always non-empty)
 2. If non-empty, loop over kanji groups:
    a. **kanji_type**: position-dependent model, KT0 conditioned on `pt`
       - First in group: `Z(KP[pt-1])` → 0=kanji, 1=end of cell
         (pt=5: 99.3% kanji, pt=1: 47%)
       - Subsequent: `Z(KT1)` → 0=kanji (27%), 1=end of group
-      - If kanji: `U(2698)` → index into KT table
+      - If kanji: `U(KL)` → index into KT table
    b. **on_kun**: `Z(OK)` → 0=kun-yomi, 1=on-yomi
    c. **tier**: `pt` starts at 5; `pt -= Z(...TP[pt-1])`
       Per-pt probability tables (TP[0] is empty for pt=1, no-op)
@@ -88,21 +89,23 @@ All models use total=999. The JS code inlines the inner boundaries
 as variadic arguments, e.g. `Z(555)`. The `Z` function uses rest
 parameters (`Z=(...c)=>`) to collect them into an array.
 
-| Name | JS Array | Full cumulative | Symbols |
-|------|----------|-----------------|---------|
-| KD_CASE (delta bucket) | [1,2,7,38,138,347,660] | [0,1,2,7,38,138,347,660,999] | 8 exp-Golomb cases |
-| CP (cell_present) | [555] | [0, 555, 999] | empty / non-empty |
-| KT0 (kanji_type first) | KP[pt-1] | varies by pt | kanji / end-of-cell |
-| KT1 (kanji_type subseq) | [271] | [0, 271, 999] | kanji / end-of-group |
-| OK (on_kun) | [628] | [0, 628, 999] | kun / on |
-| TP (tier delta, per-pt) | TP[pt-1] | varies by pt | delta from pt (pt=5..2) |
-| D1K (d1 kun) | [979] | [0, 979, 999] | 0 / 1 |
-| D1O (d1 on) | [719] | [0, 719, 999] | 0 / 1 |
-| D2\|d1=0 | [71, 886] | [0, 71, 886, 999] | -1 / 0 / 1 |
-| D2\|d1=1 | [198, 997] | [0, 198, 997, 999] | -1 / 0 / 1 |
-| EF (extra_rd_flag) | [794] | [0, 794, 999] | done / more |
-| OF (okuri_flag) | [585] | [0, 585, 999] | done / more |
-| KA (kana) | (stream-decoded) | 82-symbol table | kana by codepoint |
+| Name | Placeholder | Symbols |
+|------|-------------|---------|
+| KD_CASE (delta bucket) | `Z(KD)` | 8 exp-Golomb cases (fixed model) |
+| CP (cell_present) | `Z(CP)` | empty / non-empty |
+| KT0 (kanji_type first) | `Z(KP[pt-1])` | kanji / end-of-cell (per-pt) |
+| KT1 (kanji_type subseq) | `Z(K1)` | kanji / end-of-group |
+| OK (on_kun) | `Z(OK)` | kun / on |
+| TP (tier delta, per-pt) | `Z(...TP[pt-1])` | delta from pt (per-pt) |
+| D1K/D1O (d1) | `Z(x?DO:DK)` | 0 / 1 (conditional on on/kun) |
+| D0/D1 (d2) | `m?Z(D1):Z(D0)` | -1 / 0 / 1 (conditional on d1) |
+| EF (extra_rd_flag) | `Z(EF)` | done / more |
+| OF (okuri_flag) | `Z(OF)` | done / more |
+| KA (kana) | `Z(...KA)` | 82-symbol table (stream-decoded) |
+
+All model values except KD_CASE are computed from snapshot data by
+`build.py` and inlined into the JS. See `kanjimap_processed.js` for
+current values.
 
 ### Kana Encoding
 
@@ -121,9 +124,8 @@ is also decoded from the D stream via `U(82)+H`.
 Offsets `d1` (first char, 0 or 1) and `d2` (rest, -1/0/1) are applied
 to the cell's kana prefix for readings with dakuten/handakuten.
 They are encoded as two separate fields with conditional probability:
-1. `d1 = Z(D1K|D1O)` — conditional on on/kun: kun `Z(979)` (2% d1=1),
-   on `Z(719)` (28% d1=1)
-2. `d2 = Z(D2|d1) - 1` — uses `Z(71,886)` when d1=0, `Z(198,997)` when d1=1
+1. `d1 = Z(x?DO:DK)` — conditional on on/kun
+2. `d2 = (m?Z(D1):Z(D0)) - 1` — conditional on d1
 
 The conditional tables capture the correlation (d1=1, d2=1 is nearly
 impossible) without wasting bits on a joint 6-symbol table.
@@ -134,10 +136,10 @@ impossible) without wasting bits on a joint 6-symbol table.
 Archaic/rarely-used kanji forms (JMdict oK/rK/uk/arch/obs tags) are
 excluded entirely.
 - Tier 5 (j5): score ≥ 98 (~9%) — core readings
-- Tier 4 (j4): score ≥ 92 (~18%) — very common
-- Tier 3 (j3): score ≥ 49 (~33%) — common
-- Tier 2 (j2): score ≥ 5 (~22%) — moderate
-- Tier 1 (j1): score < 5 (~18%) — attested, low frequency
+- Tier 4 (j4): score ≥ 92 (~19%) — very common
+- Tier 3 (j3): score ≥ 49 (~32%) — common
+- Tier 2 (j2): score ≥ 5 (~21%) — moderate
+- Tier 1 (j1): score < 5 (~19%) — attested, low frequency
 
 Within each cell, tiers are non-increasing (sorted by score descending).
 Encoded as deltas from `pt` (starts at 5): `pt -= Z(...TP[pt-1])`.
@@ -167,18 +169,10 @@ The JS is split into two parts:
   gzipped and stored as `F` in the HTML. Edit this file and run
   `python3 tools/build.py` to rebuild index.html.
 
-Naming convention: uppercase 1-letter = global utility aliases,
-uppercase 2-letter = project functions/constants, lowercase = variables.
-Key mappings: `A`=addEventListener, `l`=classList, `cn`=className setter,
-`V`=table element, `S`=scale, `I`=mode index, `Y`=mode array.
-Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
-
-### D data string (base-93, arithmetic coded)
-
-### Helper aliases (in kanjimap.js)
 No single-letter aliases for browser APIs — gzip handles repetition
 natively, making aliases counterproductive. All browser APIs are called
 by their full names (e.g. `document.createElement`, `Math.min`).
+Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ### DC() decoder IIFE
 - Base-93 → bit string (BigInt, 13 chars → 85 bits)
@@ -188,7 +182,7 @@ by their full names (e.g. `document.createElement`, `Math.min`).
 - Returns function `s => [entries...]` for cell decoding
 - All decoder state `let`-scoped inside IIFE
 
-### MP() — renders one entry array as a DOM span with ruby annotation
+### MP(k,r,t,u,o) — renders one entry as a DOM span with ruby annotation
 
 ### Table builder (IIFE)
 - Iterates 44 rows × 46 cols, calls `DC(rl+cl)` for each cell
@@ -217,7 +211,7 @@ by their full names (e.g. `document.createElement`, `Math.min`).
 - KN (45 kana for grid layout) also stream-decoded, no ASCII mapping
 - H = 0x3042 (あ) used as kana base offset
 - No decoder re-initialization between sections
-- KT table has 2,698 entries (all kanji); no raw encoding path
+- KT table size (KL) derived from snapshot; no raw encoding path
 - 24-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement
 - `U(n)` decodes uniform symbols using actual ranges rather than
@@ -232,8 +226,8 @@ lives in `snapshot.json`; all other files are derived from it.
 
 ### Data sources
 
-- `kanjidic2.xml` — KANJIDIC2 dictionary (kanji readings, grades, frequencies)
-- `JMdict_e.xml` — JMdict dictionary (word readings and frequency tags)
+- `kanjidic2.xml` — KANJIDIC2 dictionary: sole source of kanji readings
+- `JMdict_e.xml` — JMdict dictionary: used only for frequency scoring
 
 Both are gitignored. Download from:
 - https://www.edrdg.org/wiki/index.php/KANJIDIC_Project
@@ -271,14 +265,13 @@ are removed when their standard Joyo form (国) exists in the same cell.
 
 ### rebuild_snapshot.py
 Full rebuild pipeline for snapshot.json. Runs four phases:
-0. **Expand missing readings**: adds entries for readings that
-   KANJIDIC2 doesn't list but JMdict has (e.g. 温い/ぬるい), if the
-   kanji already exists in the snapshot and the reading scores ≥ 5.
+0. **Remove non-KANJIDIC2 readings**: KANJIDIC2 is the sole source of
+   kanji readings. Entries with readings not in KANJIDIC2 are removed.
 1. **Fix reading choices**: for each kanji in each cell, pick the
    best KANJIDIC2 reading. Suffixes (dash-prefixed) are deprioritized.
    Among non-suffix forms, highest score wins; okurigana forms win
-   ties. Tier assigned by max score across all readings in the cell.
-2. **Reassign tiers** based on current thresholds.
+   ties.
+2. **Reassign tiers** based on JMdict frequency scoring.
 3. **Re-sort** entries within each cell by score descending.
 
 Usage: `PYTHONPATH=tools python3 tools/rebuild_snapshot.py`
@@ -306,17 +299,13 @@ Usage: `PYTHONPATH=tools python3 tools/build.py`
 
 ### reencode_bac.py
 Encodes snapshot.json into the D string using binary arithmetic coding
-with probability models. Outputs a base-93 string (2:13 block code).
+with probability models. Provides `encode_snapshot()` used by `build.py`,
+and can also be run standalone.
 
-The encoder uses 24-bit precision with multiple hardcoded and conditional
-probability models (see table above) plus 1 stream-decoded kana model. The kana model covers all 82 codepoints in order
-(no lookup table needed). KN (grid kana mapping) is also stream-encoded.
-
-Includes a built-in `ArithDecoder` that verifies the round-trip before
-outputting. The encoder's interval arithmetic must exactly match the JS
-decoder's step-based lookup.
-
-Usage: `python3 tools/reencode_bac.py > /tmp/da.txt`
+The encoder uses 24-bit precision with multiple data-dependent probability
+models (see table above) plus 1 stream-decoded kana model and 1 fixed
+model (KD_CASE). Includes a built-in `ArithDecoder` that verifies the
+round-trip before outputting.
 
 ### reencode_da.py
 Base-93 codec library. Provides `encode_b93`/`decode_b93` for 2:13
