@@ -5,7 +5,7 @@ Rebuild snapshot.json with optimal reading choices and correct tiers.
 This script performs a full rebuild of the snapshot from the current
 snapshot.json, applying the following fixes in order:
 
-0. Expand with missing JMdict readings (e.g. 温い/ぬるい not in KANJIDIC2).
+0. Remove non-KANJIDIC2 readings (KANJIDIC2 is the sole reading source).
 
 1. Fix reading choices: for each kanji in each cell, pick the
    KANJIDIC2 reading with the highest JMdict frequency score
@@ -20,7 +20,6 @@ Usage: PYTHONPATH=tools python3 tools/rebuild_snapshot.py
 
 import json
 import os
-import re
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -29,7 +28,6 @@ from collections import Counter
 from resort_by_reading import (
     parse_kanjidic2, parse_jmdict, get_reading_freq, parse_entry,
     sort_entries, kata_to_hira, normalize_kanjidic_reading,
-    is_kana, is_kanji,
 )
 from expand_entries import (
     score_to_tier, reassign_tier, reading_to_cell, base_kana,
@@ -90,121 +88,32 @@ def main():
     with open(SNAPSHOT_PATH, 'r') as f:
         snap = json.load(f)
 
-    # --- Phase 0: Expand with missing JMdict readings ---
-    # Adds entries for readings that KANJIDIC2 doesn't list but JMdict has
-    # (e.g. 温い/ぬるい). Only adds if the kanji already exists in the snapshot.
-    existing_kanji = set()
-    existing_pairs = set()  # (kanji, full_reading_hira)
-    existing_in_cell = {}   # cell -> set of kanji chars
-    for cell, entries in snap.items():
-        existing_in_cell[cell] = set()
-        for e in entries:
-            kanji = e[1]
-            existing_kanji.add(kanji)
-            existing_in_cell[cell].add(kanji)
-            _, _, reading, okurigana, full_reading = parse_entry(e)
-            existing_pairs.add((kanji, kata_to_hira(full_reading)))
+    # --- Phase 0: Remove non-KANJIDIC2 readings ---
+    # KANJIDIC2 is the authoritative source for kanji readings.
+    # JMdict is only used for frequency scoring, not as a reading source.
+    kd_reading_set = {}
+    for kanji, readings in kanjidic_readings.items():
+        kd_reading_set[kanji] = set()
+        for raw, rtype in readings:
+            kd_reading_set[kanji].add(kata_to_hira(raw.strip('-').replace('.', '')))
 
-    FREQ_THRESHOLD = 5
-    jmdict_path = os.path.join(TOOLS_DIR, 'JMdict_e.xml')
-    with open(jmdict_path, 'r', encoding='utf-8') as f:
-        jmdict_content = f.read()
-
-    re_restr_pat = re.compile(r'<re_restr>(.*?)</re_restr>')
-    re_pri_pat = re.compile(r'<re_pri>(.*?)</re_pri>')
-    added = 0
-    for m in re.finditer(r'<entry>(.*?)</entry>', jmdict_content, re.DOTALL):
-        entry_text = m.group(1)
-        kebs = re.findall(r'<keb>(.*?)</keb>', entry_text)
-        if not kebs:
-            continue
-
-        r_eles = []
-        for rm in re.finditer(r'<r_ele>(.*?)</r_ele>', entry_text, re.DOTALL):
-            reb_m = re.search(r'<reb>(.*?)</reb>', rm.group(1))
-            restrs = re_restr_pat.findall(rm.group(1))
-            pris = re_pri_pat.findall(rm.group(1))
-            if reb_m:
-                # Skip loanword readings (gairaigo)
-                if any(p.startswith('gai') for p in pris):
-                    continue
-                r_eles.append((reb_m.group(1), restrs))
-        if not r_eles:
-            continue
-
-        for keb in kebs:
-            chars = list(keb)
-            non_kana = [c for c in chars if not is_kana(c)]
-            if len(non_kana) != 1 or not is_kanji(non_kana[0]):
-                continue
-            kanji_char = non_kana[0]
-            if kanji_char not in existing_kanji:
-                continue
-
-            for reb, restrs in r_eles:
-                if restrs and keb not in restrs:
-                    continue
-                reading_hira = kata_to_hira(reb)
-
-                # Extract kana suffix and prefix from word form
-                kana_suffix = ''
-                i = len(chars) - 1
-                while i >= 0 and is_kana(chars[i]):
-                    kana_suffix = kata_to_hira(chars[i]) + kana_suffix
-                    i -= 1
-                kana_prefix = ''
-                j = 0
-                while j < len(chars) and is_kana(chars[j]):
-                    kana_prefix += kata_to_hira(chars[j])
-                    j += 1
-
-                furigana = reading_hira
-                if kana_prefix:
-                    if not furigana.startswith(kana_prefix):
-                        continue
-                    furigana = furigana[len(kana_prefix):]
-                if kana_suffix:
-                    if not furigana.endswith(kana_suffix):
-                        continue
-                    okurigana = kana_suffix
-                    furigana = furigana[:-len(kana_suffix)]
-                else:
-                    okurigana = ''
-
-                if not furigana or len(furigana) > 4:
-                    continue
-                if len(okurigana) > 3:
-                    continue
-                if 'ー' in furigana or 'ー' in okurigana:
-                    continue  # Skip colloquial/emphatic elongated forms
-
-                full_reading_hira = furigana + okurigana
-                if (kanji_char, full_reading_hira) in existing_pairs:
-                    continue
-
-                cell = reading_to_cell(furigana)
-                if cell is None:
-                    continue
-                row, col = cell
-                cell_key = row + '+' + col
-                if cell_key in existing_in_cell and kanji_char in existing_in_cell[cell_key]:
-                    continue
-
-                score = get_reading_freq(kanji_char, full_reading_hira, freq_map)
-                if score < FREQ_THRESHOLD:
-                    continue
-
-                full_reading_text = furigana + ('|' + okurigana if okurigana else '')
-                entry_str = f"1{kanji_char}{full_reading_text}"
-                if cell_key not in snap:
-                    snap[cell_key] = []
-                    existing_in_cell[cell_key] = set()
-                snap[cell_key].append(entry_str)
-                existing_in_cell[cell_key].add(kanji_char)
-                existing_pairs.add((kanji_char, full_reading_hira))
-                added += 1
-
-    print(f"Phase 0: Added {added} missing JMdict readings")
+    removed = 0
+    for cell in list(snap.keys()):
+        new_entries = []
+        for e in snap[cell]:
+            _, kanji, reading, okurigana, full_reading = parse_entry(e)
+            full_hira = kata_to_hira(full_reading)
+            if kanji in kd_reading_set and full_hira in kd_reading_set[kanji]:
+                new_entries.append(e)
+            elif kanji not in kd_reading_set:
+                new_entries.append(e)  # Keep kanji not in KANJIDIC2
+            else:
+                removed += 1
+        if new_entries:
+            snap[cell] = new_entries
+        else:
+            del snap[cell]
+    print(f"Phase 0: Removed {removed} non-KANJIDIC2 readings")
 
     # --- Phase 1: Fix reading choices ---
     # For each entry, pick the best KANJIDIC2 reading in the same cell.
