@@ -197,9 +197,10 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 - Reading toggle (漢/訓/音) — filters on/kun entries; `updateReadings()`
 - Theme toggle (light/dark)
 - Hover card (`hoverCard`/`hoverCell`): tap cell to show all entries in popup, tap outside to dismiss
-- Scale/zoom: `applyScale()`, `resetWillChange()`, `scheduleWillChangeReset()`
-- Minimap: `updateMM()`, `mmNavigate()`, `schedMinimap()`
+- Scale/zoom: `applyScale()`, `resetWillChange()`, `scheduleWillChangeReset()`; adaptive font scaling via `--fs` CSS variable (counter-scales below zoom 1.5x, capped by `fsCap`)
 - Drag/pan/coast: `startDrag()`, `moveDrag()`, `endDrag()`, `coast()`; velocity `velX`/`velY`, frame `animFrame`
+- Hover card repositioning during drag/coast: `schedHover()`
+- Cell entry clipping: `clipCellEntries()` hides partially-visible rows, shows `…` indicator
 - Mouse, wheel, and touch event listeners
 - Random initial scroll position
 
@@ -300,9 +301,12 @@ Builds index.html from `kanjimap.js` and `snapshot.json`:
 6. Deflate-raw compresses the minified JS payload, encodes as base-93 (F string)
 7. Assembles final HTML with bootstrap
 
-The identifier rename table (`RENAME_MAP`) assigns 1-char names to the
-~36 most frequent identifiers and 2-char names to the rest. Browser API
-names and JS keywords are never renamed.
+The identifier rename map is computed dynamically by `compute_rename_map()`:
+tokenizes the JS (skipping string literals and property accesses after `.`),
+counts standalone identifier frequencies, then assigns 1-char names to the
+most frequent and 2-char names to the rest. Browser API names and JS keywords
+are excluded via `_EXCLUDED`. No manual maintenance required — new identifiers
+are picked up automatically on each build.
 
 Usage: `PYTHONPATH=tools python3 tools/build.py`
 
