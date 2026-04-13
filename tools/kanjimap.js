@@ -591,28 +591,26 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     startCell = cells[Math.random() * cells.length | 0];
     viewport.scrollLeft = (TABLE_MARGIN + startCell.offsetLeft + startCell.offsetWidth  / 2) * scale - viewport.clientWidth  / 2;
     viewport.scrollTop  = (TABLE_MARGIN + startCell.offsetTop  + startCell.offsetHeight / 2) * scale - viewport.clientHeight / 2;
-    // Find widest first-kun and first-on span by text length (no layout reads needed)
-    let widestKun = null, widestOn = null, maxKunLen = 0, maxOnLen = 0;
+    // Find widest first-entry .large span candidates by estimated pixel width.
+    // Ruby width ≈ max(kanji * 26, reading * 11); okurigana ≈ chars * 16.
+    // Text length alone misses entries like 柔らかい where short text is wide
+    // due to okurigana rendering at the .large base font size (16px).
+    let candidates = [];
     document.querySelectorAll('#tbody td:not(.empty)').forEach(td => {
-        const firstKun = td.querySelector('.kanji-group.kun');
-        const firstOn  = td.querySelector('.kanji-group.on');
-        if (firstKun) {
-            const len = firstKun.textContent.length;
-            if (len > maxKunLen) { maxKunLen = len; widestKun = firstKun; }
-        }
-        if (firstOn) {
-            const len = firstOn.textContent.length;
-            if (len > maxOnLen) { maxOnLen = len; widestOn = firstOn; }
-        }
+        let entry = td._entries[0];
+        if (!entry) return;
+        let est = Math.max(entry[0].length * 26, entry[1].length * 11) + entry[3].length * 16;
+        let span = td.querySelector('.kanji-group');
+        candidates.push({ est, span });
     });
-    // Measure only the two widest candidates (2 offsetWidth reads = 1 forced layout)
+    candidates.sort((a, b) => b.est - a.est);
+    // Measure top 10 candidates by actual offsetWidth (10 reads = 1 forced layout)
     const probe = document.createElement('div');
     probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;white-space:nowrap;visibility:hidden';
     document.body.appendChild(probe);
     let maxLargeEntryWidth = 0;
-    [widestKun, widestOn].forEach(span => {
-        if (!span) return;
-        const clone = span.cloneNode(true);
+    candidates.slice(0, 10).forEach(c => {
+        const clone = c.span.cloneNode(true);
         clone.classList.add('large');
         probe.appendChild(clone);
         maxLargeEntryWidth = Math.max(maxLargeEntryWidth, clone.offsetWidth);
