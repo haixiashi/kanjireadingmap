@@ -658,5 +658,5 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     updateMM();
     fsCap = maxLargeEntryWidth > 0 ? 116 / maxLargeEntryWidth : 1;
     applyScale();
-    clipCellEntries();
+    requestAnimationFrame(clipCellEntries);
 })()
