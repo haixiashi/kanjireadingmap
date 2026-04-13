@@ -21,8 +21,8 @@ TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, TOOLS_DIR)
 from reencode_da import encode_b93, decode_b93, digit_to_char, char_to_digit
 
-# 24-bit arithmetic coder
-BITS = 24
+# 32-bit arithmetic coder
+BITS = 32
 MASK = (1 << BITS) - 1
 TOP = 1 << (BITS - 1)
 QTR = 1 << (BITS - 2)
@@ -89,7 +89,7 @@ class ArithDecoder:
         self.pk = 0
         self.p = 0
         self.bits = bits
-        for _ in range(24):
+        for _ in range(BITS):
             self.pk = (self.pk << 1 | self._rb()) & MASK
 
     def _rb(self):

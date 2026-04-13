@@ -22,8 +22,8 @@ sys.path.insert(0, SCRIPT_DIR)
 from reencode_da import decode_b93
 
 
-# 24-bit arithmetic decoder (must match JS decoder exactly)
-BITS = 24
+# 32-bit arithmetic decoder (must match JS decoder exactly)
+BITS = 32
 MASK = (1 << BITS) - 1
 TOP = 1 << (BITS - 1)
 QTR = 1 << (BITS - 2)
@@ -36,7 +36,7 @@ class ArithDecoder:
         self.pk = 0
         self.p = 0
         self.bits = bits
-        for _ in range(24):
+        for _ in range(BITS):
             self.pk = (self.pk << 1 | self._rb()) & MASK
 
     def _rb(self):
