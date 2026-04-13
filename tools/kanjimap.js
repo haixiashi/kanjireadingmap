@@ -619,44 +619,47 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         }
     });
 
-    // --- Measure max large-entry width to cap --fs (covers both reading modes) ---
-    // Instead of measuring all cells, find the first-kun and first-on span with the most
-    // okurigana characters (longest text = widest) and measure only those two.
-    let widestKun = null, widestOn = null, maxKunLen = 0, maxOnLen = 0;
-    document.querySelectorAll('#tbody td:not(.empty)').forEach(td => {
-        const firstKun = td.querySelector('.kanji-group.kun');
-        const firstOn  = td.querySelector('.kanji-group.on');
-        if (firstKun) {
-            const len = firstKun.textContent.length;
-            if (len > maxKunLen) { maxKunLen = len; widestKun = firstKun; }
-        }
-        if (firstOn) {
-            const len = firstOn.textContent.length;
-            if (len > maxOnLen) { maxOnLen = len; widestOn = firstOn; }
-        }
-    });
-    const probe = document.createElement('div');
-    probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;white-space:nowrap;visibility:hidden';
-    document.body.appendChild(probe);
-    let maxLargeEntryWidth = 0;
-    [widestKun, widestOn].forEach(span => {
-        if (!span) return;
-        const clone = span.cloneNode(true);
-        clone.classList.add('large');
-        probe.appendChild(clone);
-        maxLargeEntryWidth = Math.max(maxLargeEntryWidth, clone.offsetWidth);
-        probe.removeChild(clone);
-    });
-    document.body.removeChild(probe);
-    // 128px cell minus 4px+4px .content insets minus 2px+2px .kanji-group padding = 116px usable.
-    // This is the absolute max --fs before the widest entry clips, independent of the cutoff.
     // --- Random initial scroll to a non-empty cell ---
     cells     = table.querySelectorAll('td:not(.empty)');
     startCell = cells[Math.random() * cells.length | 0];
     viewport.scrollLeft = (TABLE_MARGIN + startCell.offsetLeft + startCell.offsetWidth  / 2) * scale - viewport.clientWidth  / 2;
     viewport.scrollTop  = (TABLE_MARGIN + startCell.offsetTop  + startCell.offsetHeight / 2) * scale - viewport.clientHeight / 2;
     updateMM();
-    fsCap = maxLargeEntryWidth > 0 ? 116 / maxLargeEntryWidth : 1;
-    applyScale();
-    requestAnimationFrame(clipCellEntries);
+
+    // Defer all layout-read work to after first paint so the page appears immediately.
+    // fsCap=1 means no font scaling until the measurement completes (one frame later).
+    requestAnimationFrame(() => {
+        // Find widest first-kun and first-on span by text length (no layout reads needed)
+        let widestKun = null, widestOn = null, maxKunLen = 0, maxOnLen = 0;
+        document.querySelectorAll('#tbody td:not(.empty)').forEach(td => {
+            const firstKun = td.querySelector('.kanji-group.kun');
+            const firstOn  = td.querySelector('.kanji-group.on');
+            if (firstKun) {
+                const len = firstKun.textContent.length;
+                if (len > maxKunLen) { maxKunLen = len; widestKun = firstKun; }
+            }
+            if (firstOn) {
+                const len = firstOn.textContent.length;
+                if (len > maxOnLen) { maxOnLen = len; widestOn = firstOn; }
+            }
+        });
+        // Measure only the two widest candidates (2 offsetWidth reads = 1 forced layout)
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;white-space:nowrap;visibility:hidden';
+        document.body.appendChild(probe);
+        let maxLargeEntryWidth = 0;
+        [widestKun, widestOn].forEach(span => {
+            if (!span) return;
+            const clone = span.cloneNode(true);
+            clone.classList.add('large');
+            probe.appendChild(clone);
+            maxLargeEntryWidth = Math.max(maxLargeEntryWidth, clone.offsetWidth);
+            probe.removeChild(clone);
+        });
+        document.body.removeChild(probe);
+        // 128px cell minus 4px+4px .content insets minus 2px+2px .kanji-group padding = 116px usable
+        fsCap = maxLargeEntryWidth > 0 ? 116 / maxLargeEntryWidth : 1;
+        applyScale();
+        clipCellEntries();
+    });
 })()
