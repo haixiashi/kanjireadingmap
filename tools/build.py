@@ -22,120 +22,136 @@ sys.path.insert(0, TOOLS_DIR)
 from reencode_da import encode_b93, decode_b93
 
 RENAME_MAP = {
-    # Cross-IIFE globals
-    'decodeCell':             'DC',
-    'kanaGrid':               'KG',
-    'makeEntrySpan':          'ME',
-    'updateReadings':         'UR',
-    'showHover':              'SH',
-    'applyScale':             'AS',
-    'resetWillChange':        'RW',
-    'scheduleWillChangeReset':'SR',
-    'updateMM':               'UM',
-    'mmNavigate':             'MN',
-    'schedMinimap':           'SM',
-    'startDrag':              'SD',
-    'moveDrag':               'MD',
-    'coast':                  'CO',
-    'endDrag':                'ED',
-    'storage':                'sg',
-    'viewport':               'vp',
-    'table':                  'tb',
-    'readingBtn':             'rB',
-    'modeIdx':                'mi',
-    'themeBtn':               'tB',
-    'hoverCell':              'HC',
-    'hoverCard':              'HD',
-    'MINIMAP_SIZE':           'MS',
-    'TABLE_MARGIN':           'TM',
-    'scale':                  'sc',
-    'lastX':                  'lx',
-    'lastY':                  'ly',
-    'dragging':               'dg',
-    'mmDrag':                 'md',
-    'mmPending':              'mp',
-    'velX':                   'vx',
-    'velY':                   'vy',
-    'lastTime':               'lt',
-    'animFrame':              'af',
-    'didDrag':                'dd',
-    'wrapper':                'wr',
-    'tableW':                 'tW',
-    'tableH':                 'tH',
-    'resetTimer':             'rT',
-    'minimap':                'mm',
-    'mmView':                 'mv',
-    'gesture':                'gs',
-    'cells':                  'cl',
-    'startCell':              's0',
-    # decodeCell IIFE locals
-    'bitString':              'bs',
-    'bitPos':                 'bp',
-    'RANGE_TOP':              'RT',
-    'RANGE_QUARTER':          'RQ',
-    'RANGE_MODULUS':          'RM',
-    'rangeLow':               'lo',
-    'rangeHigh':              'hi',
-    'rangeValue':             'rv',
-    'codepoint':              'cp',
-    'kanjiTable':             'kT',
-    'normalize':              'nz',
-    'decode':                 'dc',
-    'decodeUniform':          'du',
-    'deltaRange':             'dr',
-    'kanaCumFreq':            'kf',
-    'kanaFreqAcc':            'fa',
-    'kanaGridCodepoint':      'gc',
-    'cellKana':               'ck',
-    'prevTier':               'pt',
-    'kanjiGroup':             'kg',
-    'isOn':                   'io',
-    'firstKanaVariant':       'fv',
-    'secondKanaVariant':      'sv',
-    'variantOffsets':         'vo',
-    'katakanaShift':          'ks',
-    'reading':                'rd',
-    'okurigana':              'og',
-    'innerBoundaries':        'ib',
-    # makeEntrySpan locals
-    'rubyEl':                 'rb',
-    'rtEl':                   're',
-    # Table builder locals
-    'colKana':                'ck',
-    'rowKana':                'rk',
-    'colBorders':             'cb',
-    'rowBorders':             'rb',
-    'contentDiv':             'cd',
-    'watermark':              'wm',
-    # UI IIFE locals
-    'modes':                  'mo',
-    'modeLabels':             'ml',
-    'hiddenClass':            'hc',
-    'isKatakana':             'ik',
-    'visibleCount':           'vc',
-    'largeAssigned':          'la',
-    'isDark':                 'id',
-    'entries':                'es',
-    'visible':                'vi',
-    'cellW':                  'cw',
-    'scrollH':                'sh',
-    'side':                   'sd',
-    'contentW':               'cW',
-    'contentH':               'cH',
-    'wrapW':                  'wW',
-    'wrapH':                  'wH',
-    'mouseX':                 'mx',
-    'mouseY':                 'my',
-    'prevScale':              'ps',
-    'scaleRatio':             'sr',
-    'dist':                   'di',
-    'pivotX':                 'px',
-    'pivotY':                 'py',
-    'newCX':                  'nx',
-    'newCY':                  'ny',
-    'ratio':                  'ra',
-    'span':                   'sp',
-    'entry':                  'en',
+    # 1-char names, assigned by descending usage frequency.
+    # Pool (36 available): A C E F G H I J K L M N O P Q R S T U V W X Y Z _ $ h j l m o p q r u w
+    # Already used as-is in source (excluded): B D a b c d e f g i k n s t v x y z
+    'pivotX':               'P',   # freq 72
+    'viewport':             'V',   # freq 44
+    'gesture':              'G',   # freq 38
+    'td':                   'T',   # freq 27 (unrenammed local)
+    'hoverCard':            'H',   # freq 21
+    'scale':                'S',   # freq 21
+    'span':                 'Z',   # freq 20
+    'rect':                 'R',   # freq 19 (unrenammed local)
+    'table':                'W',   # freq 18
+    'modeIdx':              'I',   # freq 17
+    'sym':                  'Y',   # freq 15 (unrenammed local in decode)
+    'rangeLow':             'L',   # freq 14
+    'decode':               'O',   # freq 14
+    'watermark':            'M',   # freq 13
+    'modes':                'N',   # freq 12
+    'rangeHigh':            'J',   # freq 11
+    'hoverCell':            'K',   # freq 11
+    'el':                   'E',   # freq 11 (unrenammed local)
+    'scrollH':              'Q',   # freq 10
+    'ratio':                'U',   # freq 10
+    'rangeValue':           '_',   # freq  9
+    'entries':              'C',   # freq  9
+    'minimap':              '$',   # freq  9
+    'cx':                   'h',   # freq  8 (unrenammed local)
+    'cy':                   'j',   # freq  8 (unrenammed local)
+    'RANGE_TOP':            'l',   # freq  8
+    'velX':                 'm',   # freq  8
+    'velY':                 'o',   # freq  8
+    'isOn':                 'p',   # freq  7
+    'tbody':                'q',   # freq  7 (unrenammed local)
+    'themeBtn':             'r',   # freq  7
+    'TABLE_MARGIN':         'u',   # freq  7
+    'mmDrag':               'w',   # freq  7
+    'mmView':               'A',   # freq  7
+    'RANGE_QUARTER':        'F',   # freq  6
+    'RANGE_MODULUS':        'X',   # freq  6
+
+    # 2-char names for the rest
+    'pivotY':               'py',
+    'innerBoundaries':      'ib',
+    'decodeUniform':        'du',
+    'cellKana':             'ck',
+    'colKana':              'ck',  # same target ok — different scopes
+    'okurigana':            'og',
+    'rubyEl':               'rb',
+    'rowBorders':           'rb',  # same target ok — different scopes
+    'readingBtn':           'rB',
+    'hiddenClass':          'hc',
+    'cellW':                'cw',
+    'animFrame':            'af',
+    'wrapper':              'wr',
+    'scaleRatio':           'sr',
+    'isDark':               'id',
+    'prevTier':             'pt',
+    'reading':              'rd',
+    'storage':              'sg',
+    'side':                 'sd',
+    'MINIMAP_SIZE':         'ms',
+    'dragging':             'dg',
+    'didDrag':              'dd',
+    'mmNavigate':           'MN',
+    'schedMinimap':         'SM',
+    'startCell':            's0',
+    'codepoint':            'cp',
+    'kanjiTable':           'kT',
+    'kanaCumFreq':          'kf',
+    'kanjiGroup':           'kg',
+    'contentDiv':           'cd',
+    'showHover':            'SH',
+    'lastX':                'lx',
+    'lastY':                'ly',
+    'mmPending':            'mp',
+    'resetTimer':           'rT',
+    'applyScale':           'AS',
+    'coast':                'CO',
+    'prevScale':            'ps',
+    'bitString':            'bs',
+    'bitPos':               'bp',
+    'normalize':            'nz',
+    'deltaRange':           'dr',
+    'kanaFreqAcc':          'fa',
+    'kanaGridCodepoint':    'gc',
+    'firstKanaVariant':     'fv',
+    'katakanaShift':        'ks',
+    'rtEl':                 're',
+    'rowKana':              'rk',
+    'colBorders':           'cb',
+    'modeLabels':           'ml',
+    'isKatakana':           'ik',
+    'visibleCount':         'vc',
+    'largeAssigned':        'la',
+    'visible':              'vi',
+    'contentW':             'cW',
+    'contentH':             'cH',
+    'wrapW':                'wW',
+    'wrapH':                'wH',
+    'mouseX':               'mx',
+    'mouseY':               'my',
+    'dist':                 'di',
+    'newCX':                'nx',
+    'newCY':                'ny',
+    'entry':                'en',
+    'decodeCell':           'DC',
+    'kanaGrid':             'KG',
+    'makeEntrySpan':        'ME',
+    'updateReadings':       'UR',
+    'resetWillChange':      'RW',
+    'scheduleWillChangeReset': 'SR',
+    'updateMM':             'UM',
+    'startDrag':            'SD',
+    'moveDrag':             'MD',
+    'endDrag':              'ED',
+    'lastTime':             'lt',
+    'tableW':               'tW',
+    'tableH':               'tH',
+    'cells':                'cl',
+    'colLabel':             'cl',  # same target ok — different scopes
+    'secondKanaVariant':    'sv',
+    'variantOffsets':       'vo',
+    'colIdx':               'ci',
+    'rowLabel':             'rl',
+    'rowIdx':               'ri',
+    'spans':                'ss',
+    'startScrollX':         'sx',
+    'startScrollY':         'sy',
+    'translateX':           'tx',
+    'translateY':           'ty',
 }
 
 
