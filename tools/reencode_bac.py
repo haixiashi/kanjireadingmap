@@ -153,7 +153,7 @@ def decode_kd(kd_str):
 
 
 # Fixed model (data-independent)
-M_KD_CASE = [0, 1, 2, 7, 38, 138, 347, 660, 999]  # KD delta bucket: 8 doubling cases (flipped)
+M_KD_CASE = [0, 339, 652, 861, 961, 992, 997, 998, 999]  # KD delta bucket: 8 doubling cases (q=2<<z)
 
 # All other models are computed from snapshot data at encode time.
 # Call compute_models(snap) before encoding.
@@ -419,15 +419,15 @@ def main():
         enc.encode_uniform(val, n)
         ops.append(('U', n, val))
 
-    # Section 1: KT deltas (8 doubling cases, flipped: q=256>>z)
+    # Section 1: KT deltas (8 doubling cases: q=2<<z)
     prev = ord(kt[0])  # 0x4E00
     for i in range(1, len(kt)):
         delta = ord(kt[i]) - prev
         prev = ord(kt[i])
-        # Find smallest q that covers delta: q >= (delta+1)/2, q is power of 2
-        # z=7 is smallest q (q=2), z=0 is largest (q=256)
-        for z in range(7, -1, -1):
-            q = 256 >> z
+        # Find smallest q that covers delta
+        # z=0 is smallest q (q=2), z=7 is largest (q=256)
+        for z in range(8):
+            q = 2 << z
             if delta >= q - 1 and delta <= 2 * q - 2:
                 em(M_KD_CASE, z)
                 eu(delta - (q - 1), q)

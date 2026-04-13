@@ -40,20 +40,32 @@ def main():
     def inner(m):
         return m[1:-1] if isinstance(m[0], int) else m
 
-    # Remove the model declaration line
-    lines = js_payload.split('\n')
-    js_payload = '\n'.join(l for l in lines if not l.startswith('CP='))
+    # Compute KT length from snapshot
+    all_kanji = set()
+    for entries in snap.values():
+        for e in entries:
+            cp = ord(e[1])
+            if 0x4E00 <= cp < 0x10000:
+                all_kanji.add(e[1])
+    kl = len(all_kanji)
 
-    # Replace variable references with computed values
+    # Replace variable placeholders with computed values
+    from reencode_bac import M_KD_CASE
+    kd = ','.join(str(x) for x in inner(M_KD_CASE))
     kp = ','.join(str(inner(m)[0]) for m in M_KT0)
     tp = ','.join(str(inner(m)) for m in M_TDP[1:])
+    d2_0 = ','.join(str(x) for x in inner(M_D2_0))
+    d2_1 = ','.join(str(x) for x in inner(M_D2_1))
     replacements = [
+        ('Z(KD)', f'Z({kd})'),
+        ('U(KL)', f'U({kl})'),
+        ('KL-1', f'{kl-1}'),
         ('Z(CP)', f'Z({inner(M_CELL)[0]})'),
         ('Z(K1)', f'Z({inner(M_KT1)[0]})'),
         ('Z(OK)', f'Z({inner(M_ONKUN)[0]})'),
         ('Z(x?DO:DK)', f'Z(x?{inner(M_D1O)[0]}:{inner(M_D1K)[0]})'),
-        ('Z(...D0)', f'Z({",".join(str(x) for x in inner(M_D2_0))})'),
-        ('Z(...D1)', f'Z({",".join(str(x) for x in inner(M_D2_1))})'),
+        ('Z(D0)', f'Z({d2_0})'),
+        ('Z(D1)', f'Z({d2_1})'),
         ('Z(EF)', f'Z({inner(M_EXTRA)[0]})'),
         ('Z(OF)', f'Z({inner(M_OKURI)[0]})'),
         ('KP[pt-1]', f'[{kp}][pt-1]'),
@@ -61,6 +73,10 @@ def main():
     ]
     for old, new in replacements:
         js_payload = js_payload.replace(old, new)
+
+    # Write processed JS for reference
+    with open(os.path.join(TOOLS_DIR, 'kanjimap_processed.js'), 'w') as f:
+        f.write(js_payload)
 
     # Read current index.html for D string
     with open(os.path.join(ROOT_DIR, 'index.html')) as f:

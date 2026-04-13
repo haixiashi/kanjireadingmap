@@ -101,7 +101,7 @@ def decode_kt_from_decoder(dec):
     cp = 0x4E00
 
     for _ in range(2697):
-        q = 256 >> dec.decode_model(KD_CASE)
+        q = 2 << dec.decode_model(KD_CASE)
         cp += dec.decode_uniform(q) + q - 1
         kt.append(chr(cp))
     return kt
