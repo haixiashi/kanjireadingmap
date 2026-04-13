@@ -45,7 +45,7 @@ SMALL_MAP = {'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お
 # before tier assignment, so tier 1 is the lowest tier.
 TIER_THRESHOLDS = [
     (98,  5),   # ~9%  - core readings (e.g. 手て, 足あし, 秋あき)
-    (93,  4),   # ~16% - very common (e.g. 青あお, 犬いぬ, 山やま)
+    (92,  4),   # ~18% - very common (e.g. 今いま, 猫ねこ, 安やす)
     (49,  3),   # ~33% - common
     (5,   2),   # ~21% - moderate
     (0,   1),   # ~21% - attested, low frequency
