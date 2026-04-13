@@ -327,12 +327,9 @@ def encode_kd(kt):
     return bits, errors
 
 
-def main():
-    with open(os.path.join(TOOLS_DIR, 'snapshot.json')) as f:
-        snap = json.load(f)
+def encode_snapshot(snap):
+    """Encode snapshot into a base-93 D string. Returns the string or raises on error."""
     compute_models(snap)
-    with open(os.path.join(TOOLS_DIR, '..', 'index.html')) as f:
-        src = f.read()
 
     # Build KT from all kanji in snapshot (sorted by codepoint)
     all_kanji = set()
@@ -541,17 +538,26 @@ def main():
                     break
     print(f"Verify: {errors} errors in {len(ops)} ops", file=sys.stderr)
 
-    if errors == 0:
-        combined_str = encode_b93(bits)
-        print(f"Combined: {len(combined_str)} chars", file=sys.stderr)
-        old_dd = re.search(r'D="([^"]*)"', src)
-        old_total = len(old_dd.group(1)) if old_dd else 0
-        print(f"Old DD: {old_total} chars, saving: {old_total - len(combined_str)}", file=sys.stderr)
-    else:
-        print("FAILED - not writing output", file=sys.stderr)
-        sys.exit(1)
+    if errors > 0:
+        raise RuntimeError(f"Verification failed: {errors} errors in {len(ops)} ops")
 
-    sys.stdout.write(combined_str)
+    combined_str = encode_b93(bits)
+    print(f"Combined: {len(combined_str)} chars", file=sys.stderr)
+    return combined_str
+
+
+def main():
+    with open(os.path.join(TOOLS_DIR, 'snapshot.json')) as f:
+        snap = json.load(f)
+    result = encode_snapshot(snap)
+
+    with open(os.path.join(TOOLS_DIR, '..', 'index.html')) as f:
+        src = f.read()
+    old_dd = re.search(r'D="([^"]*)"', src)
+    old_total = len(old_dd.group(1)) if old_dd else 0
+    print(f"Old DD: {old_total} chars, saving: {old_total - len(result)}", file=sys.stderr)
+
+    sys.stdout.write(result)
 
 
 if __name__ == '__main__':

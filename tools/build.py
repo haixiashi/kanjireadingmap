@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Build index.html with gzip-compressed JS payload.
+"""Build index.html from kanjimap.js and snapshot.json.
 
-Reads tools/kanjimap.js (the uncompressed JS), gzips it, encodes as
-base-93, and embeds it in index.html with a bootstrap that decodes,
-decompresses, and evals at runtime.
+1. Computes probability models from snapshot.json
+2. Replaces variable placeholders in kanjimap.js with computed values
+3. Encodes snapshot data into arithmetic-coded D string
+4. Deflate-raw compresses the JS payload, encodes as base-93 (F string)
+5. Assembles final HTML with bootstrap
 
-Usage: python3 tools/build.py
+Usage: PYTHONPATH=tools python3 tools/build.py
 """
 
 import zlib
@@ -78,11 +80,9 @@ def main():
     with open(os.path.join(TOOLS_DIR, 'kanjimap_processed.js'), 'w') as f:
         f.write(js_payload)
 
-    # Read current index.html for D string
-    with open(os.path.join(ROOT_DIR, 'index.html')) as f:
-        html = f.read()
-
-    dd = re.search(r'D="([^"]*)"', html).group(1)
+    # Encode D string from snapshot
+    from reencode_bac import encode_snapshot
+    dd = encode_snapshot(snap)
 
     # Gzip the JS payload
     gz = zlib.compress(js_payload.encode('utf-8'), level=9, wbits=-15)
