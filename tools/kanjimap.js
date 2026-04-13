@@ -620,35 +620,43 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     });
 
     // --- Measure max large-entry width to cap --fs (covers both reading modes) ---
-    // The large entry is always the first kun or first on span in a cell.
-    // Measure in an off-screen unconstrained container to avoid contain:strict capping offsetWidth.
-    let maxLargeEntryWidth = 0;
-    const probe = document.createElement('div');
-    probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;white-space:nowrap;visibility:hidden';
-    document.body.appendChild(probe);
+    // Instead of measuring all cells, find the first-kun and first-on span with the most
+    // okurigana characters (longest text = widest) and measure only those two.
+    let widestKun = null, widestOn = null, maxKunLen = 0, maxOnLen = 0;
     document.querySelectorAll('#tbody td:not(.empty)').forEach(td => {
         const firstKun = td.querySelector('.kanji-group.kun');
         const firstOn  = td.querySelector('.kanji-group.on');
-        [firstKun, firstOn].forEach(span => {
-            if (!span) return;
-            const clone = span.cloneNode(true);
-            clone.classList.add('large');
-            probe.appendChild(clone);
-            maxLargeEntryWidth = Math.max(maxLargeEntryWidth, clone.offsetWidth);
-            probe.removeChild(clone);
-        });
+        if (firstKun) {
+            const len = firstKun.textContent.length;
+            if (len > maxKunLen) { maxKunLen = len; widestKun = firstKun; }
+        }
+        if (firstOn) {
+            const len = firstOn.textContent.length;
+            if (len > maxOnLen) { maxOnLen = len; widestOn = firstOn; }
+        }
+    });
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;white-space:nowrap;visibility:hidden';
+    document.body.appendChild(probe);
+    let maxLargeEntryWidth = 0;
+    [widestKun, widestOn].forEach(span => {
+        if (!span) return;
+        const clone = span.cloneNode(true);
+        clone.classList.add('large');
+        probe.appendChild(clone);
+        maxLargeEntryWidth = Math.max(maxLargeEntryWidth, clone.offsetWidth);
+        probe.removeChild(clone);
     });
     document.body.removeChild(probe);
     // 128px cell minus 4px+4px .content insets minus 2px+2px .kanji-group padding = 116px usable.
     // This is the absolute max --fs before the widest entry clips, independent of the cutoff.
-    fsCap = maxLargeEntryWidth > 0 ? 116 / maxLargeEntryWidth : 1;
-    applyScale();      // re-apply now that fsCap is known
-    clipCellEntries(); // hide partially-clipped rows at initial zoom
-
     // --- Random initial scroll to a non-empty cell ---
     cells     = table.querySelectorAll('td:not(.empty)');
     startCell = cells[Math.random() * cells.length | 0];
     viewport.scrollLeft = (TABLE_MARGIN + startCell.offsetLeft + startCell.offsetWidth  / 2) * scale - viewport.clientWidth  / 2;
     viewport.scrollTop  = (TABLE_MARGIN + startCell.offsetTop  + startCell.offsetHeight / 2) * scale - viewport.clientHeight / 2;
     updateMM();
+    fsCap = maxLargeEntryWidth > 0 ? 116 / maxLargeEntryWidth : 1;
+    applyScale();
+    clipCellEntries();
 })()
