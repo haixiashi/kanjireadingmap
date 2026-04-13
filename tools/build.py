@@ -152,6 +152,23 @@ RENAME_MAP = {
     'startScrollY':         'sy',
     'translateX':           'tx',
     'translateY':           'ty',
+    # Added with clipCellEntries / fsCap / font-scale features
+    'clipCellEntries':      'CE',
+    'maxLargeEntryWidth':   'mW',
+    'allSpans':             'aS',
+    'allContent':           'aC',
+    'firstKun':             'fK',
+    'firstOn':              'fO',
+    'fsCap':                'fc',
+    'anyHidden':            'ah',
+    'widestKun':            'wK',
+    'widestOn':             'wO',
+    'maxKunLen':            'mK',
+    'maxOnLen':             'mO',
+    'overflows':            'ov',
+    'transformScale':       'ts',
+    'fontScale':            'fs',
+    'contentH':             'cH',
 }
 
 
