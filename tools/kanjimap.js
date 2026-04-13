@@ -472,7 +472,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         let mouseY    = e.clientY - rect.top  + viewport.scrollTop;
         let prevScale = scale;
         scale *= e.deltaY > 0 ? 0.9 : 1 / 0.9;
-        scale = Math.max(0.2, Math.min(5, scale));
+        scale = Math.max(0.4, Math.min(2.5, scale));
         applyScale();
         let scaleRatio = scale / prevScale;
         viewport.scrollLeft = mouseX * scaleRatio - (e.clientX - rect.left);
