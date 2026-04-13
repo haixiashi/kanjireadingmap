@@ -450,10 +450,10 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     };
 
     moveDrag = (x, y) => {
-        didDrag = 1;
         let now = performance.now();
         let dt  = now - lastTime || 1;
         let dx  = x - lastX, dy = y - lastY;
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) didDrag = 1;
         velX = dx / dt * 16;
         velY = dy / dt * 16;
         viewport.scrollLeft -= dx;
