@@ -367,15 +367,17 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     // Hide spans whose bottom edge is clipped by their .content container.
     // Called once at init and again after each zoom settles.
     clipCellEntries = () => {
+        // content height = td(128px) - top(2px) - bottom(8px) = 118px, fixed by CSS.
+        // Use offsetTop + offsetHeight relative to content div — no getBoundingClientRect,
+        // no full document layout forced per element.
+        const contentH = 118;
         document.querySelectorAll('.content').forEach(content => {
             const td = content.parentElement;
-            const maxBottom = content.getBoundingClientRect().bottom;
             let spans = content.querySelectorAll('.kanji-group');
-            // Reset visibility first so re-measuring reflects current --fs
             spans.forEach(sp => sp.style.visibility = '');
             let anyHidden = false;
             spans.forEach(sp => {
-                if (sp.getBoundingClientRect().bottom > maxBottom) {
+                if (sp.offsetTop + sp.offsetHeight > contentH) {
                     sp.style.visibility = 'hidden';
                     anyHidden = true;
                 }
