@@ -408,6 +408,15 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     };
     applyScale();
 
+    // Reposition hover card after scroll/drag, throttled to one rAF per frame
+    let hoverPending = 0;
+    schedHover = () => {
+        if (hoverCell && !hoverPending) {
+            hoverPending = 1;
+            requestAnimationFrame(() => { if (hoverCell) showHover(hoverCell); hoverPending = 0; });
+        }
+    };
+
     // --- Drag / pan / coast ---
     startDrag = (x, y) => {
         cancelAnimationFrame(animFrame);
@@ -429,6 +438,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         viewport.scrollTop  -= dy;
         lastX = x; lastY = y;
         lastTime = now;
+        schedHover();
     };
 
     coast = () => {
@@ -437,6 +447,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         viewport.scrollTop  -= velY;
         velX *= 0.95;
         velY *= 0.95;
+        schedHover();
         animFrame = requestAnimationFrame(coast);
     };
 
