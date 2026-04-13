@@ -26,14 +26,14 @@ Base-93 is decoded to a bit string using BigInt: each group of 13
 chars is converted via multiply-accumulate, then `.toString(2).padStart(85,0)`
 extracts 85 bits. Char-to-digit: `(charCode+26)*58/59-57|0`
 
-**Arithmetic decoder** (24-bit precision, inside DC IIFE):
-- State: `a` (low), `d` (high), `e` (value), all 24-bit
-- Constants: `T=1<<23` (TOP), `Q=T/2` (QUARTER), `M=T*2-1` (MASK)
+**Arithmetic decoder** (32-bit precision, inside DC IIFE):
+- State: `a` (low), `d` (high), `e` (value), all 32-bit
+- Constants: `T=2**31` (TOP), `Q=T/2` (QUARTER), `M=T*2` (MODULUS)
 - `W()`: normalization — shifts out resolved bits, reads new bits
 - `Z(c)`: decode symbol using cumulative frequency array `c` (999-scale,
   inner values only — implicit 0 and 999). Uses step-based lookup
   matching encoder boundaries.
-- `U(n)`: decode uniform symbol 0..n-1. Uses `q=(r)/n|0` for
+- `U(n)`: decode uniform symbol 0..n-1. Uses `q=Math.trunc(r/n)` for
   single-step range subdivision, matching the encoder.
 
 ### D Stream Layout
@@ -176,7 +176,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ### DC() decoder IIFE
 - Base-93 → bit string (BigInt, 13 chars → 85 bits)
-- Arithmetic decoder (24-bit precision): `W` (normalize), `Z` (model decode), `U` (uniform decode)
+- Arithmetic decoder (32-bit precision): `W` (normalize), `Z` (model decode), `U` (uniform decode)
 - Bit position `p`, codepoint accumulator `k`
 - Decodes KT (2697 deltas), kana prob table (81 deltas), KN (45 values)
 - Returns function `s => [entries...]` for cell decoding
@@ -212,7 +212,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 - H = 0x3042 (あ) used as kana base offset
 - No decoder re-initialization between sections
 - KT table size (KL) derived from snapshot; no raw encoding path
-- 24-bit arithmetic precision; step-based symbol lookup required for
+- 32-bit arithmetic precision; step-based symbol lookup required for
   exact encoder/decoder agreement
 - `U(n)` decodes uniform symbols using actual ranges rather than
   rounding up to powers of 2
@@ -302,7 +302,7 @@ Encodes snapshot.json into the D string using binary arithmetic coding
 with probability models. Provides `encode_snapshot()` used by `build.py`,
 and can also be run standalone.
 
-The encoder uses 24-bit precision with multiple data-dependent probability
+The encoder uses 32-bit precision with multiple data-dependent probability
 models (see table above) plus 1 stream-decoded kana model and 1 fixed
 model (KD_CASE). Includes a built-in `ArithDecoder` that verifies the
 round-trip before outputting.
@@ -314,7 +314,7 @@ block code conversion (85 bits ↔ 13 chars), plus `digit_to_char`/
 
 ### verify_data.py
 Decodes the D string from index.html using a Python arithmetic decoder
-(24-bit, 999-scale probability tables, `U(k)` uniform decoding) and
+(32-bit, 999-scale probability tables, `U(k)` uniform decoding) and
 compares every entry against snapshot.json. Run after any data or
 encoding change.
 
