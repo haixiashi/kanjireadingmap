@@ -541,6 +541,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
             gesture.x = t.clientX;
             gesture.y = t.clientY;
             lastTime = now;
+            schedHover();
         }
     }, { passive: false });
 
