@@ -21,155 +21,125 @@ ROOT_DIR = os.path.dirname(TOOLS_DIR)
 sys.path.insert(0, TOOLS_DIR)
 from reencode_da import encode_b93, decode_b93
 
-RENAME_MAP = {
-    # 1-char names, assigned by descending usage frequency.
-    # Pool (36 available): A C E F G H I J K L M N O P Q R S T U V W X Y Z _ $ h j l m o p q r u w
-    # Already used as-is in source (excluded): B D a b c d e f g i k n s t v x y z
-    'pivotX':               'P',   # freq 72
-    'viewport':             'V',   # freq 44
-    'gesture':              'G',   # freq 38
-    'td':                   'T',   # freq 27 (unrenammed local)
-    'hoverCard':            'H',   # freq 21
-    'scale':                'S',   # freq 21
-    'span':                 'Z',   # freq 20
-    'rect':                 'R',   # freq 19 (unrenammed local)
-    'table':                'W',   # freq 18
-    'modeIdx':              'I',   # freq 17
-    'sym':                  'Y',   # freq 15 (unrenammed local in decode)
-    'rangeLow':             'L',   # freq 14
-    'decode':               'O',   # freq 14
-    'watermark':            'M',   # freq 13
-    'modes':                'N',   # freq 12
-    'rangeHigh':            'J',   # freq 11
-    'hoverCell':            'K',   # freq 11
-    'el':                   'E',   # freq 11 (unrenammed local)
-    'scrollH':              'Q',   # freq 10
-    'ratio':                'U',   # freq 10
-    'rangeValue':           '_',   # freq  9
-    'entries':              'C',   # freq  9
-    'minimap':              '$',   # freq  9
-    'cx':                   'h',   # freq  8 (unrenammed local)
-    'cy':                   'j',   # freq  8 (unrenammed local)
-    'RANGE_TOP':            'l',   # freq  8
-    'velX':                 'm',   # freq  8
-    'velY':                 'o',   # freq  8
-    'isOn':                 'p',   # freq  7
-    'tbody':                'q',   # freq  7 (unrenammed local)
-    'themeBtn':             'r',   # freq  7
-    'TABLE_MARGIN':         'u',   # freq  7
-    'mmDrag':               'w',   # freq  7
-    'mmView':               'A',   # freq  7
-    'RANGE_QUARTER':        'F',   # freq  6
-    'RANGE_MODULUS':        'X',   # freq  6
-
-    # 2-char names for the rest
-    'pivotY':               'py',
-    'innerBoundaries':      'ib',
-    'decodeUniform':        'du',
-    'cellKana':             'ck',
-    'colKana':              'ck',  # same target ok — different scopes
-    'okurigana':            'og',
-    'rubyEl':               'rb',
-    'rowBorders':           'rb',  # same target ok — different scopes
-    'readingBtn':           'rB',
-    'hiddenClass':          'hc',
-    'cellW':                'cw',
-    'animFrame':            'af',
-    'wrapper':              'wr',
-    'scaleRatio':           'sr',
-    'isDark':               'id',
-    'prevTier':             'pt',
-    'reading':              'rd',
-    'storage':              'sg',
-    'side':                 'sd',
-    'MINIMAP_SIZE':         'ms',
-    'dragging':             'dg',
-    'didDrag':              'dd',
-    'mmNavigate':           'MN',
-    'schedMinimap':         'SM',
-    'startCell':            's0',
-    'codepoint':            'cp',
-    'kanjiTable':           'kT',
-    'kanaCumFreq':          'kf',
-    'kanjiGroup':           'kg',
-    'contentDiv':           'cd',
-    'showHover':            'SH',
-    'lastX':                'lx',
-    'lastY':                'ly',
-    'mmPending':            'mp',
-    'resetTimer':           'rT',
-    'applyScale':           'AS',
-    'coast':                'CO',
-    'prevScale':            'ps',
-    'bitString':            'bs',
-    'bitPos':               'bp',
-    'normalize':            'nz',
-    'deltaRange':           'dr',
-    'kanaFreqAcc':          'fa',
-    'kanaGridCodepoint':    'gc',
-    'firstKanaVariant':     'fv',
-    'katakanaShift':        'ks',
-    'rtEl':                 're',
-    'rowKana':              'rk',
-    'colBorders':           'cb',
-    'modeLabels':           'ml',
-    'isKatakana':           'ik',
-    'visibleCount':         'vc',
-    'largeAssigned':        'la',
-    'visible':              'vi',
-    'contentW':             'cW',
-    'contentH':             'cH',
-    'wrapW':                'wW',
-    'wrapH':                'wH',
-    'mouseX':               'mx',
-    'mouseY':               'my',
-    'dist':                 'di',
-    'newCX':                'nx',
-    'newCY':                'ny',
-    'entry':                'en',
-    'decodeCell':           'DC',
-    'kanaGrid':             'KG',
-    'makeEntrySpan':        'ME',
-    'updateReadings':       'UR',
-    'resetWillChange':      'RW',
-    'scheduleWillChangeReset': 'SR',
-    'updateMM':             'UM',
-    'startDrag':            'SD',
-    'moveDrag':             'MD',
-    'endDrag':              'ED',
-    'lastTime':             'lt',
-    'tableW':               'tW',
-    'tableH':               'tH',
-    'cells':                'cl',
-    'colLabel':             'cl',  # same target ok — different scopes
-    'secondKanaVariant':    'sv',
-    'variantOffsets':       'vo',
-    'colIdx':               'ci',
-    'rowLabel':             'rl',
-    'rowIdx':               'ri',
-    'spans':                'ss',
-    'startScrollX':         'sx',
-    'startScrollY':         'sy',
-    'translateX':           'tx',
-    'translateY':           'ty',
-    # Added with clipCellEntries / fsCap / font-scale features
-    'clipCellEntries':      'CE',
-    'maxLargeEntryWidth':   'mW',
-    'allSpans':             'aS',
-    'allContent':           'aC',
-    'firstKun':             'fK',
-    'firstOn':              'fO',
-    'fsCap':                'fc',
-    'anyHidden':            'ah',
-    'widestKun':            'wK',
-    'widestOn':             'wO',
-    'maxKunLen':            'mK',
-    'maxOnLen':             'mO',
-    'overflows':            'ov',
-    'transformScale':       'ts',
-    'fontScale':            'fs',
-    'contentH':             'cH',
+# Identifiers that must never be renamed: JS keywords, browser APIs, bootstrap globals.
+_EXCLUDED = {
+    # Bootstrap globals
+    'B', 'D', 'F',
+    # JS keywords
+    'let','const','var','if','else','for','while','return','function','new','this',
+    'true','false','null','undefined','typeof','instanceof','in','of','break',
+    'continue','do','switch','case','default','try','catch','finally','throw',
+    'async','await','delete','void','class','import','export',
+    # Browser / DOM APIs
+    'document','window','Math','String','Array','Object','BigInt','Boolean','Number',
+    'parseInt','parseFloat','console','Blob','Response','DecompressionStream',
+    'localStorage','performance','requestAnimationFrame','cancelAnimationFrame',
+    'setTimeout','clearTimeout','requestIdleCallback',
+    'addEventListener','removeEventListener','dispatchEvent',
+    'querySelector','querySelectorAll','getElementById','createElement',
+    'createTextNode','cloneNode','appendChild','removeChild','insertBefore',
+    'classList','style','dataset','innerHTML','textContent','className',
+    'offsetWidth','offsetHeight','offsetTop','offsetLeft',
+    'scrollWidth','scrollHeight','scrollLeft','scrollTop',
+    'clientWidth','clientHeight','clientX','clientY',
+    'getBoundingClientRect','getComputedStyle','setProperty','getPropertyValue',
+    'getAttribute','setAttribute',
+    'parentElement','parentNode','children','childNodes','firstChild','lastChild',
+    'contains','matches','closest',
+    'preventDefault','stopPropagation','stopImmediatePropagation',
+    'touches','changedTouches','targetTouches',
+    'deltaY','deltaX','deltaZ','deltaMode',
+    'charCodeAt','fromCharCode','toString','padStart','substr','substring','split',
+    'replace','indexOf','includes','startsWith','endsWith','trim',
+    'push','pop','shift','unshift','splice','slice','map','filter','forEach',
+    'find','findIndex','some','every','sort','reverse','join','from','keys','values',
+    'min','max','abs','sqrt','hypot','trunc','floor','ceil','round','pow','log2',
+    'random','now','assign','keys','entries',
+    'width','height','left','top','right','bottom',
+    'href','src','alt','title','type','name','value','checked','disabled',
+    'target','currentTarget','relatedTarget','detail',
+    'tagName','nodeName','nodeType','nodeValue',
+    'append','prepend','after','before','remove',
+    'blur','focus','click','submit','reset',
 }
+
+
+def compute_rename_map(js_code):
+    """Compute identifier rename map dynamically from js_code.
+
+    Tokenizes the JS, counts standalone identifier frequencies (skipping
+    property accesses after '.'), then assigns short names by frequency:
+    1-char names to the most frequent, 2-char names to the rest.
+    """
+    import re
+    TOKEN_RE = re.compile(
+        r'("(?:[^"\\]|\\.)*")'
+        r"|('(?:[^'\\]|\\.)*')"
+        r'|(`(?:[^`\\]|\\.)*`)'
+        r'|(//[^\n]*)'
+        r'|(/\*[\s\S]*?\*/)'
+        r'|([a-zA-Z_$][a-zA-Z0-9_$]*)'
+        r'|(0[xX][0-9a-fA-F]+|[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)'
+        r'|(\s+)'
+        r'|(.)'
+    )
+
+    freq = {}
+    prev_dot = False  # was the previous non-whitespace token '.'?
+
+    for m in TOKEN_RE.finditer(js_code):
+        str_dq, str_sq, tmpl, lcmt, bcmt, ident, num, ws, other = m.groups()
+        if str_dq or str_sq or tmpl or lcmt or bcmt or num:
+            prev_dot = False
+        elif ident:
+            if not prev_dot:
+                freq[ident] = freq.get(ident, 0) + 1
+            prev_dot = False
+        elif ws:
+            pass  # don't update prev_dot
+        else:
+            prev_dot = (other == '.')
+
+    # Candidates: not excluded, length > 2, freq >= 2
+    candidates = sorted(
+        [(name, count) for name, count in freq.items()
+         if name not in _EXCLUDED and len(name) > 2 and count >= 2],
+        key=lambda x: (-x[1], x[0])  # sort by freq desc, then name for determinism
+    )
+
+    # 1-char pool: all single chars not already used as identifiers in the source
+    used_as_ident = {name for name in freq if len(name) == 1}
+    pool_1 = [c for c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$'
+              if c not in used_as_ident]
+
+    # 2-char pool: generated on demand, skipping any already used as identifiers
+    def gen_2char(used_targets):
+        chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$'
+        for c1 in chars:
+            for c2 in chars:
+                name = c1 + c2
+                if name not in freq and name not in used_targets:
+                    yield name
+
+    rename_map = {}
+    used_targets = set()
+    pool_1_idx = 0
+    pool_2 = gen_2char(used_targets)
+
+    for name, count in candidates:
+        if pool_1_idx < len(pool_1):
+            target = pool_1[pool_1_idx]
+            pool_1_idx += 1
+        else:
+            target = next(pool_2)
+        rename_map[name] = target
+        used_targets.add(target)
+
+    n1 = sum(1 for v in rename_map.values() if len(v) == 1)
+    n2 = sum(1 for v in rename_map.values() if len(v) == 2)
+    print(f"Rename map: {len(rename_map)} identifiers ({n1} × 1-char, {n2} × 2-char)",
+          file=__import__('sys').stderr)
+    return rename_map
 
 
 def minify_js(code, rename_map):
@@ -287,7 +257,7 @@ def main():
             sys.exit(1)
 
     # Minify: rename identifiers + strip whitespace/comments
-    js_minified = minify_js(js_payload, RENAME_MAP)
+    js_minified = minify_js(js_payload, compute_rename_map(js_payload))
     print(f"JS: {len(js_payload)} bytes → minified: {len(js_minified)} bytes", file=sys.stderr)
 
     # Write minified JS for reference
