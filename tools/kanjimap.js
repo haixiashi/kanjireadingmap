@@ -3,7 +3,7 @@ document.title = '漢字読み方表';
 document.body.innerHTML = '<div class="viewport"><table id="grid"><tbody id="tbody"></tbody></table></div>';
 
 // CSS is kept minified as a string — gzip compresses it efficiently as-is.
-document.head.innerHTML += '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:none;text-size-adjust:none}body{font-family:sans-serif;background:#fff}.viewport{overflow:auto;width:100vw;height:100vh;scrollbar-width:none;cursor:grab;user-select:none}.viewport::-webkit-scrollbar{display:none}.viewport.dragging{cursor:grabbing}table{border-collapse:collapse}td{border:1px solid var(--b,#ccc);padding:2px 4px;background:#fff;vertical-align:top;font-size:calc(10px * var(--fs,1));width:128px;min-width:128px;height:128px;overflow:hidden;position:relative;contain:strict}.kanji-group.large{font-size:calc(16px * var(--fs,1))}.kanji-group.large ruby{font-size:calc(26px * var(--fs,1))}.kanji-group.large rt{font-size:calc(11px * var(--fs,1))}td.first-col{border-right:3px solid #000}.watermark{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:38px;color:#999;opacity:0.10;font-weight:bold}.kanji-group{display:inline-block;margin:1px 2px;white-space:nowrap;padding:1px 2px;border-radius:3px}ruby{font-size:calc(12px * var(--fs,1))}rt{font-size:calc(6px * var(--fs,1));color:#888}.content{position:absolute;top:2px;left:4px;right:4px;bottom:2px;overflow:hidden}td.has-more::after{content:"…";position:absolute;bottom:1px;right:3px;font-size:calc(10px * var(--fs,1));color:#aaa;pointer-events:none}body.dark td.has-more::after{color:#777}.hover-card{position:fixed;z-index:5;background:#fff;border:2px solid #37d;pointer-events:none;border-radius:6px;padding:2px 4px;font-size:calc(10px * var(--fs,1));transform-origin:center center;overflow:hidden;box-shadow:0 2px 12px #0004}.tier5{color:#373}.tier4{color:#693}.tier3{color:#fa2}.tier2{color:#e50}.tier1{color:#b22}.group-left{border-left:2.5px solid var(--g,#555)}.group-top{border-top:2.5px solid var(--g,#555)}.group-right{border-right:2.5px solid var(--g,#555)}.group-bottom{border-bottom:2.5px solid var(--g,#555)}.minimap{position:fixed;bottom:16px;right:16px;background:#fff;border:1px solid #999;border-radius:4px;z-index:10;cursor:crosshair}.minimap-view{position:absolute;border:2px solid #37d;background:rgba(59,125,216,0.15);border-radius:1px;pointer-events:none}.fixed-btn{position:fixed;bottom:16px;z-index:10;height:44px;border-radius:6px;border:1px solid #999;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}.fixed-btn:hover{background:#ccc}.theme-toggle{right:170px;width:44px;font-size:24px}.reading-toggle{right:222px;width:44px;font-size:22px;font-weight:bold}body.kun-only .kanji-group.on{display:none}body.on-only .kanji-group.kun{display:none}body.dark{background:#222;--b:#444;--g:#999}body.dark td{background:#222;color:#ddd}body.dark td.first-col{border-right-color:#aaa}body.dark .watermark{color:#666;opacity:0.18}body.dark rt{color:#999}body.dark .hover-card{background:#222;border-color:#59f}body.dark .tier5{color:#6b6}body.dark .tier4{color:#9c6}body.dark .tier3{color:#fe5}body.dark .tier2{color:#f90}body.dark .tier1{color:#e55}body.dark .minimap{background:#222;border-color:#666}body.dark .fixed-btn{background:#222;border-color:#666;color:#ddd}body.dark .fixed-btn:hover{background:#444}</style>';
+document.head.innerHTML += '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:none;text-size-adjust:none}body{font-family:sans-serif;background:#fff}.viewport{overflow:auto;width:100vw;height:100vh;scrollbar-width:none;cursor:grab;user-select:none}.viewport::-webkit-scrollbar{display:none}.viewport.dragging{cursor:grabbing}table{border-collapse:collapse}td{border:1px solid var(--b,#ccc);padding:2px 4px;background:#fff;vertical-align:top;font-size:calc(10px * var(--fs,1));width:128px;min-width:128px;height:128px;overflow:hidden;position:relative;contain:strict}.kanji-group.large{font-size:calc(16px * var(--fs,1))}.kanji-group.large ruby{font-size:calc(26px * var(--fs,1))}.kanji-group.large rt{font-size:calc(11px * var(--fs,1))}td.first-col{border-right:3px solid #000}.watermark{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:38px;color:#999;opacity:0.10;font-weight:bold}.kanji-group{display:inline-block;margin:1px 2px;white-space:nowrap;padding:1px 2px;border-radius:3px}ruby{font-size:calc(12px * var(--fs,1))}rt{font-size:calc(6px * var(--fs,1));color:#888}.content{position:absolute;top:2px;left:4px;right:4px;bottom:2px;overflow:hidden}td.has-more::after{content:"…";position:absolute;bottom:1px;right:3px;font-size:calc(10px * var(--fs,1));color:#aaa;pointer-events:none}body.dark td.has-more::after{color:#777}.hover-card{position:fixed;z-index:5;background:#fff;border:2px solid #37d;pointer-events:none;border-radius:6px;padding:2px 4px;font-size:calc(10px * var(--fs,1));transform-origin:center center;overflow:hidden;box-shadow:0 2px 12px #0004}.tier5{color:#373}.tier4{color:#693}.tier3{color:#fa2}.tier2{color:#e50}.tier1{color:#b22}.group-left{border-left:2.5px solid var(--g,#555)}.group-top{border-top:2.5px solid var(--g,#555)}.group-right{border-right:2.5px solid var(--g,#555)}.group-bottom{border-bottom:2.5px solid var(--g,#555)}.fixed-btn{position:fixed;bottom:16px;z-index:10;height:44px;border-radius:6px;border:1px solid #999;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}.fixed-btn:hover{background:#ccc}.theme-toggle{right:170px;width:44px;font-size:24px}.reading-toggle{right:222px;width:44px;font-size:22px;font-weight:bold}body.kun-only .kanji-group.on{display:none}body.on-only .kanji-group.kun{display:none}body.dark{background:#222;--b:#444;--g:#999}body.dark td{background:#222;color:#ddd}body.dark td.first-col{border-right-color:#aaa}body.dark .watermark{color:#666;opacity:0.18}body.dark rt{color:#999}body.dark .hover-card{background:#222;border-color:#59f}body.dark .tier5{color:#6b6}body.dark .tier4{color:#9c6}body.dark .tier3{color:#fe5}body.dark .tier2{color:#f90}body.dark .tier1{color:#e55}body.dark .fixed-btn{background:#222;border-color:#666;color:#ddd}body.dark .fixed-btn:hover{background:#444}</style>';
 decodeCell = (() => {
     // --- Arithmetic decoder state ---
     let bitString = B(D);
@@ -329,10 +329,9 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
 
     // --- Layout constants and state ---
     let fsCap = 1;  // set after table render; used by applyScale
-    const MINIMAP_SIZE = 140;
     const TABLE_MARGIN = 172;    // extra space around table for panning headroom
     scale = 1;
-    lastX = lastY = dragging = mmDrag = mmPending = velX = velY = lastTime = animFrame = didDrag = 0;
+    lastX = lastY = dragging = velX = velY = lastTime = animFrame = didDrag = 0;
 
     // Wrap table in a relative-positioned div so absolute positioning works
     wrapper = document.createElement('div');
@@ -409,45 +408,6 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     };
     applyScale();
 
-    // --- Minimap ---
-    minimap = document.createElement('div');
-    mmView  = document.createElement('div');
-    minimap.className = 'minimap';
-    mmView.className  = 'minimap-view';
-    document.body.append(minimap);
-    minimap.append(mmView);
-
-    updateMM = () => {
-        let sw = viewport.scrollWidth,  sh = viewport.scrollHeight;
-        let cw = viewport.clientWidth,  ch = viewport.clientHeight;
-        let ratio = Math.min(MINIMAP_SIZE / sw, MINIMAP_SIZE / sh);
-        minimap.style.width  = sw * ratio + 'px';
-        minimap.style.height = sh * ratio + 'px';
-        mmView.style.left    = viewport.scrollLeft * ratio + 'px';
-        mmView.style.top     = viewport.scrollTop  * ratio + 'px';
-        mmView.style.width   = Math.min(cw, sw) * ratio + 'px';
-        mmView.style.height  = Math.min(ch, sh) * ratio + 'px';
-    };
-
-    mmNavigate = e => {
-        let rect  = minimap.getBoundingClientRect();
-        let sw    = viewport.scrollWidth, sh = viewport.scrollHeight;
-        let ratio = Math.min(MINIMAP_SIZE / sw, MINIMAP_SIZE / sh);
-        viewport.scrollLeft = (e.clientX - rect.left) / ratio - viewport.clientWidth  / 2;
-        viewport.scrollTop  = (e.clientY - rect.top)  / ratio - viewport.clientHeight / 2;
-    };
-
-    schedMinimap = () => {
-        if (!mmPending) {
-            mmPending = 1;
-            requestAnimationFrame(() => {
-                updateMM();
-                mmPending = 0;
-                if (hoverCell) showHover(hoverCell);
-            });
-        }
-    };
-
     // --- Drag / pan / coast ---
     startDrag = (x, y) => {
         cancelAnimationFrame(animFrame);
@@ -477,7 +437,6 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         viewport.scrollTop  -= velY;
         velX *= 0.95;
         velY *= 0.95;
-        schedMinimap();
         animFrame = requestAnimationFrame(coast);
     };
 
@@ -491,11 +450,9 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     viewport.addEventListener('mousedown', e => startDrag(e.clientX, e.clientY));
     document.addEventListener('mousemove', e => {
         if (dragging) moveDrag(e.clientX, e.clientY);
-        if (mmDrag)   mmNavigate(e);
     });
     document.addEventListener('mouseup', () => {
         if (dragging) endDrag();
-        mmDrag = 0;
     });
     viewport.addEventListener('wheel', e => {
         e.preventDefault();
@@ -509,7 +466,6 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         let scaleRatio = scale / prevScale;
         viewport.scrollLeft = mouseX * scaleRatio - (e.clientX - rect.left);
         viewport.scrollTop  = mouseY * scaleRatio - (e.clientY - rect.top);
-        schedMinimap();
         scheduleWillChangeReset();
     }, { passive: false });
 
@@ -586,27 +542,11 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
             viewport.scrollTop  = gesture.startScrollY - gesture.translateY;
             clearTimeout(resetTimer);
             resetWillChange();
-            schedMinimap();
         }
         gesture = null;
     });
 
-    // --- Minimap interaction ---
-    minimap.addEventListener('mousedown', e => {
-        e.preventDefault(); e.stopPropagation();
-        mmDrag = 1; mmNavigate(e);
-    });
-    minimap.addEventListener('touchstart', e => {
-        e.preventDefault(); e.stopPropagation();
-        mmDrag = 1; mmNavigate(e.touches[0]);
-    }, { passive: false });
-    document.addEventListener('touchmove', e => {
-        if (mmDrag) { e.preventDefault(); mmNavigate(e.touches[0]); }
-    }, { passive: false });
-    document.addEventListener('touchend', () => { mmDrag = 0; });
-
     // --- Scroll and click ---
-    viewport.addEventListener('scroll', schedMinimap);
 
     document.addEventListener('click', e => {
         if (hoverCell && !hoverCell.contains(e.target)) {
@@ -633,8 +573,6 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     startCell = cells[Math.random() * cells.length | 0];
     viewport.scrollLeft = (TABLE_MARGIN + startCell.offsetLeft + startCell.offsetWidth  / 2) * scale - viewport.clientWidth  / 2;
     viewport.scrollTop  = (TABLE_MARGIN + startCell.offsetTop  + startCell.offsetHeight / 2) * scale - viewport.clientHeight / 2;
-    updateMM();
-
     // Find widest first-kun and first-on span by text length (no layout reads needed)
     let widestKun = null, widestOn = null, maxKunLen = 0, maxOnLen = 0;
     document.querySelectorAll('#tbody td:not(.empty)').forEach(td => {
