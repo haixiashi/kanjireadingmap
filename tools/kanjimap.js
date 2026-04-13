@@ -350,7 +350,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     // --- Scale / zoom ---
     applyScale = () => {
         table.style.transform = 'scale(' + scale + ')';
-        let fontScale = scale < 1.25 ? Math.min(1.25 / scale, fsCap) : 1;
+        let fontScale = scale < 1.5 ? Math.min(1.5 / scale, fsCap) : 1;
         document.body.style.setProperty('--fs', fontScale);
         document.body.style.setProperty('--fsh', 1);
         let contentW = tableW * scale + TABLE_MARGIN * 2;
@@ -616,8 +616,9 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     });
     document.body.removeChild(probe);
     // 128px cell minus 4px+4px .content insets minus 2px+2px .kanji-group padding = 116px usable.
-    // Divide by 1.25 since fontScale starts at 1.25 at zoom=1, consuming part of the budget.
-    fsCap = maxLargeEntryWidth > 0 ? 116 / maxLargeEntryWidth / 1.25 : 1;
+    // This is the absolute max --fs before the widest entry clips, independent of the cutoff.
+    fsCap = maxLargeEntryWidth > 0 ? 116 / maxLargeEntryWidth : 1;
+    applyScale();  // re-apply now that fsCap is known
 
     // --- Random initial scroll to a non-empty cell ---
     cells     = table.querySelectorAll('td:not(.empty)');
