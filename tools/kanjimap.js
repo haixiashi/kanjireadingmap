@@ -245,6 +245,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
                 largeAssigned++;
             }
         });
+        if (typeof clipCellEntries === 'function') clipCellEntries();
     };
 
     readingBtn.addEventListener('click', () => {
