@@ -626,9 +626,10 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     viewport.scrollTop  = (TABLE_MARGIN + startCell.offsetTop  + startCell.offsetHeight / 2) * scale - viewport.clientHeight / 2;
     updateMM();
 
-    // Defer all layout-read work to after first paint so the page appears immediately.
-    // fsCap=1 means no font scaling until the measurement completes (one frame later).
-    requestAnimationFrame(() => {
+    // Measure fsCap after first paint so it doesn't block initial render.
+    // clipCellEntries is intentionally NOT called here — it runs lazily after
+    // the first zoom or mode change so it never delays page load.
+    setTimeout(() => {
         // Find widest first-kun and first-on span by text length (no layout reads needed)
         let widestKun = null, widestOn = null, maxKunLen = 0, maxOnLen = 0;
         document.querySelectorAll('#tbody td:not(.empty)').forEach(td => {
@@ -661,5 +662,5 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         fsCap = maxLargeEntryWidth > 0 ? 116 / maxLargeEntryWidth : 1;
         applyScale();
         clipCellEntries();
-    });
+    }, 0);
 })()
