@@ -174,7 +174,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
             } else {
                 let contentDiv = document.createElement('div');
                 contentDiv.className = 'content';
-                entries.slice(0, 20).forEach((entry, i) => {
+                entries.forEach((entry, i) => {
                     let span = makeEntrySpan(...entry);
                     if (!i) span.classList.add('large');
                     contentDiv.append(span);
