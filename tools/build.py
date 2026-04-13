@@ -21,6 +21,174 @@ ROOT_DIR = os.path.dirname(TOOLS_DIR)
 sys.path.insert(0, TOOLS_DIR)
 from reencode_da import encode_b93, decode_b93
 
+RENAME_MAP = {
+    # Cross-IIFE globals
+    'decodeCell':             'DC',
+    'kanaGrid':               'KG',
+    'makeEntrySpan':          'ME',
+    'updateReadings':         'UR',
+    'showHover':              'SH',
+    'applyScale':             'AS',
+    'resetWillChange':        'RW',
+    'scheduleWillChangeReset':'SR',
+    'updateMM':               'UM',
+    'mmNavigate':             'MN',
+    'schedMinimap':           'SM',
+    'startDrag':              'SD',
+    'moveDrag':               'MD',
+    'coast':                  'CO',
+    'endDrag':                'ED',
+    'storage':                'sg',
+    'viewport':               'vp',
+    'table':                  'tb',
+    'readingBtn':             'rB',
+    'modeIdx':                'mi',
+    'themeBtn':               'tB',
+    'hoverCell':              'HC',
+    'hoverCard':              'HD',
+    'MINIMAP_SIZE':           'MS',
+    'TABLE_MARGIN':           'TM',
+    'scale':                  'sc',
+    'lastX':                  'lx',
+    'lastY':                  'ly',
+    'dragging':               'dg',
+    'mmDrag':                 'md',
+    'mmPending':              'mp',
+    'velX':                   'vx',
+    'velY':                   'vy',
+    'lastTime':               'lt',
+    'animFrame':              'af',
+    'didDrag':                'dd',
+    'wrapper':                'wr',
+    'tableW':                 'tW',
+    'tableH':                 'tH',
+    'resetTimer':             'rT',
+    'minimap':                'mm',
+    'mmView':                 'mv',
+    'gesture':                'gs',
+    'cells':                  'cl',
+    'startCell':              's0',
+    # decodeCell IIFE locals
+    'bitString':              'bs',
+    'bitPos':                 'bp',
+    'RANGE_TOP':              'RT',
+    'RANGE_QUARTER':          'RQ',
+    'RANGE_MODULUS':          'RM',
+    'rangeLow':               'lo',
+    'rangeHigh':              'hi',
+    'rangeValue':             'rv',
+    'codepoint':              'cp',
+    'kanjiTable':             'kT',
+    'normalize':              'nz',
+    'decode':                 'dc',
+    'decodeUniform':          'du',
+    'deltaRange':             'dr',
+    'kanaCumFreq':            'kf',
+    'kanaFreqAcc':            'fa',
+    'kanaGridCodepoint':      'gc',
+    'cellKana':               'ck',
+    'prevTier':               'pt',
+    'kanjiGroup':             'kg',
+    'isOn':                   'io',
+    'firstKanaVariant':       'fv',
+    'secondKanaVariant':      'sv',
+    'variantOffsets':         'vo',
+    'katakanaShift':          'ks',
+    'reading':                'rd',
+    'okurigana':              'og',
+    'innerBoundaries':        'ib',
+    # makeEntrySpan locals
+    'rubyEl':                 'rb',
+    'rtEl':                   're',
+    # Table builder locals
+    'colKana':                'ck',
+    'rowKana':                'rk',
+    'colBorders':             'cb',
+    'rowBorders':             'rb',
+    'contentDiv':             'cd',
+    'watermark':              'wm',
+    # UI IIFE locals
+    'modes':                  'mo',
+    'modeLabels':             'ml',
+    'hiddenClass':            'hc',
+    'isKatakana':             'ik',
+    'visibleCount':           'vc',
+    'largeAssigned':          'la',
+    'isDark':                 'id',
+    'entries':                'es',
+    'visible':                'vi',
+    'cellW':                  'cw',
+    'scrollH':                'sh',
+    'side':                   'sd',
+    'contentW':               'cW',
+    'contentH':               'cH',
+    'wrapW':                  'wW',
+    'wrapH':                  'wH',
+    'mouseX':                 'mx',
+    'mouseY':                 'my',
+    'prevScale':              'ps',
+    'scaleRatio':             'sr',
+    'dist':                   'di',
+    'pivotX':                 'px',
+    'pivotY':                 'py',
+    'newCX':                  'nx',
+    'newCY':                  'ny',
+    'ratio':                  'ra',
+    'span':                   'sp',
+    'entry':                  'en',
+}
+
+
+def minify_js(code, rename_map):
+    """Strip comments, rename identifiers, collapse whitespace.
+
+    Uses a single-pass tokenizer so string literals are never modified.
+    Whitespace is dropped and re-inserted only where required between
+    adjacent word tokens (identifiers/keywords/numbers).
+    """
+    import re
+    TOKEN_RE = re.compile(
+        r'("(?:[^"\\]|\\.)*")'                             # double-quoted string
+        r"|('(?:[^'\\]|\\.)*')"                            # single-quoted string
+        r'|(`(?:[^`\\]|\\.)*`)'                            # template literal
+        r'|(//[^\n]*)'                                     # line comment
+        r'|(/\*[\s\S]*?\*/)'                               # block comment
+        r'|([a-zA-Z_$][a-zA-Z0-9_$]*)'                    # identifier / keyword
+        r'|(0[xX][0-9a-fA-F]+|[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)'  # number (hex or decimal)
+        r'|(\s+)'                                          # whitespace
+        r'|(.)'                                            # any other char
+    )
+    out = []
+    prev_word = False  # last emitted token was an identifier/keyword/number
+
+    for m in TOKEN_RE.finditer(code):
+        str_dq, str_sq, template, line_cmt, block_cmt, ident, num, ws, other = m.groups()
+
+        if str_dq or str_sq or template:
+            out.append(m.group(0))
+            prev_word = False
+        elif line_cmt or block_cmt:
+            pass  # strip
+        elif ident:
+            tok = rename_map.get(ident, ident)
+            if prev_word:
+                out.append(' ')
+            out.append(tok)
+            prev_word = True
+        elif num:
+            if prev_word:
+                out.append(' ')
+            out.append(m.group(0))
+            prev_word = True
+        elif ws:
+            pass  # strip; spacing re-added by prev_word logic
+        else:
+            out.append(other)
+            prev_word = False
+
+    return ''.join(out)
+
+
 def main():
     # Read the JS payload
     with open(os.path.join(TOOLS_DIR, 'kanjimap.js')) as f:
@@ -60,36 +228,48 @@ def main():
     d2_1 = ','.join(str(x) for x in inner(M_D2_1))
     replacements = [
         ('decode(KD)', f'decode({kd})'),
-        ('decodeU(KL)', f'decodeU({kl})'),
-        ('KL-1', f'{kl-1}'),
+        ('decodeUniform(KL)', f'decodeUniform({kl})'),
+        ('KL - 1', f'{kl-1}'),
         ('decode(CP)', f'decode({inner(M_CELL)[0]})'),
         ('decode(K1)', f'decode({inner(M_KT1)[0]})'),
         ('decode(OK)', f'decode({inner(M_ONKUN)[0]})'),
-        ('decode(isOn?DO:DK)', f'decode(isOn?{inner(M_D1O)[0]}:{inner(M_D1K)[0]})'),
+        ('decode(isOn ? DO : DK)', f'decode(isOn?{inner(M_D1O)[0]}:{inner(M_D1K)[0]})'),
         ('decode(D0)', f'decode({d2_0})'),
         ('decode(D1)', f'decode({d2_1})'),
         ('decode(EF)', f'decode({inner(M_EXTRA)[0]})'),
         ('decode(OF)', f'decode({inner(M_OKURI)[0]})'),
-        ('KP[prevTier-1]', f'[{kp}][prevTier-1]'),
-        ('TP[prevTier-1]', f'[{tp.replace(" ","")}][prevTier-1]'),
+        ('KP[prevTier - 1]', f'[{kp}][prevTier-1]'),
+        ('TP[prevTier - 1]', f'[{tp.replace(" ","")}][prevTier-1]'),
     ]
     for old, new in replacements:
         js_payload = js_payload.replace(old, new)
 
-    # Write processed JS for reference
+    # Validate: check no symbolic placeholders remain unreplaced
+    import re as _re
+    KNOWN_PLACEHOLDERS = ['KD', 'KL', 'CP', 'K1', 'OK', 'DO', 'DK', 'D0', 'D1',
+                          'EF', 'OF', 'KP', 'TP']
+    for ph in KNOWN_PLACEHOLDERS:
+        if _re.search(r'\b' + ph + r'\b', js_payload):
+            print(f"ERROR: placeholder {ph!r} was not replaced in JS", file=sys.stderr)
+            sys.exit(1)
+
+    # Minify: rename identifiers + strip whitespace/comments
+    js_minified = minify_js(js_payload, RENAME_MAP)
+    print(f"JS: {len(js_payload)} bytes → minified: {len(js_minified)} bytes", file=sys.stderr)
+
+    # Write minified JS for reference
     with open(os.path.join(TOOLS_DIR, 'kanjimap_processed.js'), 'w') as f:
-        f.write(js_payload)
+        f.write(js_minified)
 
     # Encode D string from snapshot
     from reencode_bac import encode_snapshot
     dd = encode_snapshot(snap)
 
-    # Gzip the JS payload
-    gz = zlib.compress(js_payload.encode('utf-8'), level=9, wbits=-15)
-    print(f"JS: {len(js_payload)} bytes → gzip: {len(gz)} bytes", file=sys.stderr)
+    # Gzip the minified JS payload
+    gz = zlib.compress(js_minified.encode('utf-8'), level=9, wbits=-15)
+    print(f"Minified: {len(js_minified)} bytes → gzip: {len(gz)} bytes", file=sys.stderr)
 
     # Encode gzipped bytes as base-93
-    # Convert bytes to bit string
     bits = []
     for byte in gz:
         for bit in range(7, -1, -1):
@@ -97,11 +277,6 @@ def main():
     gz_b93 = encode_b93(bits)
     print(f"Base-93: {len(gz_b93)} chars", file=sys.stderr)
 
-    # Bootstrap: decode base-93 → bytes → decompress → eval
-    # F contains the base-93 gzipped JS
-    # D contains the arithmetic-coded data
-    # The bootstrap decodes F, decompresses, and evals the result
-    # The eval'd code can access D as a global
     bootstrap = (
         'D="' + dd + '";\n'
         'F="' + gz_b93 + '";\n'
@@ -117,7 +292,6 @@ def main():
         'let a=new Uint8Array(' + str(len(gz)) + ');'
         'for(let i=0;i<' + str(len(gz)) + ';i++)'
         'a[i]=parseInt(b.substr(i*8,8),2);'
-        # Decompress via DecompressionStream
         'let s=new Blob([a]).stream().pipeThrough(new DecompressionStream("deflate-raw"));'
         'eval(await new Response(s).text())'
         '})()'
