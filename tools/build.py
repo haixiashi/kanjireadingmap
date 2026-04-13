@@ -59,19 +59,19 @@ def main():
     d2_0 = ','.join(str(x) for x in inner(M_D2_0))
     d2_1 = ','.join(str(x) for x in inner(M_D2_1))
     replacements = [
-        ('Z(KD)', f'Z({kd})'),
-        ('U(KL)', f'U({kl})'),
+        ('decode(KD)', f'decode({kd})'),
+        ('decodeU(KL)', f'decodeU({kl})'),
         ('KL-1', f'{kl-1}'),
-        ('Z(CP)', f'Z({inner(M_CELL)[0]})'),
-        ('Z(K1)', f'Z({inner(M_KT1)[0]})'),
-        ('Z(OK)', f'Z({inner(M_ONKUN)[0]})'),
-        ('Z(x?DO:DK)', f'Z(x?{inner(M_D1O)[0]}:{inner(M_D1K)[0]})'),
-        ('Z(D0)', f'Z({d2_0})'),
-        ('Z(D1)', f'Z({d2_1})'),
-        ('Z(EF)', f'Z({inner(M_EXTRA)[0]})'),
-        ('Z(OF)', f'Z({inner(M_OKURI)[0]})'),
-        ('KP[pt-1]', f'[{kp}][pt-1]'),
-        ('TP[pt-1]', f'[{tp.replace(" ","")}][pt-1]'),
+        ('decode(CP)', f'decode({inner(M_CELL)[0]})'),
+        ('decode(K1)', f'decode({inner(M_KT1)[0]})'),
+        ('decode(OK)', f'decode({inner(M_ONKUN)[0]})'),
+        ('decode(isOn?DO:DK)', f'decode(isOn?{inner(M_D1O)[0]}:{inner(M_D1K)[0]})'),
+        ('decode(D0)', f'decode({d2_0})'),
+        ('decode(D1)', f'decode({d2_1})'),
+        ('decode(EF)', f'decode({inner(M_EXTRA)[0]})'),
+        ('decode(OF)', f'decode({inner(M_OKURI)[0]})'),
+        ('KP[prevTier-1]', f'[{kp}][prevTier-1]'),
+        ('TP[prevTier-1]', f'[{tp.replace(" ","")}][prevTier-1]'),
     ]
     for old, new in replacements:
         js_payload = js_payload.replace(old, new)
