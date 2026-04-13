@@ -331,6 +331,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     let fsCap = 1;  // set after table render; used by applyScale
     const TABLE_MARGIN = 172;    // extra space around table for panning headroom
     scale = 1;
+    zooming = 0;
     lastX = lastY = dragging = velX = velY = lastTime = animFrame = didDrag = 0;
 
     // Wrap table in a relative-positioned div so absolute positioning works
@@ -350,8 +351,10 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     // --- Scale / zoom ---
     applyScale = () => {
         table.style.transform = 'scale(' + scale + ')';
-        let fontScale = scale < 1.5 ? Math.min(1.5 / scale, fsCap) : 1;
-        document.body.style.setProperty('--fs', fontScale);
+        if (!zooming) {
+            let fontScale = scale < 1.5 ? Math.min(1.5 / scale, fsCap) : 1;
+            document.body.style.setProperty('--fs', fontScale);
+        }
         let contentW = tableW * scale + TABLE_MARGIN * 2;
         let contentH = tableH * scale + TABLE_MARGIN * 2;
         let wrapW = Math.max(contentW, viewport.clientWidth);
@@ -394,6 +397,8 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
 
     // Reset willChange after a zoom gesture to free compositor resources
     resetWillChange = () => {
+        zooming = 0;
+        applyScale();
         table.style.willChange = 'auto';
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -473,6 +478,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         let prevScale = scale;
         scale *= e.deltaY > 0 ? 0.9 : 1 / 0.9;
         scale = Math.max(0.4, Math.min(2.5, scale));
+        zooming = 1;
         applyScale();
         let scaleRatio = scale / prevScale;
         viewport.scrollLeft = mouseX * scaleRatio - (e.clientX - rect.left);
