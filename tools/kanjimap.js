@@ -368,21 +368,29 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     // Called once at init and again after each zoom settles.
     clipCellEntries = () => {
         // content height = td(128px) - top(2px) - bottom(8px) = 118px, fixed by CSS.
-        // Use offsetTop + offsetHeight relative to content div — no getBoundingClientRect,
-        // no full document layout forced per element.
+        // Batch all writes before all reads to avoid layout thrashing:
+        // 1. Reset all visibility (batch write — 1 layout invalidation)
+        // 2. Read all offsets (batch read — 1 forced layout, then cached)
+        // 3. Apply visibility:hidden + has-more (batch write)
         const contentH = 118;
-        document.querySelectorAll('.content').forEach(content => {
-            const td = content.parentElement;
-            let spans = content.querySelectorAll('.kanji-group');
-            spans.forEach(sp => sp.style.visibility = '');
+        const allContent = Array.from(document.querySelectorAll('.content'));
+        const allSpans = allContent.map(c => Array.from(c.querySelectorAll('.kanji-group')));
+
+        // Batch write: reset all
+        allSpans.forEach(spans => spans.forEach(sp => sp.style.visibility = ''));
+
+        // Batch read: measure all (single layout calculation)
+        const overflows = allSpans.map(spans =>
+            spans.map(sp => sp.offsetTop + sp.offsetHeight > contentH)
+        );
+
+        // Batch write: apply results
+        allContent.forEach((content, ci) => {
             let anyHidden = false;
-            spans.forEach(sp => {
-                if (sp.offsetTop + sp.offsetHeight > contentH) {
-                    sp.style.visibility = 'hidden';
-                    anyHidden = true;
-                }
+            allSpans[ci].forEach((sp, si) => {
+                if (overflows[ci][si]) { sp.style.visibility = 'hidden'; anyHidden = true; }
             });
-            td.classList.toggle('has-more', anyHidden);
+            content.parentElement.classList.toggle('has-more', anyHidden);
         });
     };
 
