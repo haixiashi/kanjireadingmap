@@ -161,13 +161,14 @@ In the snapshot, stored as `"5有あ|る"` (tier prefix, `|` separates okurigana
 ## JS Code Structure
 
 The JS is split into two parts:
-- **Bootstrap** (inline in index.html): defines `B` (shared base-93
-  decoder used by both bootstrap and DC decoder), sets `D` (arithmetic-coded
-  data) and `F` (gzip-compressed CSS+JS as base-93), decodes `F` via
-  `B`, decompresses via `DecompressionStream`, and `eval()`s the result.
-- **Payload** (`tools/kanjimap.js`): CSS injection + application code,
-  gzipped and stored as `F` in the HTML. Edit this file and run
-  `python3 tools/build.py` to rebuild index.html.
+- **Bootstrap** (inline in index.html): the HTML is minimal
+  (`<!DOCTYPE html>`, `<meta charset>`, `<script>`). Defines `B`
+  (shared base-93 decoder), sets `D` (arithmetic-coded data) and `F`
+  (deflate-compressed payload as base-93), decodes and decompresses
+  `F` via `DecompressionStream`, and `eval()`s the result.
+- **Payload** (`tools/kanjimap.js`): sets document title, viewport
+  meta tag, CSS, and all application code. Gzipped and stored as `F`
+  in the HTML. Edit this file and run `build.py` to rebuild.
 
 No single-letter aliases for browser APIs — gzip handles repetition
 natively, making aliases counterproductive. All browser APIs are called

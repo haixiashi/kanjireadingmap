@@ -126,18 +126,10 @@ def main():
     # Build the HTML
     out = (
         '<!DOCTYPE html>\n'
-        '<html lang="ja">\n'
-        '<head>\n'
         '<meta charset="UTF-8">\n'
-        '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">\n'
-        '<title>漢字読み方表</title>\n'
-        '</head>\n'
-        '<body>\n'
         '<script>\n'
         + bootstrap + '\n'
         '</script>\n'
-        '</body>\n'
-        '</html>\n'
     )
 
     out_path = os.path.join(ROOT_DIR, 'index.html')
