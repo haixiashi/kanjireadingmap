@@ -111,6 +111,7 @@ def main():
         jmdict_content = f.read()
 
     re_restr_pat = re.compile(r'<re_restr>(.*?)</re_restr>')
+    re_pri_pat = re.compile(r'<re_pri>(.*?)</re_pri>')
     added = 0
     for m in re.finditer(r'<entry>(.*?)</entry>', jmdict_content, re.DOTALL):
         entry_text = m.group(1)
@@ -122,7 +123,11 @@ def main():
         for rm in re.finditer(r'<r_ele>(.*?)</r_ele>', entry_text, re.DOTALL):
             reb_m = re.search(r'<reb>(.*?)</reb>', rm.group(1))
             restrs = re_restr_pat.findall(rm.group(1))
+            pris = re_pri_pat.findall(rm.group(1))
             if reb_m:
+                # Skip loanword readings (gairaigo)
+                if any(p.startswith('gai') for p in pris):
+                    continue
                 r_eles.append((reb_m.group(1), restrs))
         if not r_eles:
             continue
