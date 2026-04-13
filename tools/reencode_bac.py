@@ -197,9 +197,11 @@ def compute_models(snap):
             col = '' if ci == 0 else kana_str[ci - 1]
             entries = snap.get(row + '+' + col, [])
             if not entries:
-                cell_ct[0] += 1
+                if ci > 0:
+                    cell_ct[0] += 1
                 continue
-            cell_ct[1] += 1
+            if ci > 0:
+                cell_ct[1] += 1
 
             parsed = []
             for e in entries:
@@ -449,10 +451,13 @@ def encode_snapshot(snap):
             cell_key = row + '+' + col
             entries = snap.get(cell_key, [])
 
-            if not entries:
-                em(M_CELL, 0)
-                continue
-            em(M_CELL, 1)
+            if ci == 0:
+                assert entries, f"First column cell {cell_key} must not be empty"
+            else:
+                if not entries:
+                    em(M_CELL, 0)
+                    continue
+                em(M_CELL, 1)
 
             parsed = []
             for e in entries:

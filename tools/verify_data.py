@@ -175,7 +175,7 @@ def decode_da_from_decoder(dec, kt):
             pf = row_kana + col_kana
             cell_key = row_kana + '+' + col_kana
 
-            if Z(CP) == 0:
+            if ci > 0 and Z(CP) == 0:
                 continue
 
             entries = []
