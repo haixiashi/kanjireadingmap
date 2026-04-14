@@ -220,6 +220,12 @@ def minify_js(code, rename_map):
             if not merged:
                 break
 
+    # Replace true/false with !0/!1
+    result = result.replace('true', '!0').replace('false', '!1')
+
+    # Remove semicolons before closing braces (last statement in block)
+    result = result.replace(';}', '}')
+
     return result
 
 

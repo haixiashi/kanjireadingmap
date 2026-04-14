@@ -81,7 +81,7 @@ decodeCell = (() => {
     }
 
     // --- Section 3: KN — 45 kana for grid row/col layout ---
-    let kanaGridCodepoint = 0x3042;  // あ
+    let kanaGridCodepoint = 12354;  // あ
     kanaGrid = String.fromCharCode(kanaGridCodepoint);
     for (let i = 0; i < 44; i++)
         kanaGrid += String.fromCharCode(kanaGridCodepoint += decodeUniform(4) + 1);
@@ -120,12 +120,12 @@ decodeCell = (() => {
 
             // Extra kana beyond the cell prefix
             while (decode(EF))
-                reading += String.fromCharCode(decode(...kanaCumFreq) + 0x3042 + katakanaShift);
+                reading += String.fromCharCode(decode(...kanaCumFreq) + 12354 + katakanaShift);
 
             // Okurigana (kun-yomi only)
             let okurigana = '';
             while (!isOn && decode(OF))
-                okurigana += String.fromCharCode(decode(...kanaCumFreq) + 0x3042);
+                okurigana += String.fromCharCode(decode(...kanaCumFreq) + 12354);
 
             kanjiGroup.map(kanji => entries.push([kanji, reading, tier, okurigana, isOn]));
         }
