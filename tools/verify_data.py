@@ -4,7 +4,7 @@
 Usage: python3 tools/verify_data.py
 
 Exits 0 if all entries match, 1 if there are mismatches.
-The snapshot (tools/snapshot.json) is the authoritative reference derived
+The snapshot (tools/data.json) is the authoritative reference derived
 from commit aa96857. Any data-encoding change should be verified against it.
 """
 
@@ -16,7 +16,7 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPT_DIR)
 SRC_DIR = os.path.join(ROOT_DIR, 'src')
-SNAPSHOT_PATH = os.path.join(SRC_DIR, 'snapshot.json')
+SNAPSHOT_PATH = os.path.join(SRC_DIR, 'data.json')
 INDEX_PATH = os.path.join(ROOT_DIR, 'index.html')
 
 sys.path.insert(0, SCRIPT_DIR)

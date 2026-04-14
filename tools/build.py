@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Build index.html from kanjimap.js and snapshot.json.
+"""Build index.html from kanjimap.js and data.json.
 
-1. Computes probability models from snapshot.json
+1. Computes probability models from data.json
 2. Replaces variable placeholders in kanjimap.js with computed values
 3. Encodes snapshot data into arithmetic-coded D string
 4. Deflate-raw compresses the JS payload, encodes as base-93 (F string)
@@ -442,16 +442,28 @@ def minify_js(code, rename_map):
 
 
 def main():
-    # Read the JS payload
+    # Read the JS payload and CSS
     with open(os.path.join(SRC_DIR, 'kanjimap.js')) as f:
         js_payload = f.read()
+    with open(os.path.join(SRC_DIR, 'styles.css')) as f:
+        css = f.read()
+
+    # Minify CSS: strip comments, collapse whitespace, remove unnecessary spaces
+    import re as _re_css
+    css = _re_css.sub(r'/\*.*?\*/', '', css, flags=_re_css.DOTALL)  # strip comments
+    css = _re_css.sub(r'\s+', ' ', css)          # collapse whitespace
+    css = _re_css.sub(r'\s*([{}:;,>+~])\s*', r'\1', css)  # remove space around punctuation
+    css = css.strip()
+
+    # Inject minified CSS into JS
+    js_payload = js_payload.replace('CSS_PLACEHOLDER', css)
 
     # Compute models from snapshot and inject into JS
     import json as _json
     from reencode_bac import (compute_models, M_CELL, M_KT0, M_KT1, M_ONKUN,
                                M_TDP, M_D1K, M_D1O, M_D2_0, M_D2_1,
                                M_EXTRA, M_OKURI)
-    with open(os.path.join(SRC_DIR, 'snapshot.json')) as f:
+    with open(os.path.join(SRC_DIR, 'data.json')) as f:
         snap = _json.load(f)
     compute_models(snap)
     from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN,
@@ -515,7 +527,7 @@ def main():
     print(f"JS: {len(js_payload)} bytes → minified: {len(js_minified)} bytes", file=sys.stderr)
 
     # Write minified JS for reference
-    with open(os.path.join(TOOLS_DIR, 'kanjimap_processed.js'), 'w') as f:
+    with open(os.path.join(ROOT_DIR, 'build', 'kanjimap_processed.js'), 'w') as f:
         f.write(js_minified)
 
     # Gzip the minified JS payload

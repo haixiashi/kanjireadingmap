@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Rebuild snapshot.json with optimal reading choices and correct tiers.
+Rebuild data.json with optimal reading choices and correct tiers.
 
 This script performs a full rebuild of the snapshot from the current
-snapshot.json, applying the following fixes in order:
+data.json, applying the following fixes in order:
 
 0. Remove non-KANJIDIC2 readings (KANJIDIC2 is the sole reading source).
 
@@ -37,7 +37,7 @@ from expand_entries import (
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(TOOLS_DIR)
 SRC_DIR = os.path.join(ROOT_DIR, 'src')
-SNAPSHOT_PATH = os.path.join(SRC_DIR, 'snapshot.json')
+SNAPSHOT_PATH = os.path.join(SRC_DIR, 'data.json')
 
 
 def parse_kanjidic2_readings(path):

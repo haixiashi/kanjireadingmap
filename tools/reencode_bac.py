@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """BAC encoder for DD data.
 
-Encodes all data (KT, kana table, KN, cell data) from snapshot.json
+Encodes all data (KT, kana table, KN, cell data) from data.json
 into a single arithmetic-coded stream with 10 hardcoded + 1 stream-decoded
 probability models (999-scale). Kana uses 82-symbol codepoint-order table.
 
@@ -574,7 +574,7 @@ def encode_snapshot(snap):
 
 
 def main():
-    with open(os.path.join(SRC_DIR, 'snapshot.json')) as f:
+    with open(os.path.join(SRC_DIR, 'data.json')) as f:
         snap = json.load(f)
     result, num_bytes = encode_snapshot(snap)
 
