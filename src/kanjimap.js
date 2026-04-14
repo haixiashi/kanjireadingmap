@@ -7,10 +7,16 @@ document.head.innerHTML += '<meta name="viewport" content="width=device-width,in
 
 // Arithmetic decoder: rANS base-93 → bytes → bits → kanji/reading/tier data
 decodeCell = (() => {
-    // --- Base-93 → byte array → bit array (reversed) ---
-    // B(D) uses rANS streaming decoder (defined in bootstrap).
-    // Bytes in D are stored reversed (by build.py) so pop() reads bits in order.
-    let bitStream = B(D).flatMap(n => [...Array(8)].map((_, i) => n>>i&1));
+    // --- Base-93 → byte array → stateful bit reader ---
+    // B(D) decodes the rANS stream to a byte array. Bytes are stored in reverse
+    // order (by build.py) so pop() yields them in forward order. Bits are packed
+    // LSB-first within each byte (also by build.py) to match the sentinel scheme:
+    //   curByte is loaded as (byte + 256), placing a sentinel 1-bit at position 8.
+    //   Each call shifts right by 1; when curByte falls to 1 (sentinel reached position 0),
+    //   the next pop() reloads. curByte & 1 extracts the current LSB.
+    // byteArr drains to empty as decoding proceeds, freeing memory incrementally.
+    let byteArr = B(D), curByte = 0;
+    readBit = () => ((curByte >>= 1) > 1 || (curByte = byteArr.pop() + 256), curByte & 1);
 
     // --- 32-bit arithmetic decoder (range coder) ---
     // Uses 32-bit precision with constants TOP=2^31, QUARTER=2^30, MODULUS=2^32.
@@ -26,7 +32,7 @@ decodeCell = (() => {
 
     // Prime the decoder with 32 bits
     for (let i = 0; i < 32; i++)
-        rangeValue = (bitStream.pop() + rangeValue * 2) % RANGE_MODULUS;
+        rangeValue = (readBit() + rangeValue * 2) % RANGE_MODULUS;
 
     // normalize(): shift out resolved bits, read new bits from stream.
     // Called after every decode/decodeUniform to maintain decoder state.
@@ -41,7 +47,7 @@ decodeCell = (() => {
             } else break;
             rangeLow = rangeLow * 2 % RANGE_MODULUS;
             rangeHigh = (rangeHigh * 2 + 1) % RANGE_MODULUS;
-            rangeValue = (bitStream.pop() + rangeValue * 2) % RANGE_MODULUS;
+            rangeValue = (readBit() + rangeValue * 2) % RANGE_MODULUS;
         }
     };
 

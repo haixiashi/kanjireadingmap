@@ -115,9 +115,15 @@ def compute_rename_map(js_code):
         key=lambda x: (-x[1], x[0])  # sort by freq desc, then name for determinism
     )
 
-    # 1-char pool: all single chars not already used as identifiers in the source
+    # 1-char pool: single chars not already used as identifiers in the source.
+    # _ and $ are intentionally excluded: the scope-aware local renamer uses them
+    # and can reuse them freely across sibling scopes. If the global rename map
+    # claimed _ or $, they would be added to global_targets and blocked from
+    # every local scope, costing many bytes whenever the global pool shifts and
+    # a different identifier gets _ or $. Keeping them local-only makes the
+    # output size stable regardless of how many global identifiers are added.
     used_as_ident = {name for name in freq if len(name) == 1}
-    pool_1 = [c for c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$'
+    pool_1 = [c for c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
               if c not in used_as_ident]
 
     # 2-char pool: generated on demand, skipping any already used as identifiers

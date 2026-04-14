@@ -31,12 +31,17 @@ QTR = 1 << (BITS - 2)
 
 
 def bits_to_bytes(bits):
-    """Pack a bit list into a byte list (MSB first)."""
+    """Pack a bit list into a byte list, LSB first within each byte.
+
+    LSB-first matches the JS sentinel decoder: loading (byte + 256) places a
+    sentinel at bit 8, and repeated >>= 1 reads bits from position 0 upward,
+    so bit 0 of each byte must be the first bit of the stream segment.
+    """
     byte_data = []
     for i in range(0, len(bits), 8):
         b = 0
         for j in range(8):
-            b = (b << 1) | (bits[i + j] if i + j < len(bits) else 0)
+            b |= (bits[i + j] if i + j < len(bits) else 0) << j
         byte_data.append(b)
     return byte_data
 
@@ -107,7 +112,7 @@ class ArithDecoder:
 
     def _rb(self):
         byte_idx = self.p >> 3
-        bit_idx = 7 - (self.p & 7)
+        bit_idx = self.p & 7
         b = (self.bytes[byte_idx] >> bit_idx) & 1 if byte_idx < len(self.bytes) else 0
         self.p += 1
         return b
@@ -568,8 +573,8 @@ def encode_snapshot(snap):
     # becomes NaN and corrupts the decoder state.
     for _ in range(4):
         byte_data.append(0)
-    # Reverse byte order so the JS decoder can use flatMap with n>>i&1 and
-    # pop() directly — no .reverse() or 7-i needed at runtime.
+    # Reverse byte order so the JS decoder can use pop() to read bytes in forward
+    # order (byte_0 first) without needing a separate index variable.
     byte_data = byte_data[::-1]
     combined_str = encode_b93(byte_data)
     print(f"Combined: {len(combined_str)} chars", file=sys.stderr)
