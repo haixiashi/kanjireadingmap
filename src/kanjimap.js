@@ -518,6 +518,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         let scaleRatio = scale / prevScale;
         viewport.scrollLeft = mouseX * scaleRatio - (e.clientX - rect.left);
         viewport.scrollTop  = mouseY * scaleRatio - (e.clientY - rect.top);
+        schedHover();
         scheduleWillChangeReset();
     }, { passive: false });
 
