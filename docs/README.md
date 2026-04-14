@@ -305,7 +305,8 @@ Builds index.html from `kanjimap.js` and `snapshot.json`:
 2. Replaces symbolic placeholders in JS with computed literals
 3. Validates no placeholders remain unreplaced (exits with error if any do)
 4. Minifies JS: renames identifiers to short symbols, strips comments
-   and whitespace (single-pass tokenizer preserves string literals)
+   and whitespace, merges consecutive `let`/`const` declarations
+   (single-pass tokenizer preserves string literals)
 5. Encodes snapshot data into arithmetic-coded D string (via `encode_snapshot()`)
 6. Deflate-raw compresses the minified JS payload, encodes as base-93 (F string)
 7. Assembles final HTML with bootstrap

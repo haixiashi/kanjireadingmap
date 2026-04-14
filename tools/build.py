@@ -189,7 +189,38 @@ def minify_js(code, rename_map):
             out.append(other)
             prev_word = False
 
-    return ''.join(out)
+    result = ''.join(out)
+
+    # Merge consecutive let/const declarations: let a=1;let b=2 → let a=1,b=2
+    for kw in ('let ', 'const '):
+        while True:
+            merged = False
+            i = result.find(kw)
+            while i >= 0:
+                # Find the semicolon ending this declaration
+                # Track nesting depth to skip over function bodies, arrays, objects
+                depth = 0
+                j = i + len(kw)
+                while j < len(result):
+                    c = result[j]
+                    if c in '({[':
+                        depth += 1
+                    elif c in ')}]':
+                        depth -= 1
+                    elif c == ';' and depth == 0:
+                        break
+                    j += 1
+                # Check if immediately followed by same keyword
+                if j < len(result) and result[j:j+1+len(kw)] == ';' + kw:
+                    result = result[:j] + ',' + result[j+1+len(kw):]
+                    merged = True
+                    i = result.find(kw, j)  # continue from merge point
+                else:
+                    i = result.find(kw, j + 1)
+            if not merged:
+                break
+
+    return result
 
 
 def main():

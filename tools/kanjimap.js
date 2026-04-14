@@ -8,9 +8,9 @@ decodeCell = (() => {
     // --- Arithmetic decoder state ---
     let bitString = B(D, DL).map(b => b.toString(2).padStart(8, 0)).join('');
     let bitPos = 0;
-    const RANGE_TOP = 2 ** 31;
-    const RANGE_QUARTER = RANGE_TOP / 2;
-    const RANGE_MODULUS = RANGE_TOP * 2;
+    let RANGE_TOP = 2 ** 31;
+    let RANGE_QUARTER = RANGE_TOP / 2;
+    let RANGE_MODULUS = RANGE_TOP * 2;
     let rangeLow = 0;
     let rangeHigh = RANGE_MODULUS - 1;
     let rangeValue = 0;
