@@ -16,7 +16,7 @@ decodeCell = (() => {
     //   the next pop() reloads. curByte & 1 extracts the current LSB.
     // byteArr drains to empty as decoding proceeds, freeing memory incrementally.
     let byteArr = B(D), curByte = 0;
-    readBit = () => ((curByte >>= 1) > 1 || (curByte = byteArr.pop() + 256), curByte & 1);
+    readBit = () => (curByte >>= 1, curByte > 1 || (curByte = byteArr.pop() + 256), curByte & 1);
 
     // --- 32-bit arithmetic decoder (range coder) ---
     // Uses 32-bit precision with constants TOP=2^31, QUARTER=2^30, MODULUS=2^32.
