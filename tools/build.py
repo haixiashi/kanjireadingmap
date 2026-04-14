@@ -284,7 +284,6 @@ def main():
         ('decode(OF)', f'decode({inner(M_OKURI)[0]})'),
         ('KP[prevTier - 1]', f'[{kp}][prevTier-1]'),
         ('TP[prevTier - 1]', f'[{tp.replace(" ","")}][prevTier-1]'),
-        ('B(D, DL)', f'B(D,{d_num_bytes})'),
     ]
     for old, new in replacements:
         js_payload = js_payload.replace(old, new)
@@ -292,7 +291,7 @@ def main():
     # Validate: check no symbolic placeholders remain unreplaced
     import re as _re
     KNOWN_PLACEHOLDERS = ['KD', 'KL', 'CP', 'K1', 'OK', 'DO', 'DK', 'D0', 'D1',
-                          'EF', 'OF', 'KP', 'TP', 'DL']
+                          'EF', 'OF', 'KP', 'TP']
     for ph in KNOWN_PLACEHOLDERS:
         if _re.search(r'\b' + ph + r'\b', js_payload):
             print(f"ERROR: placeholder {ph!r} was not replaced in JS", file=sys.stderr)
@@ -317,13 +316,13 @@ def main():
     bootstrap = (
         'D="' + dd + '";\n'
         'F="' + gz_b93 + '";\n'
-        # rANS base-93 byte decoder (no BigInt)
-        'B=(s,n)=>{let i=0,v=0,o=[];while(o.length<n){'
+        # rANS base-93 byte decoder (no BigInt, sentinel-terminated)
+        'B=s=>{let i=0,v=0,o=[];do{'
         'while(v<2**24&&i<s.length)v=v*93+(s.charCodeAt(i++)+26)*58/59-57|0;'
-        'o.push(v&255);v>>=8}return o};\n'
+        'o.push(v&255);v>>=8}while(v>1);return o};\n'
         # Decode F from base-93, decompress, eval payload
         '(async()=>{'
-        'let a=new Uint8Array(B(F,' + str(len(gz)) + '));'
+        'let a=new Uint8Array(B(F));'
         'let s=new Blob([a]).stream().pipeThrough(new DecompressionStream("deflate-raw"));'
         'eval(await new Response(s).text())'
         '})()'
