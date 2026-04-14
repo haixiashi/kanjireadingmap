@@ -564,10 +564,14 @@ def encode_snapshot(snap):
     byte_data = bits_to_bytes(bits)
     # Append padding bytes so the bit string has enough trailing zeros.
     # The arithmetic decoder may read up to 32 bits beyond the data during
-    # final normalization. Without padding, +bitString[pos] reads undefined
-    # which becomes NaN and corrupts the decoder state.
+    # final normalization. Without padding, pop() returns undefined which
+    # becomes NaN and corrupts the decoder state.
     for _ in range(4):
         byte_data.append(0)
+    # Reverse bit order within each byte and reverse byte order, so the JS
+    # decoder can use flatMap(n=>[...Array(8)].map((_,i)=>(n>>i)&1)) and
+    # pop() directly — no .reverse() or 7-i needed at runtime.
+    byte_data = [int(f'{b:08b}'[::-1], 2) for b in byte_data][::-1]
     combined_str = encode_b93(byte_data)
     print(f"Combined: {len(combined_str)} chars", file=sys.stderr)
     return combined_str, len(byte_data)

@@ -9,8 +9,8 @@ document.head.innerHTML += '<meta name="viewport" content="width=device-width,in
 decodeCell = (() => {
     // --- Base-93 → byte array → bit array (reversed) ---
     // B(D) uses rANS streaming decoder (defined in bootstrap).
-    // Bits are stored MSB-first per byte; reversed so pop() reads them in order.
-    let bitStream = B(D).flatMap(n => [...Array(8)].map((_, i) => (n>>7-i)&1)).reverse();
+    // Bytes in D are stored reversed (by build.py) so pop() reads bits in order.
+    let bitStream = B(D).flatMap(n => [...Array(8)].map((_, i) => (n>>i)&1));
 
     // --- 32-bit arithmetic decoder (range coder) ---
     // Uses 32-bit precision with constants TOP=2^31, QUARTER=2^30, MODULUS=2^32.
