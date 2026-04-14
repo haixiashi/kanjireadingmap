@@ -318,13 +318,13 @@ def main():
         'D="' + dd + '";\n'
         'F="' + gz_b93 + '";\n'
         # rANS base-93 byte decoder (no BigInt, sentinel-terminated)
-        'B=s=>{let i=0,v=0,o=[];do{'
+        'B=s=>{i=0,v=0,o=[];do{'
         'while(v<2**24&&i<s.length)v=v*93+(s.charCodeAt(i++)+26)*58/59-57|0;'
         'o.push(v&255);v>>=8}while(v>1);return o};\n'
         # Decode F from base-93, decompress, eval payload
         '(async()=>{'
-        'let a=new Uint8Array(B(F));'
-        'let s=new Blob([a]).stream().pipeThrough(new DecompressionStream("deflate-raw"));'
+        'a=new Uint8Array(B(F));'
+        's=new Blob([a]).stream().pipeThrough(new DecompressionStream("deflate-raw"));'
         'eval(await new Response(s).text())'
         '})()'
     )
