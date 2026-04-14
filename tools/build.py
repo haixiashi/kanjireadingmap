@@ -142,12 +142,159 @@ def compute_rename_map(js_code):
     return rename_map
 
 
+def _build_scope_renames(code, rename_map):
+    """Build scope-aware rename maps for let/const declarations.
+
+    Scans the JS source to find let/const declarations in each {} scope,
+    then assigns short names that can be reused across sibling scopes.
+    Returns a dict mapping (scope_id, original_name) -> short_name.
+    Also returns scope_id for each token position.
+    """
+    import re
+    TOKEN_RE = re.compile(
+        r'("(?:[^"\\]|\\.)*")'
+        r"|('(?:[^'\\]|\\.)*')"
+        r'|(`(?:[^`\\]|\\.)*`)'
+        r'|(//[^\n]*)'
+        r'|(/\*[\s\S]*?\*/)'
+        r'|([a-zA-Z_$][a-zA-Z0-9_$]*)'
+        r'|(0[xX][0-9a-fA-F]+|[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)'
+        r'|(\s+)'
+        r'|(.)'
+    )
+
+    # Phase 1: identify scopes and let/const declarations
+    # scope_stack tracks scope IDs; scope_id increments on each new {
+    # for(let ...) declarations are assigned to the NEXT scope (the for-body)
+    scope_counter = 0
+    scope_stack = [0]  # global scope = 0
+    scope_parent = {0: None}
+    scope_lets = {}  # scope_id -> set of declared names
+    token_scopes = {}  # token_start_pos -> scope_id
+    let_positions = {}  # token_start_pos -> True
+
+    prev_kw = None
+    prev_dot = False
+    # State for detecting for(let x ...) — these are scoped to the for-body
+    for_state = 0  # 0=idle, 1=saw 'for', 2=saw 'for('
+    for_let_names = []  # names to assign to next scope
+
+    for m in TOKEN_RE.finditer(code):
+        str_dq, str_sq, tmpl, lcmt, bcmt, ident, num, ws, other = m.groups()
+        pos = m.start()
+        cur_scope = scope_stack[-1]
+        token_scopes[pos] = cur_scope
+
+        if str_dq or str_sq or tmpl or lcmt or bcmt or num:
+            prev_kw = None
+            prev_dot = False
+            for_state = 0
+        elif ident:
+            if prev_kw in ('let', 'const') and not prev_dot:
+                if for_state == 2:
+                    # for(let x ...) — defer to next scope
+                    for_let_names.append(ident)
+                else:
+                    if cur_scope not in scope_lets:
+                        scope_lets[cur_scope] = set()
+                    scope_lets[cur_scope].add(ident)
+                let_positions[pos] = True
+            if ident == 'for':
+                for_state = 1
+            elif for_state != 2:
+                for_state = 0
+            prev_kw = ident if ident in ('let', 'const', 'var', 'function') else None
+            prev_dot = False
+        elif ws:
+            pass
+        else:
+            if other == '(' and for_state == 1:
+                for_state = 2  # saw for(
+            elif other == '{':
+                scope_counter += 1
+                scope_parent[scope_counter] = cur_scope
+                scope_stack.append(scope_counter)
+                # Assign deferred for(let) names to this new scope
+                if for_let_names:
+                    if scope_counter not in scope_lets:
+                        scope_lets[scope_counter] = set()
+                    scope_lets[scope_counter].update(for_let_names)
+                    for_let_names = []
+                for_state = 0
+            elif other == '}' and len(scope_stack) > 1:
+                scope_stack.pop()
+                for_state = 0
+            else:
+                if other != '(' and for_state != 2:
+                    for_state = 0
+            prev_kw = None
+            prev_dot = (other == '.')
+
+    # Phase 2: collect short identifiers used per scope (params, references)
+    # These cannot be reused for let renames in that scope
+    scope_short_idents = {}  # scope_id -> set of short idents used (not via let)
+    prev_dot2 = False
+    scope_stack2 = [0]
+    scope_counter2 = 0
+    scope_parent2 = {0: None}
+    for m2 in TOKEN_RE.finditer(code):
+        s_dq, s_sq, s_t, s_lc, s_bc, s_id, s_n, s_ws, s_o = m2.groups()
+        cur2 = scope_stack2[-1]
+        if s_id and not prev_dot2 and len(s_id) <= 2:
+            # Short ident used in this scope (could be param, var ref, etc.)
+            # Only track if it's NOT a let-declared name in this scope
+            if s_id not in scope_lets.get(cur2, set()):
+                if cur2 not in scope_short_idents:
+                    scope_short_idents[cur2] = set()
+                scope_short_idents[cur2].add(s_id)
+        if s_o == '{':
+            scope_counter2 += 1
+            scope_parent2[scope_counter2] = cur2
+            scope_stack2.append(scope_counter2)
+        elif s_o == '}' and len(scope_stack2) > 1:
+            scope_stack2.pop()
+        if s_o:
+            prev_dot2 = (s_o == '.')
+        elif not s_ws:
+            prev_dot2 = False
+
+    global_targets = set(rename_map.values())
+    local_pool = list('ijklmnopqrstuvwxyzabcdefghABCDEFGHIJKLMNOPQRSTUVWXYZ_$')
+
+    scope_renames = {}
+
+    for scope_id, names in scope_lets.items():
+        # Unavailable: global targets + ancestor scope renames +
+        # short idents used in this scope and ancestor scopes (params, refs)
+        used = set(global_targets)
+        s = scope_id
+        while s is not None:
+            used |= scope_short_idents.get(s, set())
+            for n in scope_lets.get(s, set()):
+                if s != scope_id and (s, n) in scope_renames:
+                    used.add(scope_renames[(s, n)])
+            s = scope_parent.get(s)
+
+        pool_idx = 0
+        for name in sorted(names):
+            if name not in rename_map and len(name) <= 2:
+                continue
+            while pool_idx < len(local_pool) and local_pool[pool_idx] in used:
+                pool_idx += 1
+            if pool_idx < len(local_pool):
+                scope_renames[(scope_id, name)] = local_pool[pool_idx]
+            pool_idx += 1
+
+    return scope_renames, token_scopes, let_positions, scope_lets
+
+
 def minify_js(code, rename_map):
     """Strip comments, rename identifiers, collapse whitespace.
 
     Uses a single-pass tokenizer so string literals are never modified.
     Whitespace is dropped and re-inserted only where required between
     adjacent word tokens (identifiers/keywords/numbers).
+    Scope-aware: let/const variables get short names reused across scopes.
     """
     import re
     TOKEN_RE = re.compile(
@@ -161,33 +308,72 @@ def minify_js(code, rename_map):
         r'|(\s+)'                                          # whitespace
         r'|(.)'                                            # any other char
     )
+
+    # Build scope-aware renames for let/const declarations
+    scope_renames, token_scopes, let_positions, scope_lets = \
+        _build_scope_renames(code, rename_map)
+
+    # Track which names are let-declared in each scope for use-site lookup
+    # When we see an identifier, check if it's let-declared in the current
+    # scope or any ancestor scope
+    scope_parent = {}
+    scope_counter = 0
+    scope_stack = [0]
+    scope_parent[0] = None
+
     out = []
-    prev_word = False  # last emitted token was an identifier/keyword/number
+    prev_word = False
+    prev_dot = False
 
     for m in TOKEN_RE.finditer(code):
         str_dq, str_sq, template, line_cmt, block_cmt, ident, num, ws, other = m.groups()
+        pos = m.start()
 
         if str_dq or str_sq or template:
             out.append(m.group(0))
             prev_word = False
+            prev_dot = False
         elif line_cmt or block_cmt:
             pass  # strip
         elif ident:
-            tok = rename_map.get(ident, ident)
+            if prev_dot:
+                # Property access — don't rename
+                tok = ident
+            else:
+                # Check scope-local rename first
+                cur_scope = scope_stack[-1]
+                tok = None
+                s = cur_scope
+                while s is not None:
+                    if (s, ident) in scope_renames and ident in scope_lets.get(s, set()):
+                        tok = scope_renames[(s, ident)]
+                        break
+                    s = scope_parent.get(s)
+                if tok is None:
+                    tok = rename_map.get(ident, ident)
             if prev_word:
                 out.append(' ')
             out.append(tok)
             prev_word = True
+            prev_dot = False
         elif num:
             if prev_word:
                 out.append(' ')
             out.append(m.group(0))
             prev_word = True
+            prev_dot = False
         elif ws:
             pass  # strip; spacing re-added by prev_word logic
         else:
+            if other == '{':
+                scope_counter += 1
+                scope_parent[scope_counter] = scope_stack[-1]
+                scope_stack.append(scope_counter)
+            elif other == '}' and len(scope_stack) > 1:
+                scope_stack.pop()
             out.append(other)
             prev_word = False
+            prev_dot = (other == '.')
 
     result = ''.join(out)
 
