@@ -513,7 +513,8 @@ def main():
         js_payload = js_payload.replace(old, new)
 
     # Minify: rename identifiers + strip whitespace/comments
-    js_minified = minify_js(js_payload, compute_rename_map(js_payload))
+    _rmap = compute_rename_map(js_payload)
+    js_minified = minify_js(js_payload, _rmap)
 
     # Validate: check no symbolic placeholders remain in minified output
     # (checked after minification so comments can freely reference placeholders)

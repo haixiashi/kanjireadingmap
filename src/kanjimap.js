@@ -637,16 +637,16 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         if (!entry) return;
         let est = Math.max(entry[0].length * 26, entry[1].length * 11) + entry[3].length * 16;
         let span = td.querySelector('.kanji-group');
-        candidates.push({ est, span });
+        candidates.push([est, span]);
     });
-    candidates.sort((a, b) => b.est - a.est);
+    candidates.sort((a, b) => b[0] - a[0]);
     // Measure top 10 candidates by actual offsetWidth (10 reads = 1 forced layout)
     const probe = document.createElement('div');
     probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;white-space:nowrap;visibility:hidden';
     document.body.appendChild(probe);
     let maxLargeEntryWidth = 0;
     candidates.slice(0, 10).forEach(c => {
-        const clone = c.span.cloneNode(true);
+        const clone = c[1].cloneNode(true);
         clone.classList.add('large');
         probe.appendChild(clone);
         maxLargeEntryWidth = Math.max(maxLargeEntryWidth, clone.offsetWidth);
