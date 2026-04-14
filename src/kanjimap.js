@@ -10,7 +10,7 @@ decodeCell = (() => {
     // --- Base-93 → byte array → bit array (reversed) ---
     // B(D) uses rANS streaming decoder (defined in bootstrap).
     // Bits are stored MSB-first per byte; reversed so pop() reads them in order.
-    let bitStream = B(D).reduceRight((acc, n) => acc.concat([...Array(8)].map((_, i) => (n >> i) & 1)), []);
+    let bitStream = B(D).flatMap(n => [...Array(8)].map((_, i) => (n>>7-i)&1)).reverse();
 
     // --- 32-bit arithmetic decoder (range coder) ---
     // Uses 32-bit precision with constants TOP=2^31, QUARTER=2^30, MODULUS=2^32.
