@@ -247,6 +247,7 @@ def main():
         ('decode(OF)', f'decode({inner(M_OKURI)[0]})'),
         ('KP[prevTier - 1]', f'[{kp}][prevTier-1]'),
         ('TP[prevTier - 1]', f'[{tp.replace(" ","")}][prevTier-1]'),
+        ('B(D, DL)', f'B(D,{d_num_bytes})'),
     ]
     for old, new in replacements:
         js_payload = js_payload.replace(old, new)
@@ -254,7 +255,7 @@ def main():
     # Validate: check no symbolic placeholders remain unreplaced
     import re as _re
     KNOWN_PLACEHOLDERS = ['KD', 'KL', 'CP', 'K1', 'OK', 'DO', 'DK', 'D0', 'D1',
-                          'EF', 'OF', 'KP', 'TP']
+                          'EF', 'OF', 'KP', 'TP', 'DL']
     for ph in KNOWN_PLACEHOLDERS:
         if _re.search(r'\b' + ph + r'\b', js_payload):
             print(f"ERROR: placeholder {ph!r} was not replaced in JS", file=sys.stderr)
@@ -286,7 +287,6 @@ def main():
         # Decode F, then redefine B to return bit string for D
         '(async()=>{'
         'let a=new Uint8Array(B(F,' + str(len(gz)) + '));'
-        'let G=B;B=s=>G(s,' + str(d_num_bytes) + ').map(b=>b.toString(2).padStart(8,0)).join("");'
         'let s=new Blob([a]).stream().pipeThrough(new DecompressionStream("deflate-raw"));'
         'eval(await new Response(s).text())'
         '})()'
