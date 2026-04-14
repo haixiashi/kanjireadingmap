@@ -8,15 +8,11 @@ document.head.innerHTML += '<meta name="viewport" content="width=device-width,in
 // Arithmetic decoder: rANS base-93 → bytes → bits → kanji/reading/tier data
 decodeCell = (() => {
     // --- Base-93 → byte array → stateful bit reader ---
-    // B(D) decodes the rANS stream to a byte array. Bytes are stored in reverse
-    // order (by build.py) so pop() yields them in forward order. Bits are packed
-    // LSB-first within each byte (also by build.py) to match the sentinel scheme:
-    //   curByte is loaded as (byte + 256), placing a sentinel 1-bit at position 8.
-    //   Each call shifts right by 1; when curByte falls to 1 (sentinel reached position 0),
-    //   the next pop() reloads. curByte & 1 extracts the current LSB.
-    // byteArr drains to empty as decoding proceeds, freeing memory incrementally.
-    let byteArr = B(D), curByte = 0;
-    readBit = () => (curByte >>= 1, curByte > 1 || (curByte = byteArr.pop() + 256), curByte & 1);
+    // Bytes reversed by build.py (pop() reads forward), bits packed LSB-first.
+    // sr (shift register) is loaded as byte+256; the sentinel 1-bit at position 8
+    // triggers a pop() reload when >>=1 drains it to 1. sr&1 yields the current bit.
+    let byteArr = B(D), sr = 0;
+    readBit = () => (sr >>= 1, sr > 1 || (sr = byteArr.pop() + 256), sr & 1);
 
     // --- 32-bit arithmetic decoder (range coder) ---
     // Uses 32-bit precision with constants TOP=2^31, QUARTER=2^30, MODULUS=2^32.
