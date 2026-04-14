@@ -4,10 +4,33 @@ document.body.innerHTML = '<div class="viewport"><table id="grid"><tbody id="tbo
 
 // CSS is kept minified as a string — gzip compresses it efficiently as-is.
 document.head.innerHTML += '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:none;text-size-adjust:none}body{font-family:sans-serif;background:#fff}.viewport{overflow:auto;width:100vw;height:100vh;scrollbar-width:none;cursor:grab;user-select:none}.viewport::-webkit-scrollbar{display:none}.viewport.dragging{cursor:grabbing}table{border-collapse:collapse}td{border:1px solid var(--b,#ccc);padding:2px 4px;background:#fff;vertical-align:top;font-size:calc(12px * var(--fs,1));width:128px;min-width:128px;height:128px;overflow:hidden;position:relative;contain:strict}.kanji-group.large{font-size:calc(16px * var(--fs,1))}.kanji-group.large ruby{font-size:calc(26px * var(--fs,1))}.kanji-group.large rt{font-size:calc(12px * var(--fs,1))}td.first-col{border-right:3px solid #000}.watermark{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:50px;color:#999;opacity:0.10;font-weight:bold}.kanji-group{display:inline-block;margin:1px 2px;white-space:nowrap;padding:1px 2px;border-radius:3px}rt{font-size:calc(6px * var(--fs,1));color:#888}.content{position:absolute;top:2px;left:4px;right:4px;bottom:2px;overflow:hidden}td.has-more::after{content:"…";position:absolute;bottom:1px;right:3px;font-size:calc(12px * var(--fs,1));color:#aaa;pointer-events:none}body.dark td.has-more::after{color:#777}.hover-card{position:fixed;z-index:5;background:#fff;border:2px solid #37d;pointer-events:none;border-radius:6px;padding:2px 4px;font-size:calc(12px * var(--fs,1));transform-origin:center center;overflow:hidden;box-shadow:0 2px 12px #0004}.tier5{color:#373}.tier4{color:#693}.tier3{color:#fa2}.tier2{color:#e50}.tier1{color:#b22}.group-left{border-left:2.5px solid var(--g,#555)}.group-top{border-top:2.5px solid var(--g,#555)}.group-right{border-right:2.5px solid var(--g,#555)}.group-bottom{border-bottom:2.5px solid var(--g,#555)}.fixed-btn{position:fixed;bottom:16px;z-index:10;height:44px;border-radius:6px;border:1px solid #999;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}.fixed-btn:hover{background:#ccc}.theme-toggle{right:16px;width:44px;font-size:24px}.reading-toggle{right:68px;width:44px;font-size:22px;font-weight:bold}body.kun-only .kanji-group.on{display:none}body.on-only .kanji-group.kun{display:none}body.dark{background:#222;--b:#444;--g:#999}body.dark td{background:#222;color:#ddd}body.dark td.first-col{border-right-color:#aaa}body.dark .watermark{color:#666;opacity:0.18}body.dark rt{color:#999}body.dark .hover-card{background:#222;border-color:#59f}body.dark .tier5{color:#6b6}body.dark .tier4{color:#9c6}body.dark .tier3{color:#fe5}body.dark .tier2{color:#f90}body.dark .tier1{color:#e55}body.dark .fixed-btn{background:#222;border-color:#666;color:#ddd}body.dark .fixed-btn:hover{background:#444}</style>';
+// --- decodeCell: IIFE that decodes the D stream and returns a per-cell decoder ---
+//
+// The D string contains all data in a single arithmetic-coded stream,
+// encoded as base-93 via rANS streaming codec (sentinel-terminated, no BigInt).
+//
+// B(D) decodes rANS base-93 → byte array. The byte array is converted to
+// a bit string for the 32-bit arithmetic decoder (range coder).
+//
+// The stream has 4 sections decoded sequentially (no re-initialization):
+//   Section 1: KT — kanji table as delta-encoded codepoints (exp-Golomb)
+//   Section 2: Kana probability table — 81 k² deltas for 82-symbol model
+//   Section 3: KN — 45 kana for grid row/col layout (delta-encoded)
+//   Section 4: Cell data — decoded on demand via returned function
+//
+// The IIFE decodes sections 1-3 at init time, then returns a function
+// cellKana => [entries...] that decodes section 4 one cell at a time.
+// Each entry is [kanji, reading, tier, okurigana, isOn].
 decodeCell = (() => {
-    // --- Arithmetic decoder state ---
+    // --- Base-93 → byte array → bit string ---
+    // B(D) uses rANS streaming decoder (defined in bootstrap).
+    // Each byte is converted to 8-bit binary string, then joined.
     let bitString = B(D).map(b => b.toString(2).padStart(8, 0)).join('');
     let bitPos = 0;
+
+    // --- 32-bit arithmetic decoder (range coder) ---
+    // Uses 32-bit precision with constants TOP=2^31, QUARTER=2^30, MODULUS=2^32.
+    // All arithmetic uses % MODULUS to stay in 32-bit unsigned range.
     let RANGE_TOP = 2 ** 31;
     let RANGE_QUARTER = RANGE_TOP / 2;
     let RANGE_MODULUS = RANGE_TOP * 2;
@@ -21,6 +44,8 @@ decodeCell = (() => {
     for (let i = 0; i < 32; i++)
         rangeValue = (+bitString[bitPos++] + rangeValue * 2) % RANGE_MODULUS;
 
+    // normalize(): shift out resolved bits, read new bits from stream.
+    // Called after every decode/decodeUniform to maintain decoder state.
     const normalize = () => {
         while (1) {
             if (rangeLow >= RANGE_TOP) {
@@ -36,8 +61,10 @@ decodeCell = (() => {
         }
     };
 
-    // Decode one symbol from a 999-scale cumulative frequency model.
-    // Pass inner boundary values only; 0 and 999 are implicit.
+    // decode(...innerBoundaries): decode one symbol from a 999-scale
+    // cumulative frequency model. Pass inner boundary values only;
+    // 0 and 999 are implicit. E.g. decode(555) = 2-symbol model with
+    // boundary at 555/999. Uses step-based lookup matching encoder.
     const decode = (...innerBoundaries) => {
         let range = rangeHigh - rangeLow + 1;
         let sym = 0;
@@ -54,7 +81,8 @@ decodeCell = (() => {
         return sym;
     };
 
-    // Decode a uniform symbol in 0..n-1
+    // decodeUniform(n): decode a uniform symbol in 0..n-1.
+    // Uses single-step range subdivision (step = range/n).
     const decodeUniform = n => {
         let step = Math.trunc((rangeHigh - rangeLow + 1) / n);
         let sym = Math.trunc((rangeValue - rangeLow) / step);
@@ -66,13 +94,21 @@ decodeCell = (() => {
     };
 
     // --- Section 1: KT (kanji table) — delta-encoded codepoints ---
+    // KL-1 deltas using exp-Golomb variant: decode(KD) selects one of 8
+    // doubling buckets (q=2,4,8,...,256), then decodeUniform(q) picks
+    // the offset within that bucket. First kanji is 一 (U+4E00).
     for (let i = 0; i < KL - 1; i++) {
-        let deltaRange = 2 << decode(KD);          // exp-Golomb bucket
+        let deltaRange = 2 << decode(KD);
         codepoint += decodeUniform(deltaRange) + deltaRange - 1;
         kanjiTable += String.fromCharCode(codepoint);
     }
 
     // --- Section 2: Kana probability table (82 symbols, k² deltas) ---
+    // 81 values decoded via decodeUniform(14), each squared to get the
+    // cumulative frequency delta. Builds a 999-scale probability table
+    // covering all 82 kana offsets (U+3042–U+3093). The 82nd symbol
+    // gets the remainder (999 - sum). Used by decode(...kanaCumFreq)
+    // for kana symbol decoding in section 4.
     let kanaCumFreq = [];
     let kanaFreqAcc = 0;
     for (let i = 0; i < 81; i++) {
@@ -81,52 +117,63 @@ decodeCell = (() => {
     }
 
     // --- Section 3: KN — 45 kana for grid row/col layout ---
+    // First kana is always あ (12354 = 0x3042). 44 deltas follow,
+    // each decodeUniform(4)+1 giving offsets 1-4.
     let kanaGridCodepoint = 12354;  // あ
     kanaGrid = String.fromCharCode(kanaGridCodepoint);
     for (let i = 0; i < 44; i++)
         kanaGrid += String.fromCharCode(kanaGridCodepoint += decodeUniform(4) + 1);
 
-    // --- Cell decoder (returned function) ---
+    // --- Section 4: Cell data (decoded on demand) ---
+    // Returns a function that decodes one cell's entries from the stream.
+    // cellKana is the 1-2 character kana prefix (row + optional column).
+    // Each entry is [kanji, reading, tier, okurigana, isOn].
     return cellKana => {
-        // Non-first-column cells may be empty
+        // Non-first-column cells: decode cell_present flag (CP model)
         if (cellKana[1] && !decode(CP)) return [];
 
         let entries = [];
         let prevTier = 5;
 
         for (;;) {
-            // End of cell? (model conditioned on prevTier)
+            // End of cell? KT0 model conditioned on prevTier:
+            // higher tiers have higher probability of more groups
             if (decode(KP[prevTier - 1])) return entries;
 
-            // Decode one kanji group (1+ kanji sharing the same reading/tier)
+            // Decode one kanji group: 1+ kanji sharing the same reading/tier.
+            // First kanji uses KT0 model, subsequent use KT1 (27% more).
             let kanjiGroup = [];
             kanjiGroup.push(kanjiTable[decodeUniform(KL)]);
             while (!decode(K1))
                 kanjiGroup.push(kanjiTable[decodeUniform(KL)]);
 
+            // On/kun flag and tier assignment
             let isOn = decode(OK);                          // 0=kun, 1=on
-            prevTier -= decode(...TP[prevTier - 1]);        // tier delta
+            prevTier -= decode(...TP[prevTier - 1]);        // tier delta from prevTier
             let tier = prevTier;
 
-            // Variant offsets: d1 for first kana char, d2 for second
+            // Variant offsets for dakuten/handakuten readings:
+            // d1 = offset for first kana char (conditional on on/kun)
+            // d2 = offset for second kana char (conditional on d1)
             let firstKanaVariant = decode(isOn ? DO : DK);
             let secondKanaVariant = (firstKanaVariant ? decode(D1) : decode(D0)) - 1;
             let variantOffsets = [firstKanaVariant, secondKanaVariant];
 
-            // Reconstruct reading from cell position + katakana shift + variant
+            // Reconstruct full reading from cell position + katakana shift + variant
             let katakanaShift = isOn * 96;
             let reading = cellKana.replace(/./g, (c, idx) =>
                 String.fromCharCode(c.charCodeAt(0) + katakanaShift + variantOffsets[idx]));
 
-            // Extra kana beyond the cell prefix
+            // Extra kana beyond the cell prefix (EF flag loop)
             while (decode(EF))
                 reading += String.fromCharCode(decode(...kanaCumFreq) + 12354 + katakanaShift);
 
-            // Okurigana (kun-yomi only)
+            // Okurigana suffix (kun-yomi only, OF flag loop)
             let okurigana = '';
             while (!isOn && decode(OF))
                 okurigana += String.fromCharCode(decode(...kanaCumFreq) + 12354);
 
+            // Emit one entry per kanji in the group (all share reading/tier/okurigana)
             kanjiGroup.map(kanji => entries.push([kanji, reading, tier, okurigana, isOn]));
         }
     };

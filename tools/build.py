@@ -288,17 +288,18 @@ def main():
     for old, new in replacements:
         js_payload = js_payload.replace(old, new)
 
-    # Validate: check no symbolic placeholders remain unreplaced
+    # Minify: rename identifiers + strip whitespace/comments
+    js_minified = minify_js(js_payload, compute_rename_map(js_payload))
+
+    # Validate: check no symbolic placeholders remain in minified output
+    # (checked after minification so comments can freely reference placeholders)
     import re as _re
     KNOWN_PLACEHOLDERS = ['KD', 'KL', 'CP', 'K1', 'OK', 'DO', 'DK', 'D0', 'D1',
                           'EF', 'OF', 'KP', 'TP']
     for ph in KNOWN_PLACEHOLDERS:
-        if _re.search(r'\b' + ph + r'\b', js_payload):
+        if _re.search(r'\b' + ph + r'\b', js_minified):
             print(f"ERROR: placeholder {ph!r} was not replaced in JS", file=sys.stderr)
             sys.exit(1)
-
-    # Minify: rename identifiers + strip whitespace/comments
-    js_minified = minify_js(js_payload, compute_rename_map(js_payload))
     print(f"JS: {len(js_payload)} bytes → minified: {len(js_minified)} bytes", file=sys.stderr)
 
     # Write minified JS for reference
