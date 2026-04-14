@@ -4,23 +4,8 @@ document.body.innerHTML = '<div class="viewport"><table id="grid"><tbody id="tbo
 
 // CSS is kept minified as a string — gzip compresses it efficiently as-is.
 document.head.innerHTML += '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:none;text-size-adjust:none}body{font-family:sans-serif;background:#fff}.viewport{overflow:auto;width:100vw;height:100vh;scrollbar-width:none;cursor:grab;user-select:none}.viewport::-webkit-scrollbar{display:none}.viewport.dragging{cursor:grabbing}table{border-collapse:collapse}td{border:1px solid var(--b,#ccc);padding:2px 4px;background:#fff;vertical-align:top;font-size:calc(12px * var(--fs,1));width:128px;min-width:128px;height:128px;overflow:hidden;position:relative;contain:strict}.kanji-group.large{font-size:calc(16px * var(--fs,1))}.kanji-group.large ruby{font-size:calc(26px * var(--fs,1))}.kanji-group.large rt{font-size:calc(12px * var(--fs,1))}td.first-col{border-right:3px solid #000}.watermark{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:50px;color:#999;opacity:0.10;font-weight:bold}.kanji-group{display:inline-block;margin:1px 2px;white-space:nowrap;padding:1px 2px;border-radius:3px}rt{font-size:calc(6px * var(--fs,1));color:#888}.content{position:absolute;top:2px;left:4px;right:4px;bottom:2px;overflow:hidden}td.has-more::after{content:"…";position:absolute;bottom:1px;right:3px;font-size:calc(12px * var(--fs,1));color:#aaa;pointer-events:none}body.dark td.has-more::after{color:#777}.hover-card{position:fixed;z-index:5;background:#fff;border:2px solid #37d;pointer-events:none;border-radius:6px;padding:2px 4px;font-size:calc(12px * var(--fs,1));transform-origin:center center;overflow:hidden;box-shadow:0 2px 12px #0004}.tier5{color:#373}.tier4{color:#693}.tier3{color:#fa2}.tier2{color:#e50}.tier1{color:#b22}.group-left{border-left:2.5px solid var(--g,#555)}.group-top{border-top:2.5px solid var(--g,#555)}.group-right{border-right:2.5px solid var(--g,#555)}.group-bottom{border-bottom:2.5px solid var(--g,#555)}.fixed-btn{position:fixed;bottom:16px;z-index:10;height:44px;border-radius:6px;border:1px solid #999;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:background 0.2s,border-color 0.2s}.fixed-btn:hover{background:#ccc}.theme-toggle{right:16px;width:44px;font-size:24px}.reading-toggle{right:68px;width:44px;font-size:22px;font-weight:bold}body.kun-only .kanji-group.on{display:none}body.on-only .kanji-group.kun{display:none}body.dark{background:#222;--b:#444;--g:#999}body.dark td{background:#222;color:#ddd}body.dark td.first-col{border-right-color:#aaa}body.dark .watermark{color:#666;opacity:0.18}body.dark rt{color:#999}body.dark .hover-card{background:#222;border-color:#59f}body.dark .tier5{color:#6b6}body.dark .tier4{color:#9c6}body.dark .tier3{color:#fe5}body.dark .tier2{color:#f90}body.dark .tier1{color:#e55}body.dark .fixed-btn{background:#222;border-color:#666;color:#ddd}body.dark .fixed-btn:hover{background:#444}</style>';
-// --- decodeCell: IIFE that decodes the D stream and returns a per-cell decoder ---
-//
-// The D string contains all data in a single arithmetic-coded stream,
-// encoded as base-93 via rANS streaming codec (sentinel-terminated, no BigInt).
-//
-// B(D) decodes rANS base-93 → byte array. The byte array is converted to
-// a bit string for the 32-bit arithmetic decoder (range coder).
-//
-// The stream has 4 sections decoded sequentially (no re-initialization):
-//   Section 1: KT — kanji table as delta-encoded codepoints (exp-Golomb)
-//   Section 2: Kana probability table — 81 k² deltas for 82-symbol model
-//   Section 3: KN — 45 kana for grid row/col layout (delta-encoded)
-//   Section 4: Cell data — decoded on demand via returned function
-//
-// The IIFE decodes sections 1-3 at init time, then returns a function
-// cellKana => [entries...] that decodes section 4 one cell at a time.
-// Each entry is [kanji, reading, tier, okurigana, isOn].
+
+// Arithmetic decoder: rANS base-93 → bytes → bits → kanji/reading/tier data
 decodeCell = (() => {
     // --- Base-93 → byte array → bit generator ---
     // B(D) uses rANS streaming decoder (defined in bootstrap).
