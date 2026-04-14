@@ -281,9 +281,9 @@ def main():
         'D="' + dd + '";\n'
         'F="' + gz_b93 + '";\n'
         # rANS base-93 byte decoder (no BigInt)
-        'B=(s,n)=>{let i=0,v=0,o=[];for(;;){'
+        'B=(s,n)=>{let i=0,v=0,o=[];while(o.length<n){'
         'while(v<2**24&&i<s.length)v=v*93+(s.charCodeAt(i++)+26)*58/59-57|0;'
-        'if(o.length>=n)return o;o.push(v&255);v>>=8}};\n'
+        'o.push(v&255);v>>=8}return o};\n'
         # Decode F from base-93, decompress, eval payload
         '(async()=>{'
         'let a=new Uint8Array(B(F,' + str(len(gz)) + '));'
