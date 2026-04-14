@@ -85,20 +85,27 @@ def compute_rename_map(js_code):
     )
 
     freq = {}
-    prev_dot = False  # was the previous non-whitespace token '.'?
+    prev_dot = False  # was the previous non-whitespace token a single '.'?
+    dot_count = 0     # consecutive dot count (1=property access, 3=spread)
 
     for m in TOKEN_RE.finditer(js_code):
         str_dq, str_sq, tmpl, lcmt, bcmt, ident, num, ws, other = m.groups()
         if str_dq or str_sq or tmpl or lcmt or bcmt or num:
             prev_dot = False
+            dot_count = 0
         elif ident:
             if not prev_dot:
                 freq[ident] = freq.get(ident, 0) + 1
             prev_dot = False
+            dot_count = 0
         elif ws:
-            pass  # don't update prev_dot
+            pass  # don't update prev_dot or dot_count
         else:
-            prev_dot = (other == '.')
+            if other == '.':
+                dot_count += 1
+            else:
+                dot_count = 0
+            prev_dot = (other == '.' and dot_count == 1)
 
     # Candidates: not excluded, length > 2, freq >= 2
     candidates = sorted(
@@ -175,9 +182,9 @@ def _build_scope_renames(code, rename_map):
 
     prev_kw = None
     prev_dot = False
-    # State for detecting for(let x ...) — these are scoped to the for-body
+    dot_count = 0
     for_state = 0  # 0=idle, 1=saw 'for', 2=saw 'for('
-    for_let_names = []  # names to assign to next scope
+    for_let_names = []
 
     for m in TOKEN_RE.finditer(code):
         str_dq, str_sq, tmpl, lcmt, bcmt, ident, num, ws, other = m.groups()
@@ -188,11 +195,11 @@ def _build_scope_renames(code, rename_map):
         if str_dq or str_sq or tmpl or lcmt or bcmt or num:
             prev_kw = None
             prev_dot = False
+            dot_count = 0
             for_state = 0
         elif ident:
             if prev_kw in ('let', 'const') and not prev_dot:
                 if for_state == 2:
-                    # for(let x ...) — defer to next scope
                     for_let_names.append(ident)
                 else:
                     if cur_scope not in scope_lets:
@@ -205,16 +212,16 @@ def _build_scope_renames(code, rename_map):
                 for_state = 0
             prev_kw = ident if ident in ('let', 'const', 'var', 'function') else None
             prev_dot = False
+            dot_count = 0
         elif ws:
             pass
         else:
             if other == '(' and for_state == 1:
-                for_state = 2  # saw for(
+                for_state = 2
             elif other == '{':
                 scope_counter += 1
                 scope_parent[scope_counter] = cur_scope
                 scope_stack.append(scope_counter)
-                # Assign deferred for(let) names to this new scope
                 if for_let_names:
                     if scope_counter not in scope_lets:
                         scope_lets[scope_counter] = set()
@@ -228,12 +235,17 @@ def _build_scope_renames(code, rename_map):
                 if other != '(' and for_state != 2:
                     for_state = 0
             prev_kw = None
-            prev_dot = (other == '.')
+            if other == '.':
+                dot_count += 1
+            else:
+                dot_count = 0
+            prev_dot = (other == '.' and dot_count == 1)
 
     # Phase 2: collect short identifiers used per scope (params, references)
     # These cannot be reused for let renames in that scope
-    scope_short_idents = {}  # scope_id -> set of short idents used (not via let)
+    scope_short_idents = {}
     prev_dot2 = False
+    dot_count2 = 0
     scope_stack2 = [0]
     scope_counter2 = 0
     scope_parent2 = {0: None}
@@ -253,10 +265,15 @@ def _build_scope_renames(code, rename_map):
             scope_stack2.append(scope_counter2)
         elif s_o == '}' and len(scope_stack2) > 1:
             scope_stack2.pop()
-        if s_o:
-            prev_dot2 = (s_o == '.')
-        elif not s_ws:
+        if s_id or s_dq or s_sq or s_t or s_lc or s_bc or s_n:
             prev_dot2 = False
+            dot_count2 = 0
+        elif s_o:
+            if s_o == '.':
+                dot_count2 += 1
+            else:
+                dot_count2 = 0
+            prev_dot2 = (s_o == '.' and dot_count2 == 1)
 
     global_targets = set(rename_map.values())
     local_pool = list('ijklmnopqrstuvwxyzabcdefghABCDEFGHIJKLMNOPQRSTUVWXYZ_$')
@@ -324,6 +341,7 @@ def minify_js(code, rename_map):
     out = []
     prev_word = False
     prev_dot = False
+    dot_count = 0
 
     for m in TOKEN_RE.finditer(code):
         str_dq, str_sq, template, line_cmt, block_cmt, ident, num, ws, other = m.groups()
@@ -333,6 +351,7 @@ def minify_js(code, rename_map):
             out.append(m.group(0))
             prev_word = False
             prev_dot = False
+            dot_count = 0
         elif line_cmt or block_cmt:
             pass  # strip
         elif ident:
@@ -356,12 +375,14 @@ def minify_js(code, rename_map):
             out.append(tok)
             prev_word = True
             prev_dot = False
+            dot_count = 0
         elif num:
             if prev_word:
                 out.append(' ')
             out.append(m.group(0))
             prev_word = True
             prev_dot = False
+            dot_count = 0
         elif ws:
             pass  # strip; spacing re-added by prev_word logic
         else:
@@ -373,7 +394,11 @@ def minify_js(code, rename_map):
                 scope_stack.pop()
             out.append(other)
             prev_word = False
-            prev_dot = (other == '.')
+            if other == '.':
+                dot_count += 1
+            else:
+                dot_count = 0
+            prev_dot = (other == '.' and dot_count == 1)
 
     result = ''.join(out)
 

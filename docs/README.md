@@ -304,19 +304,31 @@ Builds index.html from `kanjimap.js` and `snapshot.json`:
 1. Computes probability models from `snapshot.json`
 2. Replaces symbolic placeholders in JS with computed literals
 3. Validates no placeholders remain unreplaced (exits with error if any do)
-4. Minifies JS: renames identifiers to short symbols, strips comments
-   and whitespace, merges consecutive `let`/`const` declarations
-   (single-pass tokenizer preserves string literals)
+4. Minifies JS (single-pass tokenizer preserves string literals):
+   - Renames identifiers to short symbols (global frequency-based)
+   - Scope-aware `let`/`const` renaming: reuses short names (i,j,k...)
+     across sibling `{}` scopes for better gzip deduplication
+   - Strips comments and whitespace
+   - Merges consecutive `let`/`const` declarations
+   - Replaces `true`/`false` with `!0`/`!1`
+   - Drops redundant semicolons before `}`
 5. Encodes snapshot data into arithmetic-coded D string (via `encode_snapshot()`)
 6. Deflate-raw compresses the minified JS payload, encodes as base-93 (F string)
 7. Assembles final HTML with bootstrap
 
 The identifier rename map is computed dynamically by `compute_rename_map()`:
-tokenizes the JS (skipping string literals and property accesses after `.`),
-counts standalone identifier frequencies, then assigns 1-char names to the
-most frequent and 2-char names to the rest. Browser API names and JS keywords
+tokenizes the JS (skipping string literals and property accesses after `.`,
+correctly handling `...` spread/rest as non-property-access), counts
+standalone identifier frequencies, then assigns 1-char names to the most
+frequent and 2-char names to the rest. Browser API names and JS keywords
 are excluded via `_EXCLUDED`. No manual maintenance required — new identifiers
 are picked up automatically on each build.
+
+Scope-aware renaming (`_build_scope_renames()`) tracks `{}` scopes and
+`let`/`const` declarations within each. `for(let ...)` variables are
+correctly scoped to the for-body. Short names are assigned per scope and
+reused across sibling scopes, avoiding conflicts with arrow/function
+parameters and ancestor scope bindings.
 
 Usage: `PYTHONPATH=tools python3 tools/build.py`
 
