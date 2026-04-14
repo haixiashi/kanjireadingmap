@@ -7,14 +7,10 @@ document.head.innerHTML += '<meta name="viewport" content="width=device-width,in
 
 // Arithmetic decoder: rANS base-93 → bytes → bits → kanji/reading/tier data
 decodeCell = (() => {
-    // --- Base-93 → byte array → bit generator ---
+    // --- Base-93 → byte array → bit array (reversed) ---
     // B(D) uses rANS streaming decoder (defined in bootstrap).
-    // Bits are yielded one at a time MSB-first from each byte via generator.
-    let bitStream = (function* (data) {
-        for (let byte of data)
-            for (let i = 7; i >= 0; i--)
-                yield (byte >> i) & 1;
-    })(B(D));
+    // Bits are stored MSB-first per byte; reversed so pop() reads them in order.
+    let bitStream = B(D).reduceRight((acc, n) => acc.concat([...Array(8)].map((_, i) => (n >> i) & 1)), []);
 
     // --- 32-bit arithmetic decoder (range coder) ---
     // Uses 32-bit precision with constants TOP=2^31, QUARTER=2^30, MODULUS=2^32.
@@ -30,7 +26,7 @@ decodeCell = (() => {
 
     // Prime the decoder with 32 bits
     for (let i = 0; i < 32; i++)
-        rangeValue = (bitStream.next().value + rangeValue * 2) % RANGE_MODULUS;
+        rangeValue = (bitStream.pop() + rangeValue * 2) % RANGE_MODULUS;
 
     // normalize(): shift out resolved bits, read new bits from stream.
     // Called after every decode/decodeUniform to maintain decoder state.
@@ -45,7 +41,7 @@ decodeCell = (() => {
             } else break;
             rangeLow = rangeLow * 2 % RANGE_MODULUS;
             rangeHigh = (rangeHigh * 2 + 1) % RANGE_MODULUS;
-            rangeValue = (bitStream.next().value + rangeValue * 2) % RANGE_MODULUS;
+            rangeValue = (bitStream.pop() + rangeValue * 2) % RANGE_MODULUS;
         }
     };
 
