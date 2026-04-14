@@ -568,10 +568,9 @@ def encode_snapshot(snap):
     # becomes NaN and corrupts the decoder state.
     for _ in range(4):
         byte_data.append(0)
-    # Reverse bit order within each byte and reverse byte order, so the JS
-    # decoder can use flatMap(n=>[...Array(8)].map((_,i)=>(n>>i)&1)) and
+    # Reverse byte order so the JS decoder can use flatMap with n>>i&1 and
     # pop() directly — no .reverse() or 7-i needed at runtime.
-    byte_data = [int(f'{b:08b}'[::-1], 2) for b in byte_data][::-1]
+    byte_data = byte_data[::-1]
     combined_str = encode_b93(byte_data)
     print(f"Combined: {len(combined_str)} chars", file=sys.stderr)
     return combined_str, len(byte_data)
