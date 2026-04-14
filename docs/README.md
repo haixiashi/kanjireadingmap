@@ -24,16 +24,16 @@ into base-93 via rANS streaming codec.
 **Base-93 alphabet**: U+0020–U+007E excluding `"` and `\` (93 chars).
 Char-to-digit: `(charCode+26)*58/59-57|0`
 
-**Base-93 decoder** `B(s,n)`: rANS-style streaming, no BigInt. Reads
-string left-to-right, extracting `n` bytes:
+**Base-93 decoder** `B(s)`: rANS-style streaming, no BigInt. Reads
+string left-to-right, sentinel-terminated (encoder starts with state=1):
 - Refill: `v = v*93 + nextDigit()` while `v < 2^24`
 - Extract byte: `v & 255`, then `v >>= 8`
-- Loop: refill → check done → extract → repeat
+- Loop: refill → extract → repeat while `v > 1`
 - State stays under 2^31 (safe for JS bitwise ops)
 - Encoding efficiency: 8/log2(93) ≈ 1.2234 chars/byte (theoretical optimum)
 - Bootstrap uses `B` for F (byte array for gzip decompression)
-- Payload calls `B(D,n).map(b=>b.toString(2).padStart(8,0)).join("")`
-  to convert D bytes to a bit string for the arithmetic decoder
+- Payload wraps `B(D)` in a generator that yields bits MSB-first from
+  each byte, feeding the arithmetic decoder without intermediate strings
 
 **Arithmetic decoder** (32-bit precision, inside DC IIFE):
 - State: `a` (low), `d` (high), `e` (value), all 32-bit
@@ -186,7 +186,7 @@ by their full names (e.g. `document.createElement`, `Math.min`).
 Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ### `decodeCell` — decoder IIFE
-- Base-93 → bytes → bit string (rANS `B(D,n)` + `.map().join()`, no BigInt)
+- Base-93 → bytes → bit generator (rANS `B(D)` + `function*`, no BigInt)
 - Arithmetic decoder (32-bit precision): `normalize`, `decode` (model), `decodeUniform`
 - Decodes KT (delta-encoded codepoints), kana prob table (81 k² deltas), KN (45 values)
 - Returns function `cellKana => [entries...]` for per-cell decoding

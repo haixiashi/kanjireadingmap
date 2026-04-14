@@ -22,11 +22,14 @@ document.head.innerHTML += '<meta name="viewport" content="width=device-width,in
 // cellKana => [entries...] that decodes section 4 one cell at a time.
 // Each entry is [kanji, reading, tier, okurigana, isOn].
 decodeCell = (() => {
-    // --- Base-93 → byte array → bit string ---
+    // --- Base-93 → byte array → bit generator ---
     // B(D) uses rANS streaming decoder (defined in bootstrap).
-    // Each byte is converted to 8-bit binary string, then joined.
-    let bitString = B(D).map(b => b.toString(2).padStart(8, 0)).join('');
-    let bitPos = 0;
+    // Bits are yielded one at a time MSB-first from each byte via generator.
+    let bitStream = (function* (data) {
+        for (let byte of data)
+            for (let i = 7; i >= 0; i--)
+                yield (byte >> i) & 1;
+    })(B(D));
 
     // --- 32-bit arithmetic decoder (range coder) ---
     // Uses 32-bit precision with constants TOP=2^31, QUARTER=2^30, MODULUS=2^32.
@@ -42,7 +45,7 @@ decodeCell = (() => {
 
     // Prime the decoder with 32 bits
     for (let i = 0; i < 32; i++)
-        rangeValue = (+bitString[bitPos++] + rangeValue * 2) % RANGE_MODULUS;
+        rangeValue = (bitStream.next().value + rangeValue * 2) % RANGE_MODULUS;
 
     // normalize(): shift out resolved bits, read new bits from stream.
     // Called after every decode/decodeUniform to maintain decoder state.
@@ -57,7 +60,7 @@ decodeCell = (() => {
             } else break;
             rangeLow = rangeLow * 2 % RANGE_MODULUS;
             rangeHigh = (rangeHigh * 2 + 1) % RANGE_MODULUS;
-            rangeValue = (+bitString[bitPos++] + rangeValue * 2) % RANGE_MODULUS;
+            rangeValue = (bitStream.next().value + rangeValue * 2) % RANGE_MODULUS;
         }
     };
 
