@@ -22,8 +22,9 @@ from collections import defaultdict
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(TOOLS_DIR)
-KANJIDIC2_PATH = os.path.join(TOOLS_DIR, 'kanjidic2.xml')
-JMDICT_PATH = os.path.join(TOOLS_DIR, 'JMdict_e.xml')
+DATA_DIR = os.path.join(PROJECT_DIR, 'data')
+KANJIDIC2_PATH = os.path.join(DATA_DIR, 'kanjidic2.xml')
+JMDICT_PATH = os.path.join(DATA_DIR, 'JMdict_e.xml')
 INDEX_PATH = os.path.join(PROJECT_DIR, 'index.html')
 
 

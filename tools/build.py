@@ -17,6 +17,7 @@ import sys
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(TOOLS_DIR)
+SRC_DIR = os.path.join(ROOT_DIR, 'src')
 
 sys.path.insert(0, TOOLS_DIR)
 from reencode_da import encode_b93
@@ -442,7 +443,7 @@ def minify_js(code, rename_map):
 
 def main():
     # Read the JS payload
-    with open(os.path.join(TOOLS_DIR, 'kanjimap.js')) as f:
+    with open(os.path.join(SRC_DIR, 'kanjimap.js')) as f:
         js_payload = f.read()
 
     # Compute models from snapshot and inject into JS
@@ -450,7 +451,7 @@ def main():
     from reencode_bac import (compute_models, M_CELL, M_KT0, M_KT1, M_ONKUN,
                                M_TDP, M_D1K, M_D1O, M_D2_0, M_D2_1,
                                M_EXTRA, M_OKURI)
-    with open(os.path.join(TOOLS_DIR, 'snapshot.json')) as f:
+    with open(os.path.join(SRC_DIR, 'snapshot.json')) as f:
         snap = _json.load(f)
     compute_models(snap)
     from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN,

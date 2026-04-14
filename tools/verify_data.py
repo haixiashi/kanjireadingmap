@@ -15,7 +15,8 @@ import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPT_DIR)
-SNAPSHOT_PATH = os.path.join(SCRIPT_DIR, 'snapshot.json')
+SRC_DIR = os.path.join(ROOT_DIR, 'src')
+SNAPSHOT_PATH = os.path.join(SRC_DIR, 'snapshot.json')
 INDEX_PATH = os.path.join(ROOT_DIR, 'index.html')
 
 sys.path.insert(0, SCRIPT_DIR)

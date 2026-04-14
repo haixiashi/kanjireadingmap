@@ -35,7 +35,9 @@ from expand_entries import (
 )
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
-SNAPSHOT_PATH = os.path.join(TOOLS_DIR, 'snapshot.json')
+ROOT_DIR = os.path.dirname(TOOLS_DIR)
+SRC_DIR = os.path.join(ROOT_DIR, 'src')
+SNAPSHOT_PATH = os.path.join(SRC_DIR, 'snapshot.json')
 
 
 def parse_kanjidic2_readings(path):
@@ -82,7 +84,7 @@ def make_entry(tier, kanji, raw_reading, r_type):
 def main():
     print("Loading data sources...")
     kanji_readings = parse_kanjidic2(KANJIDIC2_PATH)
-    freq_map = parse_jmdict(os.path.join(TOOLS_DIR, 'JMdict_e.xml'), kanji_readings)
+    freq_map = parse_jmdict(os.path.join(ROOT_DIR, 'data', 'JMdict_e.xml'), kanji_readings)
     kanjidic_readings = parse_kanjidic2_readings(KANJIDIC2_PATH)
 
     with open(SNAPSHOT_PATH, 'r') as f:

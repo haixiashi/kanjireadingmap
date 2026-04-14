@@ -18,6 +18,8 @@ import sys
 from collections import Counter
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(TOOLS_DIR)
+SRC_DIR = os.path.join(ROOT_DIR, 'src')
 sys.path.insert(0, TOOLS_DIR)
 from reencode_da import encode_b93, decode_b93
 
@@ -572,7 +574,7 @@ def encode_snapshot(snap):
 
 
 def main():
-    with open(os.path.join(TOOLS_DIR, 'snapshot.json')) as f:
+    with open(os.path.join(SRC_DIR, 'snapshot.json')) as f:
         snap = json.load(f)
     result, num_bytes = encode_snapshot(snap)
 
