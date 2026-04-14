@@ -19,7 +19,7 @@ TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(TOOLS_DIR)
 
 sys.path.insert(0, TOOLS_DIR)
-from reencode_da import encode_b93, decode_b93
+from reencode_da import encode_b93
 
 # Identifiers that must never be renamed: JS keywords, browser APIs, bootstrap globals.
 _EXCLUDED = {
@@ -222,6 +222,10 @@ def main():
                 all_kanji.add(e[1])
     kl = len(all_kanji)
 
+    # Encode D string from snapshot (needed for DL placeholder)
+    from reencode_bac import encode_snapshot
+    dd, d_num_bytes = encode_snapshot(snap)
+
     # Replace variable placeholders with computed values
     from reencode_bac import M_KD_CASE
     kd = ','.join(str(x) for x in inner(M_KD_CASE))
@@ -264,37 +268,25 @@ def main():
     with open(os.path.join(TOOLS_DIR, 'kanjimap_processed.js'), 'w') as f:
         f.write(js_minified)
 
-    # Encode D string from snapshot
-    from reencode_bac import encode_snapshot
-    dd = encode_snapshot(snap)
-
     # Gzip the minified JS payload
     gz = zlib.compress(js_minified.encode('utf-8'), level=9, wbits=-15)
     print(f"Minified: {len(js_minified)} bytes → gzip: {len(gz)} bytes", file=sys.stderr)
 
     # Encode gzipped bytes as base-93
-    bits = []
-    for byte in gz:
-        for bit in range(7, -1, -1):
-            bits.append((byte >> bit) & 1)
-    gz_b93 = encode_b93(bits)
+    gz_b93 = encode_b93(list(gz))
     print(f"Base-93: {len(gz_b93)} chars", file=sys.stderr)
 
     bootstrap = (
         'D="' + dd + '";\n'
         'F="' + gz_b93 + '";\n'
-        # Shared base-93 decoder (used by bootstrap and eval'd DC decoder)
-        'B=s=>{let b="",v=0n;'
-        '[...s].map((c,i)=>{'
-        'v=v*93n+BigInt((c.charCodeAt(0)+26)*58/59-57|0);'
-        '++i%13||(b+=v.toString(2).padStart(85,0),v=0n)});'
-        'return b};\n'
-        # Decode F from base-93, truncated to exact gzip length
+        # rANS byte decoder (used for F, then redefined as bit-string B for payload)
+        'B=(s,n)=>{let i=0,v=0,o=[];for(;;){'
+        'while(v<2**24&&i<s.length)v=v*93+(s.charCodeAt(i++)+26)*58/59-57|0;'
+        'if(o.length>=n)return o;o.push(v&255);v>>=8}};\n'
+        # Decode F, then redefine B to return bit string for D
         '(async()=>{'
-        'let b=B(F);'
-        'let a=new Uint8Array(' + str(len(gz)) + ');'
-        'for(let i=0;i<' + str(len(gz)) + ';i++)'
-        'a[i]=parseInt(b.substr(i*8,8),2);'
+        'let a=new Uint8Array(B(F,' + str(len(gz)) + '));'
+        'let G=B;B=s=>G(s,' + str(d_num_bytes) + ').map(b=>b.toString(2).padStart(8,0)).join("");'
         'let s=new Blob([a]).stream().pipeThrough(new DecompressionStream("deflate-raw"));'
         'eval(await new Response(s).text())'
         '})()'

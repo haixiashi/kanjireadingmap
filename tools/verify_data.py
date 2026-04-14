@@ -30,17 +30,19 @@ QTR = 1 << (BITS - 2)
 
 
 class ArithDecoder:
-    def __init__(self, bits):
+    def __init__(self, byte_data):
         self.mn = 0
         self.mx = MASK
         self.pk = 0
         self.p = 0
-        self.bits = bits
+        self.bytes = byte_data
         for _ in range(BITS):
             self.pk = (self.pk << 1 | self._rb()) & MASK
 
     def _rb(self):
-        b = self.bits[self.p] if self.p < len(self.bits) else 0
+        byte_idx = self.p >> 3
+        bit_idx = 7 - (self.p & 7)
+        b = (self.bytes[byte_idx] >> bit_idx) & 1 if byte_idx < len(self.bytes) else 0
         self.p += 1
         return b
 
@@ -230,8 +232,8 @@ def main():
     # kana_str is decoded from the DD stream
 
     # Decode everything from single stream
-    bits = decode_b93(dd)
-    dec = ArithDecoder(bits)
+    byte_data = decode_b93(dd, len(dd))  # generous upper bound
+    dec = ArithDecoder(byte_data)
     kt = decode_kt_from_decoder(dec, count_kanji(snapshot))
     decoded, kana_str = decode_da_from_decoder(dec, kt)
 

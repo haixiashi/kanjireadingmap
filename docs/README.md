@@ -19,12 +19,20 @@ at runtime via `DecompressionStream`.
 ### D String (Combined Data)
 
 All data is encoded in a single arithmetic-coded stream `D`, packed
-into base-93 via 2:13 block code (13 chars → 85 bits).
+into base-93 via rANS streaming codec.
 
 **Base-93 alphabet**: U+0020–U+007E excluding `"` and `\` (93 chars).
-Base-93 is decoded to a bit string using BigInt: each group of 13
-chars is converted via multiply-accumulate, then `.toString(2).padStart(85,0)`
-extracts 85 bits. Char-to-digit: `(charCode+26)*58/59-57|0`
+Char-to-digit: `(charCode+26)*58/59-57|0`
+
+**Base-93 decoder** `B(s,n)`: rANS-style streaming, no BigInt. Reads
+string left-to-right, extracting `n` bytes:
+- Refill: `v = v*93 + nextDigit()` while `v < 2^24`
+- Extract byte: `v & 255`, then `v >>= 8`
+- Loop: refill → check done → extract → repeat
+- State stays under 2^31 (safe for JS bitwise ops)
+- Encoding efficiency: 8/log2(93) ≈ 1.2234 chars/byte (theoretical optimum)
+- Bootstrap uses `B` for both F (byte array for gzip) and D (redefined
+  to return bit string via `.map(b=>b.toString(2).padStart(8,0)).join("")`)
 
 **Arithmetic decoder** (32-bit precision, inside DC IIFE):
 - State: `a` (low), `d` (high), `e` (value), all 32-bit
@@ -163,9 +171,11 @@ In the snapshot, stored as `"5有あ|る"` (tier prefix, `|` separates okurigana
 The JS is split into two parts:
 - **Bootstrap** (inline in index.html): the HTML is minimal
   (`<!DOCTYPE html>`, `<meta charset>`, `<script>`). Defines `B`
-  (shared base-93 decoder), sets `D` (arithmetic-coded data) and `F`
-  (deflate-compressed payload as base-93), decodes and decompresses
-  `F` via `DecompressionStream`, and `eval()`s the result.
+  (rANS base-93 decoder returning byte array), sets `D` (arithmetic-coded
+  data) and `F` (deflate-compressed payload as base-93). Decodes `F` to
+  bytes, decompresses via `DecompressionStream`, redefines `B` to return
+  a bit string (for the payload's arithmetic decoder), and `eval()`s the
+  decompressed payload.
 - **Payload** (`tools/kanjimap.js`): sets document title, viewport
   meta tag, CSS, and all application code. Edit this file and run
   `build.py` to rebuild. `build.py` minifies it before gzipping —
@@ -177,7 +187,7 @@ by their full names (e.g. `document.createElement`, `Math.min`).
 Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ### `decodeCell` — decoder IIFE
-- Base-93 → bit string (BigInt, 13 chars → 85 bits)
+- Base-93 → bit string (rANS streaming via `B(D)`, no BigInt)
 - Arithmetic decoder (32-bit precision): `normalize`, `decode` (model), `decodeUniform`
 - Decodes KT (delta-encoded codepoints), kana prob table (81 k² deltas), KN (45 values)
 - Returns function `cellKana => [entries...]` for per-cell decoding
@@ -218,7 +228,7 @@ Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 - `U(n)` decodes uniform symbols using actual ranges rather than
   rounding up to powers of 2
 - All decoder state is `let`-scoped inside the DC IIFE
-- Base-93 decoding uses BigInt `.toString(2)` for 85-bit block conversion
+- Base-93 decoding uses rANS streaming (no BigInt, no block boundaries)
 
 ## Python Tools
 
@@ -321,9 +331,10 @@ model (KD_CASE). Includes a built-in `ArithDecoder` that verifies the
 round-trip before outputting.
 
 ### reencode_da.py
-Base-93 codec library. Provides `encode_b93`/`decode_b93` for 2:13
-block code conversion (85 bits ↔ 13 chars), plus `digit_to_char`/
-`char_to_digit` helpers. Used by reencode_bac.py and verify_data.py.
+Base-93 codec library using rANS streaming. Provides `encode_b93(bytes)`
+/ `decode_b93(str, num_bytes)` for byte↔base-93 conversion, plus
+`digit_to_char`/`char_to_digit` helpers. Used by reencode_bac.py,
+verify_data.py, and build.py.
 
 ### verify_data.py
 Decodes the D string from index.html using a Python arithmetic decoder

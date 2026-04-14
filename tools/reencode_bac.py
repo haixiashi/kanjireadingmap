@@ -19,13 +19,24 @@ from collections import Counter
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, TOOLS_DIR)
-from reencode_da import encode_b93, decode_b93, digit_to_char, char_to_digit
+from reencode_da import encode_b93, decode_b93
 
 # 32-bit arithmetic coder
 BITS = 32
 MASK = (1 << BITS) - 1
 TOP = 1 << (BITS - 1)
 QTR = 1 << (BITS - 2)
+
+
+def bits_to_bytes(bits):
+    """Pack a bit list into a byte list (MSB first), padding with zeros."""
+    byte_data = []
+    for i in range(0, len(bits), 8):
+        b = 0
+        for j in range(8):
+            b = (b << 1) | (bits[i + j] if i + j < len(bits) else 0)
+        byte_data.append(b)
+    return byte_data
 
 
 class ArithEncoder:
@@ -83,17 +94,19 @@ class ArithEncoder:
 class ArithDecoder:
     """For verification only. Must match encoder exactly."""
 
-    def __init__(self, bits):
+    def __init__(self, byte_data):
         self.mn = 0
         self.mx = MASK
         self.pk = 0
         self.p = 0
-        self.bits = bits
+        self.bytes = byte_data
         for _ in range(BITS):
             self.pk = (self.pk << 1 | self._rb()) & MASK
 
     def _rb(self):
-        b = self.bits[self.p] if self.p < len(self.bits) else 0
+        byte_idx = self.p >> 3
+        bit_idx = 7 - (self.p & 7)
+        b = (self.bytes[byte_idx] >> bit_idx) & 1 if byte_idx < len(self.bytes) else 0
         self.p += 1
         return b
 
@@ -142,8 +155,8 @@ class ArithDecoder:
 
 def decode_kd(kd_str, kt_count):
     """Decode KD string using arithmetic decoder."""
-    bits = decode_b93(kd_str)
-    dec = ArithDecoder(bits)
+    byte_data = decode_b93(kd_str, len(kd_str))  # generous upper bound
+    dec = ArithDecoder(byte_data)
     kt = [chr(0x4E00)]; cp = 0x4E00
     for _ in range(kt_count - 1):
         q = dec.decode_model(M_KD_CASE)
@@ -307,7 +320,7 @@ def encode_kd(kt):
     bits = enc.finish()
 
     # Verify
-    dec = ArithDecoder(bits)
+    dec = ArithDecoder(bits_to_bytes(bits))
     errors = 0
     for i, op in enumerate(ops):
         if op[0] == 'M':
@@ -524,7 +537,7 @@ def encode_snapshot(snap):
     print(f"Ops: {len(ops)}, bits: {len(bits)}", file=sys.stderr)
 
     # Verify decode
-    dec = ArithDecoder(bits)
+    dec = ArithDecoder(bits_to_bytes(bits))
     errors = 0
     for i, op in enumerate(ops):
         if op[0] == 'M':
@@ -546,21 +559,29 @@ def encode_snapshot(snap):
     if errors > 0:
         raise RuntimeError(f"Verification failed: {errors} errors in {len(ops)} ops")
 
-    combined_str = encode_b93(bits)
+    byte_data = bits_to_bytes(bits)
+    # Append padding bytes so the bit string has enough trailing zeros.
+    # The arithmetic decoder may read up to 32 bits beyond the data during
+    # final normalization. Without padding, +bitString[pos] reads undefined
+    # which becomes NaN and corrupts the decoder state.
+    for _ in range(4):
+        byte_data.append(0)
+    combined_str = encode_b93(byte_data)
     print(f"Combined: {len(combined_str)} chars", file=sys.stderr)
-    return combined_str
+    return combined_str, len(byte_data)
 
 
 def main():
     with open(os.path.join(TOOLS_DIR, 'snapshot.json')) as f:
         snap = json.load(f)
-    result = encode_snapshot(snap)
+    result, num_bytes = encode_snapshot(snap)
 
     with open(os.path.join(TOOLS_DIR, '..', 'index.html')) as f:
         src = f.read()
     old_dd = re.search(r'D="([^"]*)"', src)
     old_total = len(old_dd.group(1)) if old_dd else 0
     print(f"Old DD: {old_total} chars, saving: {old_total - len(result)}", file=sys.stderr)
+    print(f"D byte count: {num_bytes}", file=sys.stderr)
 
     sys.stdout.write(result)
 

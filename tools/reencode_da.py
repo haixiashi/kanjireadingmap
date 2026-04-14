@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Base-93 codec library (2:13 block code, 85 bits per 13 chars).
+"""Base-93 codec library (rANS streaming).
 
-Used by reencode_bac.py and verify_data.py.
+Encodes bytes to base-93 string and decodes back using rANS-style
+streaming base conversion. No BigInt needed in the JS decoder.
+
+Used by reencode_bac.py, verify_data.py, and build.py.
 """
 
 
@@ -24,48 +27,53 @@ def char_to_digit(c):
     return d
 
 
-def decode_b93(s):
-    """Decode base-93 string to bit array. 13 chars -> 85 bits."""
-    P = 2 ** 32
-    bits = []
-    for i in range(0, len(s), 13):
-        l = m = h = 0
-        for j in range(13):
-            d = char_to_digit(s[i + j]) if i + j < len(s) else 0
-            v = l * 93 + d; l = v % P; c = (v - l) // P
-            v = m * 93 + c; m = v % P; c = (v - m) // P
-            h = h * 93 + c
-        for j in range(84, -1, -1):
-            if j > 63:
-                bits.append((h >> (j - 64)) & 1)
-            elif j > 31:
-                bits.append((m >> (j - 32)) & 1)
-            else:
-                bits.append((l >> j) & 1)
-    return bits
+def encode_b93(data):
+    """Encode byte array to base-93 string using rANS-style streaming.
+
+    Process bytes in reverse. For each byte:
+      flush while state // 93 >= 0x10000: output state % 93, state //= 93
+      state = state * 256 + byte
+    Final: flush remaining state until 0.
+    Output digits are reversed and converted to chars.
+    """
+    state = 1
+    digits_rev = []
+
+    for byte in reversed(data):
+        while state // 93 >= 0x10000:
+            digits_rev.append(state % 93)
+            state //= 93
+        state = state * 256 + byte
+
+    while state > 0:
+        digits_rev.append(state % 93)
+        state //= 93
+
+    digits_rev.reverse()
+    return ''.join(digit_to_char(d) for d in digits_rev)
 
 
-def encode_b93(bits):
-    """Encode bit array to base-93 string. 85 bits -> 13 chars."""
-    P = 2 ** 32
-    while len(bits) % 85 != 0:
-        bits.append(0)
-    chars = []
-    for i in range(0, len(bits), 85):
-        block = bits[i:i + 85]
-        hi = mi = lo = 0
-        for j in range(21):
-            hi = (hi << 1) | block[j]
-        for j in range(32):
-            mi = (mi << 1) | block[21 + j]
-        for j in range(32):
-            lo = (lo << 1) | block[53 + j]
-        digits = []
-        for _ in range(13):
-            r = hi % 93; hi = hi // 93
-            v = r * P + mi; r = v % 93; mi = v // 93
-            v = r * P + lo; r = v % 93; lo = v // 93
-            digits.append(r)
-        digits.reverse()
-        chars.extend(digit_to_char(d) for d in digits)
-    return ''.join(chars)
+def decode_b93(s, num_bytes):
+    """Decode base-93 string to byte array using rANS-style streaming.
+
+    Read string left-to-right. Init by refilling state until >= 0x1000000.
+    Extract bytes: byte = state % 256, state //= 256.
+    Refill while state < 0x1000000.
+    """
+    pos = 0
+    state = 0
+
+    # Init: refill until state >= LOWER_BOUND
+    while state < 0x1000000 and pos < len(s):
+        state = state * 93 + char_to_digit(s[pos])
+        pos += 1
+
+    out = []
+    while len(out) < num_bytes:
+        out.append(state % 256)
+        state //= 256
+        while state < 0x1000000 and pos < len(s):
+            state = state * 93 + char_to_digit(s[pos])
+            pos += 1
+
+    return out
