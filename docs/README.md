@@ -31,8 +31,9 @@ string left-to-right, extracting `n` bytes:
 - Loop: refill → check done → extract → repeat
 - State stays under 2^31 (safe for JS bitwise ops)
 - Encoding efficiency: 8/log2(93) ≈ 1.2234 chars/byte (theoretical optimum)
-- Bootstrap uses `B` for both F (byte array for gzip) and D (redefined
-  to return bit string via `.map(b=>b.toString(2).padStart(8,0)).join("")`)
+- Bootstrap uses `B` for F (byte array for gzip decompression)
+- Payload calls `B(D,n).map(b=>b.toString(2).padStart(8,0)).join("")`
+  to convert D bytes to a bit string for the arithmetic decoder
 
 **Arithmetic decoder** (32-bit precision, inside DC IIFE):
 - State: `a` (low), `d` (high), `e` (value), all 32-bit
@@ -173,9 +174,7 @@ The JS is split into two parts:
   (`<!DOCTYPE html>`, `<meta charset>`, `<script>`). Defines `B`
   (rANS base-93 decoder returning byte array), sets `D` (arithmetic-coded
   data) and `F` (deflate-compressed payload as base-93). Decodes `F` to
-  bytes, decompresses via `DecompressionStream`, redefines `B` to return
-  a bit string (for the payload's arithmetic decoder), and `eval()`s the
-  decompressed payload.
+  bytes, decompresses via `DecompressionStream`, and `eval()`s the result.
 - **Payload** (`tools/kanjimap.js`): sets document title, viewport
   meta tag, CSS, and all application code. Edit this file and run
   `build.py` to rebuild. `build.py` minifies it before gzipping —
@@ -187,7 +186,7 @@ by their full names (e.g. `document.createElement`, `Math.min`).
 Function/IIFE locals use `let`; UI IIFE top-level vars are implicit globals.
 
 ### `decodeCell` — decoder IIFE
-- Base-93 → bit string (rANS streaming via `B(D)`, no BigInt)
+- Base-93 → bytes → bit string (rANS `B(D,n)` + `.map().join()`, no BigInt)
 - Arithmetic decoder (32-bit precision): `normalize`, `decode` (model), `decodeUniform`
 - Decodes KT (delta-encoded codepoints), kana prob table (81 k² deltas), KN (45 values)
 - Returns function `cellKana => [entries...]` for per-cell decoding

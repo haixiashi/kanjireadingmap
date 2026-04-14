@@ -280,11 +280,11 @@ def main():
     bootstrap = (
         'D="' + dd + '";\n'
         'F="' + gz_b93 + '";\n'
-        # rANS byte decoder (used for F, then redefined as bit-string B for payload)
+        # rANS base-93 byte decoder (no BigInt)
         'B=(s,n)=>{let i=0,v=0,o=[];for(;;){'
         'while(v<2**24&&i<s.length)v=v*93+(s.charCodeAt(i++)+26)*58/59-57|0;'
         'if(o.length>=n)return o;o.push(v&255);v>>=8}};\n'
-        # Decode F, then redefine B to return bit string for D
+        # Decode F from base-93, decompress, eval payload
         '(async()=>{'
         'let a=new Uint8Array(B(F,' + str(len(gz)) + '));'
         'let s=new Blob([a]).stream().pipeThrough(new DecompressionStream("deflate-raw"));'

@@ -29,7 +29,7 @@ QTR = 1 << (BITS - 2)
 
 
 def bits_to_bytes(bits):
-    """Pack a bit list into a byte list (MSB first), padding with zeros."""
+    """Pack a bit list into a byte list (MSB first)."""
     byte_data = []
     for i in range(0, len(bits), 8):
         b = 0
