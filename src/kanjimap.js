@@ -565,7 +565,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
             let cy   = (a.clientY + b.clientY) / 2;
             let rect = viewport.getBoundingClientRect();
             let prevScale = scale;
-            scale = Math.max(0.2, Math.min(5, gesture.startScale * (dist / gesture.startDist)));
+            scale = Math.max(0.4, Math.min(2.5, gesture.startScale * (dist / gesture.startDist)));
             let scaleRatio = scale / prevScale;
             let pivotX = gesture.cx - rect.left + gesture.startScrollX;
             let newCX  = cx - rect.left + gesture.startScrollX;
