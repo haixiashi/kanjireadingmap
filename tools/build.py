@@ -114,6 +114,107 @@ def _iter_local_targets(used):
                 yield name
 
 
+def _minify_number_literal(token):
+    if token[:2].lower() == '0x' or 'e' in token.lower():
+        return token
+    if '.' in token:
+        whole, frac = token.split('.', 1)
+        frac = frac.rstrip('0')
+        token = whole + ('.' + frac if frac else '')
+    if token.startswith('0.') and len(token) > 2:
+        token = token[1:]
+    return token
+
+
+def _find_decl_end(tokens, start_idx):
+    paren = brace = bracket = 0
+    j = start_idx + 1
+    while j < len(tokens):
+        tok = tokens[j]['text']
+        if tok == '(':
+            paren += 1
+        elif tok == ')':
+            paren -= 1
+        elif tok == '{':
+            brace += 1
+        elif tok == '}':
+            brace -= 1
+        elif tok == '[':
+            bracket += 1
+        elif tok == ']':
+            bracket -= 1
+        elif tok == ';' and not (paren or brace or bracket):
+            return j
+        j += 1
+    return None
+
+
+def _merge_decl_tokens(tokens):
+    merged = []
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token['kind'] == 'ident' and token['text'] in ('let', 'const'):
+            kw = token['text']
+            end = _find_decl_end(tokens, i)
+            if end is None:
+                merged.extend(tokens[i:])
+                break
+
+            local = tokens[i:end]
+            last_end = end
+            next_i = end + 1
+            merged_any = False
+
+            while (next_i < len(tokens) and tokens[next_i]['kind'] == 'ident'
+                   and tokens[next_i]['text'] == kw):
+                next_end = _find_decl_end(tokens, next_i)
+                if next_end is None:
+                    break
+                local.append({'kind': 'other', 'text': ',', 'pos': None})
+                local.extend(tokens[next_i + 1:next_end])
+                last_end = next_end
+                next_i = next_end + 1
+                merged_any = True
+
+            if merged_any:
+                merged.extend(local)
+                merged.append(tokens[last_end])
+                i = next_i
+                continue
+
+        merged.append(token)
+        i += 1
+    return merged
+
+
+def _render_tokens(tokens):
+    out = []
+    prev_word = False
+    total = len(tokens)
+    for idx, token in enumerate(tokens):
+        tok = token['text']
+        kind = token['kind']
+        if tok == ';':
+            next_tok = tokens[idx + 1]['text'] if idx + 1 < total else None
+            if next_tok in ('}', None):
+                prev_word = False
+                continue
+        is_word = kind in ('ident', 'num')
+        if prev_word and is_word:
+            out.append(' ')
+        out.append(tok)
+        prev_word = is_word
+    return ''.join(out)
+
+
+def _minify_css_numbers(css):
+    css = re.sub(r'(?<![\w-])0+\.(\d+)', r'.\1', css)
+    css = re.sub(r'(?<![\w-])(\d+)\.0+(?![\w-])', r'\1', css)
+    css = re.sub(r'(?<![\w-])(\d+\.\d*?[1-9])0+(?![\w-])', r'\1', css)
+    return css
+
+
 def compute_rename_map(js_code):
     """Compute identifier rename map dynamically from js_code.
 
@@ -507,15 +608,13 @@ def minify_js(code, rename_map):
     # Build scope-aware renames for let/const declarations
     local_token_renames = _build_scope_renames(code, rename_map)
 
-    out = []
-    prev_word = False
+    tokens = []
     prev_dot = False
     dot_count = 0
 
     for kind, tok, pos in _iter_js_tokens(code):
         if kind in ('str_dq', 'str_sq', 'template'):
-            out.append(tok)
-            prev_word = False
+            tokens.append({'kind': kind, 'text': tok, 'pos': pos})
             prev_dot = False
             dot_count = 0
         elif kind in ('line_comment', 'block_comment'):
@@ -525,69 +624,30 @@ def minify_js(code, rename_map):
                 # Property access — don't rename
                 out_tok = tok
             else:
-                out_tok = local_token_renames.get(pos, rename_map.get(tok, tok))
-            if prev_word:
-                out.append(' ')
-            out.append(out_tok)
-            prev_word = True
+                if tok == 'true':
+                    out_tok = '!0'
+                elif tok == 'false':
+                    out_tok = '!1'
+                else:
+                    out_tok = local_token_renames.get(pos, rename_map.get(tok, tok))
+            tokens.append({'kind': kind, 'text': out_tok, 'pos': pos})
             prev_dot = False
             dot_count = 0
         elif kind == 'num':
-            if prev_word:
-                out.append(' ')
-            out.append(tok)
-            prev_word = True
+            tokens.append({'kind': kind, 'text': _minify_number_literal(tok), 'pos': pos})
             prev_dot = False
             dot_count = 0
         elif kind == 'ws':
             pass  # strip; spacing re-added by prev_word logic
         else:
-            out.append(tok)
-            prev_word = False
+            tokens.append({'kind': kind, 'text': tok, 'pos': pos})
             if tok == '.':
                 dot_count += 1
             else:
                 dot_count = 0
             prev_dot = (tok == '.' and dot_count == 1)
-
-    result = ''.join(out)
-
-    # Merge consecutive let/const declarations: let a=1;let b=2 → let a=1,b=2
-    for kw in ('let ', 'const '):
-        while True:
-            merged = False
-            i = result.find(kw)
-            while i >= 0:
-                # Find the semicolon ending this declaration
-                # Track nesting depth to skip over function bodies, arrays, objects
-                depth = 0
-                j = i + len(kw)
-                while j < len(result):
-                    c = result[j]
-                    if c in '({[':
-                        depth += 1
-                    elif c in ')}]':
-                        depth -= 1
-                    elif c == ';' and depth == 0:
-                        break
-                    j += 1
-                # Check if immediately followed by same keyword
-                if j < len(result) and result[j:j+1+len(kw)] == ';' + kw:
-                    result = result[:j] + ',' + result[j+1+len(kw):]
-                    merged = True
-                    i = result.find(kw, j)  # continue from merge point
-                else:
-                    i = result.find(kw, j + 1)
-            if not merged:
-                break
-
-    # Replace true/false with !0/!1
-    result = result.replace('true', '!0').replace('false', '!1')
-
-    # Remove semicolons before closing braces (last statement in block)
-    result = result.replace(';}', '}')
-
-    return result
+    tokens = _merge_decl_tokens(tokens)
+    return _render_tokens(tokens)
 
 
 def main():
@@ -602,6 +662,7 @@ def main():
     css = _re_css.sub(r'/\*.*?\*/', '', css, flags=_re_css.DOTALL)  # strip comments
     css = _re_css.sub(r'\s+', ' ', css)          # collapse whitespace
     css = _re_css.sub(r'\s*([{}:;,>+~])\s*', r'\1', css)  # remove space around punctuation
+    css = _minify_css_numbers(css)
     css = css.strip()
 
     # Inject minified CSS into JS

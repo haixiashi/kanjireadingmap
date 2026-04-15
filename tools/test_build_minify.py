@@ -43,6 +43,14 @@ def assert_matches(label, code, pattern):
         )
 
 
+def assert_contains(label, code, needle):
+    result = minify(code)
+    if needle not in result:
+        raise AssertionError(
+            f'{label}: expected {needle!r} in {result}'
+        )
+
+
 def main():
     assert_same_runtime(
         'for-let-header-and-body',
@@ -62,6 +70,39 @@ def main():
         '{let zName=0;let aName=0;zName++;zName++;aName++;console.log(zName,aName)}',
         r'^\s*\{let i=0,j=0;i\+\+;i\+\+;j\+\+;console\.log\(i,j\)\}\s*$',
     )
+    assert_contains(
+        'string-literals-not-rewritten',
+        'console.log("true false ;}")',
+        '"true false ;}"',
+    )
+    assert_contains(
+        'template-literals-not-rewritten',
+        'console.log(`true false ;}`)',
+        '`true false ;}`',
+    )
+    assert_contains(
+        'strings-not-touched-by-let-merge',
+        'console.log("let a=1;let b=2")',
+        '"let a=1;let b=2"',
+    )
+    assert_contains(
+        'decimal-leading-zero-trim',
+        'console.log(0.5,0.95,1.0)',
+        'console.log(.5,.95,1)',
+    )
+    assert_contains(
+        'boolean-literals-rewritten',
+        'console.log(true,false)',
+        'console.log(!0,!1)',
+    )
+    assert_matches(
+        'property-access-not-rewritten',
+        'console.log(obj.true,obj.false)',
+        r'console\.log\([A-Za-z_$][A-Za-z0-9_$]*\.true,[A-Za-z_$][A-Za-z0-9_$]*\.false\)',
+    )
+    css = build._minify_css_numbers('opacity:0.10;zoom:1.0;scale:0.95;')
+    if css != 'opacity:.10;zoom:1;scale:.95;':
+        raise AssertionError(f'css-number-minify: got {css!r}')
     print('build.py minify regression tests passed')
 
 
