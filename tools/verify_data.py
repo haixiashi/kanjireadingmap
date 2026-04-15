@@ -127,8 +127,8 @@ def decode_kt_from_decoder(dec, kt_count):
     cp = 0x4E00
 
     for _ in range(kt_count - 1):
-        q = 2 << dec.decode_model(KD_CASE)
-        cp += dec.decode_uniform(q) + q - 1
+        delta_range = 2 << dec.decode_model(KD_CASE)
+        cp += dec.decode_uniform(delta_range) + delta_range - 1
         kt.append(chr(cp))
     return kt
 
@@ -148,7 +148,7 @@ def decode_da_from_decoder(dec, kt):
     CP = M_CELL[1:-1]
     KT0 = [m[1:-1] for m in M_KT0]
     KT1 = M_KT1[1:-1]
-    OK = M_ONKUN[1:-1]
+    OK = [m[1:-1] for m in M_ONKUN]
     TDP = [None] + [m[1:-1] for m in M_TDP[1:]]
     D1K = M_D1K[1:-1]
     D1O = M_D1O[1:-1]
@@ -195,6 +195,7 @@ def decode_da_from_decoder(dec, kt):
 
             entries = []
             pt = 5
+            ok_score = 0
             while True:
                 kl = []
                 if Z(KT0[pt - 1]):  # conditioned on pt
@@ -203,11 +204,12 @@ def decode_da_from_decoder(dec, kt):
                 while not Z(KT1):
                     kl.append(kt[U(len(kt))])
 
-                on = Z(OK)
+                on = Z(OK[max(-2, min(2, ok_score)) + 2])
                 if pt > 1:
                     pt -= Z(TDP[pt])
                 tier = pt
                 tr = str(tier)
+                ok_score += 1 if on else -1
                 d1 = Z(D1O if on else D1K)
                 d2 = Z(D2_1 if d1 else D2_0) - 1
                 ko = on * 96

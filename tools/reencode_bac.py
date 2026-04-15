@@ -174,6 +174,7 @@ def decode_kd(kd_str, kt_count):
 
 # Fixed model (data-independent)
 M_KD_CASE = [0, 339, 652, 861, 961, 992, 997, 998, 999]  # KD delta bucket: 8 doubling cases (q=2<<z)
+ONKUN_SCORE_CLAMP = 2
 
 # All other models are computed from snapshot data at encode time.
 # Call compute_models(snap) before encoding.
@@ -200,7 +201,7 @@ def compute_models(snap):
     kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
     cell_ct = Counter()
     kt1_ct = Counter()
-    ok_ct = Counter()
+    ok_ct = [Counter({0: 0, 1: 0}) for _ in range(ONKUN_SCORE_CLAMP * 2 + 1)]
     d1k_ct = Counter()
     d1o_ct = Counter()
     d2_0_ct = Counter()
@@ -239,13 +240,14 @@ def compute_models(snap):
                     groups.append((key, [kanji]))
 
             pt = 5
+            ok_score = 0
             for (tier, furigana, okurigana, is_on), kanji_list in groups:
                 more_ct[pt] += 1
                 delta_by_pt[pt][pt - tier] += 1
                 for i in range(1, len(kanji_list)):
                     kt1_ct[0] += 1
                 kt1_ct[1] += 1
-                ok_ct[1 if is_on else 0] += 1
+                ok_ct[max(-ONKUN_SCORE_CLAMP, min(ONKUN_SCORE_CLAMP, ok_score)) + ONKUN_SCORE_CLAMP][1 if is_on else 0] += 1
 
                 cell_kana = row + col
                 ko = 96 if is_on else 0
@@ -275,13 +277,14 @@ def compute_models(snap):
                     of_ct[0] += 1
 
                 pt = tier
+                ok_score += 1 if is_on else -1
             done_ct[pt] += 1
 
     M_CELL = _m999(cell_ct)
     M_KT0 = [[0, round(more_ct[pt] / (more_ct[pt] + done_ct[pt]) * 999), 999]
               for pt in range(1, 6)]
     M_KT1 = _m999(kt1_ct)
-    M_ONKUN = _m999(ok_ct)
+    M_ONKUN = [_m999(ct) for ct in ok_ct]
     M_TDP = [None] + [_m999(delta_by_pt[pt]) for pt in range(1, 6)]
     M_D1K = _m999(d1k_ct)
     M_D1O = _m999(d1o_ct)
@@ -495,6 +498,7 @@ def encode_snapshot(snap):
                     groups.append((key, [kanji]))
 
             pt = 5
+            ok_score = 0
             for (tier, furigana, okurigana, is_on), kanji_list in groups:
                 encodable = [k for k in kanji_list if k in kt_index]
                 if not encodable:
@@ -507,11 +511,12 @@ def encode_snapshot(snap):
                     eu(kt_index[kc], len(kt))
                 em(M_KT1, 1)  # terminator
 
-                em(M_ONKUN, 1 if is_on else 0)
+                em(M_ONKUN[max(-ONKUN_SCORE_CLAMP, min(ONKUN_SCORE_CLAMP, ok_score)) + ONKUN_SCORE_CLAMP], 1 if is_on else 0)
                 delta = pt - tier
                 if pt > 1:
                     em(M_TDP[pt], delta)
                 pt = tier
+                ok_score += 1 if is_on else -1
 
                 ko = 96 if is_on else 0
                 prefix = cell_kana

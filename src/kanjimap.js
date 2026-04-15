@@ -121,6 +121,7 @@ decodeCell = (() => {
 
         let entries = [];
         let prevTier = 5;
+        let okScore = 0;
 
         for (;;) {
             // End of cell? KT0 model conditioned on prevTier:
@@ -135,9 +136,10 @@ decodeCell = (() => {
                 kanjiGroup.push(kanjiTable[decodeUniform(KL)]);
 
             // On/kun flag and tier assignment
-            let isOn = decode(OK);                          // 0=kun, 1=on
+            let isOn = decode(OK[Math.max(-2, Math.min(2, okScore)) + 2]);         // 0=kun, 1=on
             prevTier -= decode(...TP[prevTier - 1]);        // tier delta from prevTier
             let tier = prevTier;
+            okScore += isOn ? 1 : -1;
 
             // Variant offsets for dakuten/handakuten readings:
             // d1 = offset for first kana char (conditional on on/kun)

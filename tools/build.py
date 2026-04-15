@@ -701,6 +701,7 @@ def main():
     from reencode_bac import M_KD_CASE
     kd = ','.join(str(x) for x in inner(M_KD_CASE))
     kp = ','.join(str(inner(m)[0]) for m in M_KT0)
+    ok = '[' + ','.join(str(inner(m)[0]) for m in M_ONKUN) + ']'
     tp = ','.join(str(inner(m)) for m in M_TDP[1:])
     d2_0 = ','.join(str(x) for x in inner(M_D2_0))
     d2_1 = ','.join(str(x) for x in inner(M_D2_1))
@@ -710,7 +711,8 @@ def main():
         ('KL - 1', f'{kl-1}'),
         ('decode(CP)', f'decode({inner(M_CELL)[0]})'),
         ('decode(K1)', f'decode({inner(M_KT1)[0]})'),
-        ('decode(OK)', f'decode({inner(M_ONKUN)[0]})'),
+        ('decode(OK[Math.max(-2, Math.min(2, okScore)) + 2])',
+         f'decode({ok}[Math.max(-2,Math.min(2,okScore))+2])'),
         ('decode(isOn ? DO : DK)', f'decode(isOn?{inner(M_D1O)[0]}:{inner(M_D1K)[0]})'),
         ('decode(D0)', f'decode({d2_0})'),
         ('decode(D1)', f'decode({d2_1})'),
