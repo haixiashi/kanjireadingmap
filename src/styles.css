@@ -144,6 +144,12 @@ body.dark td.has-more::after { color: #777; }
 .theme-toggle { right: 16px; width: 44px; font-size: 24px; }
 .reading-toggle { right: 68px; width: 44px; font-size: 22px; font-weight: bold; }
 
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 500ms;
+    animation-timing-function: ease;
+}
+
 /* Reading filter */
 body.kun-only .kanji-group.on { display: none; }
 body.on-only .kanji-group.kun { display: none; }
