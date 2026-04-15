@@ -403,8 +403,9 @@ def encode_snapshot(snap):
                 is_on = any(0x30A0 <= ord(c) <= 0x30FF for c in parts[0]) if parts[0] else False
                 ko = 96 if is_on else 0
                 cell_kana = row + col
-                for c in parts[0][len(cell_kana):]:
-                    kana_ct[ord(c) - H - ko] += 1
+                if not is_on:
+                    for c in parts[0][len(cell_kana):]:
+                        kana_ct[ord(c) - H] += 1
                 if not is_on:
                     for c in parts[1]:
                         kana_ct[ord(c) - H] += 1
@@ -447,7 +448,7 @@ def encode_snapshot(snap):
     for d in kana_deltas:
         kana_cum.append(kana_cum[-1] + d)
     kana_cum.append(999)  # 82nd symbol gets remainder
-    M_KANA_ALL = kana_cum
+    M_KUN_KANA = kana_cum
     print(f"Kana: 82 symbols (k² deltas, U({KANA_K_MAX})), sum={sum(kana_deltas)}", file=sys.stderr)
 
     enc = ArithEncoder()
@@ -563,14 +564,14 @@ def encode_snapshot(snap):
                     for c in extra:
                         em(M_EXTRA, 1)
                         code = ord(c) - H - ko
-                        em(M_KANA_ALL, code)
+                        em(M_KUN_KANA, code)
                     em(M_EXTRA, 0)
 
                 if not is_on:
                     for c in okurigana:
                         em(M_OKURI, 1)
                         code = ord(c) - H
-                        em(M_KANA_ALL, code)
+                        em(M_KUN_KANA, code)
                     em(M_OKURI, 0)
 
             em(M_KT0[pt - 1], 1)  # end of cell, conditioned on pt

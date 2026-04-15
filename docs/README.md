@@ -269,14 +269,15 @@ The `D` stream is decoded sequentially in one arithmetic-decoder state:
    Delta-encoded codepoints beginning at `一` (`U+4E00`).
 
 2. **Kana probability table**
-   An 82-symbol cumulative model covering kana offsets from `あ` onward.
+   An 82-symbol cumulative model covering kana offsets from `あ` onward,
+   used for kun-yomi extra kana and okurigana.
 
 3. **Grid kana layout**
    The 45 kana used to define row and column order.
 
 4. **Cell contents**
    Presence flag, kanji grouping, on/kun flag, tier deltas, reading variants,
-   extra kana, and okurigana.
+   on-yomi extra-kana flag and symbol, kun-yomi extra kana, and okurigana.
 
 ### Important implementation constraints
 
@@ -290,6 +291,12 @@ The `D` stream is decoded sequentially in one arithmetic-decoder state:
   arithmetic decoder sees the usual zero-extended tail during final
   normalization.
 - The Python verifier must mirror those exact transport details.
+- On-yomi is encoded as katakana and never carries okurigana.
+- First-column on-yomi has no extra kana; two-kana on-yomi has at most one
+  extra kana.
+- That single on-yomi extra kana uses a dedicated tiny model
+  (`M_ON_EXTRA` + `M_ON_KANA`), while the 82-symbol kana table is now
+  effectively a kun-kana model.
 
 ## Notes
 
