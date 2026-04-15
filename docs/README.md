@@ -304,3 +304,54 @@ The `D` stream is decoded sequentially in one arithmetic-decoder state:
   and may legitimately appear at either end.
 - When editing docs or tooling, prefer explaining project invariants and
   workflow over copying the current minified implementation structure.
+
+## Design Dead-Ends (Investigated, Not Worth Doing)
+
+These looked promising but were analyzed and ruled out. Documented here to
+avoid re-investigating them.
+
+### Making `B()` return `Uint8Array` or a stream
+
+`B(F)` currently returns a plain array, which gets wrapped in `new
+Uint8Array(...)` before being fed to `Blob` for decompression. Making `B`
+return `Uint8Array` directly would save that wrapper call in the bootstrap, but
+the saving cancels out exactly: `B` would have to do `return new
+Uint8Array(o)` internally, costing the same characters.
+
+Beyond the size wash, there are two structural reasons plain array is correct:
+
+1. **`B(D)` needs `.pop()`**. The runtime bit reader uses a sentinel-based
+   scheme that consumes bytes via `byteArr.pop()`. `Uint8Array` is fixed-length
+   and does not support `pop()`, so switching `B(D)` to typed array would
+   require adding a separate index variable.
+
+2. **Output length is unknown until decoding finishes**. The rANS decoder is
+   sentinel-terminated (`while(v>1)`), so there is no way to pre-allocate the
+   correct buffer size. You would have to decode into a growing plain array
+   first and convert at the end — which is exactly what keeping the plain array
+   return already does.
+
+### Separate okurigana kana model
+
+Okurigana and kun-yomi extra kana currently share the same 82-symbol
+`kanaCumFreq` model. Their distributions are measurably different (okurigana
+entropy ≈ 4.1 bits/char vs extra-kana ≈ 5.3 bits/char), driven mainly by `る`
+appearing in 30 % of okurigana but almost never in extra kana.
+
+A full separate 82-symbol model would save ≈ 100 bytes in the `D` stream but
+cost ≈ 94 bytes to describe (≈ 39 bytes for 81 k² delta parameters in `D`, ≈
+55 bytes of JS loop code). Net gain ≈ 6 bytes — below the noise floor.
+
+A cheaper two-boundary prefix pulling out only `る` and `い` (the two most
+skewed symbols) does not help either: the prefix charge of ≈ 0.72 bits on each
+of the 1,132 remaining okurigana symbols costs ≈ 816 bits, while better coding
+of `る` and `い` saves only ≈ 275 bits, even after retraining `kanaCumFreq`
+without those two symbols.
+
+### Separate kanji index model
+
+Each kanji reference is decoded with `decodeUniform(2697)` — a flat uniform
+model. Empirically all 2,697 kanji appear in the data, and the most frequent
+occurs only 11 times out of 5,475 total references. Actual entropy is 11.23
+bits vs. uniform 11.40 bits. A non-uniform model over 5,475 references would
+save at most ≈ 14 bytes total before accounting for any model description cost.
