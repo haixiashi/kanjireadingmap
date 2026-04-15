@@ -158,7 +158,7 @@ decodeCell = (() => {
             // kun-yomi keeps the general repeat-until-terminator form.
             if (isOn) {
                 if (cellKana[1] && decode(OE))
-                    reading += 'ウクンツキ'[decode(OM)];
+                    reading += String.fromCharCode('&/sD-'.charCodeAt(decode(OM)) + 12416);
             } else {
                 while (decode(EF))
                     reading += String.fromCharCode(decode(...kanaCumFreq) + 12354);
