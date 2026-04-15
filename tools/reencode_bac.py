@@ -567,12 +567,6 @@ def encode_snapshot(snap):
         raise RuntimeError(f"Verification failed: {errors} errors in {len(ops)} ops")
 
     byte_data = bits_to_bytes(bits)
-    # Append padding bytes so the bit string has enough trailing zeros.
-    # The arithmetic decoder may read up to 32 bits beyond the data during
-    # final normalization. Without padding, pop() returns undefined which
-    # becomes NaN and corrupts the decoder state.
-    for _ in range(4):
-        byte_data.append(0)
     # Reverse byte order so the JS decoder can use pop() to read bytes in forward
     # order (byte_0 first) without needing a separate index variable.
     byte_data = byte_data[::-1]

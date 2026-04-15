@@ -286,6 +286,9 @@ The `D` stream is decoded sequentially in one arithmetic-decoder state:
 - Byte packing is LSB-first within each byte.
 - The stored byte stream is reversed so the JS decoder can consume it with
   `pop()`.
+- The runtime bit reader treats reads past the end of `D` as zero bytes, so the
+  arithmetic decoder sees the usual zero-extended tail during final
+  normalization.
 - The Python verifier must mirror those exact transport details.
 
 ## Notes

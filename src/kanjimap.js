@@ -10,9 +10,10 @@ decodeCell = (() => {
     // --- Base-93 → byte array → stateful bit reader ---
     // Bytes reversed by build.py (pop() reads forward), bits packed LSB-first.
     // sr (shift register) is loaded as byte+256; the sentinel 1-bit at position 8
-    // triggers a pop() reload when >>=1 drains it to 1. sr&1 yields the current bit.
+    // triggers a reload when >>=1 drains it to 1. Past EOF, missing bytes are
+    // treated as zero so the arithmetic decoder sees the usual zero-extended tail.
     let byteArr = B(D), sr = 0;
-    readBit = () => (sr >>= 1, sr > 1 || (sr = byteArr.pop() + 256), sr & 1);
+    readBit = () => (sr >>= 1, sr > 1 || (sr = byteArr.pop() | 256), sr & 1);
 
     // --- 32-bit arithmetic decoder (range coder) ---
     // Uses 32-bit precision with constants TOP=2^31, QUARTER=2^30, MODULUS=2^32.
