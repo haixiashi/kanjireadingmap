@@ -245,12 +245,6 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     readingBtn.className  = 'fixed-btn reading-toggle';
     readingBtn.textContent = modeLabels[modeIdx];
     if (modes[modeIdx] !== 'both') document.body.classList.add(modes[modeIdx]);
-    runViewTransition = update => {
-        if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches)
-            document.startViewTransition(update);
-        else
-            update();
-    };
 
     updateReadings = () => {
         const hiddenClass = modes[modeIdx] === 'kun-only' ? 'on'
@@ -288,14 +282,12 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     };
 
     readingBtn.addEventListener('click', () => {
-        runViewTransition(() => {
-            if (modes[modeIdx] !== 'both') document.body.classList.remove(modes[modeIdx]);
-            modeIdx = (modeIdx + 1) % 3;
-            if (modes[modeIdx] !== 'both') document.body.classList.add(modes[modeIdx]);
-            readingBtn.textContent = modeLabels[modeIdx];
-            storage.setItem('rm', modes[modeIdx]);
-            updateReadings();
-        });
+        if (modes[modeIdx] !== 'both') document.body.classList.remove(modes[modeIdx]);
+        modeIdx = (modeIdx + 1) % 3;
+        if (modes[modeIdx] !== 'both') document.body.classList.add(modes[modeIdx]);
+        readingBtn.textContent = modeLabels[modeIdx];
+        storage.setItem('rm', modes[modeIdx]);
+        updateReadings();
     });
     updateReadings();
     document.body.append(readingBtn);
@@ -308,13 +300,10 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     if (storage.getItem('dk') !== '0') document.body.classList.add('dark');
     if (document.body.classList.contains('dark')) themeBtn.textContent = '☀';
     themeBtn.addEventListener('click', () => {
-        let nextDark = !document.body.classList.contains('dark');
-        let applyTheme = () => {
-            document.body.classList.toggle('dark', nextDark);
-            themeBtn.textContent = nextDark ? '☀' : '☾';
-            storage.setItem('dk', nextDark ? '1' : '0');
-        };
-        runViewTransition(applyTheme);
+        document.body.classList.toggle('dark');
+        let isDark = document.body.classList.contains('dark');
+        themeBtn.textContent = isDark ? '☀' : '☾';
+        storage.setItem('dk', isDark ? '1' : '0');
     });
 
     // --- Hover card ---
@@ -395,8 +384,6 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     // --- Scale / zoom ---
     applyScale = () => {
         table.style.transform = 'scale(' + scale + ')';
-        let watermarkScale = Math.max(0, Math.min(1, (scale - 0.5) / 0.5));
-        document.body.style.setProperty('--wm', watermarkScale);
         if (!zooming) {
             let fontScale = scale < 1.5 ? Math.min(1.5 / scale, fsCap) : 1;
             document.body.style.setProperty('--fs', fontScale);
