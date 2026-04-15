@@ -787,7 +787,7 @@ def main():
         'D="' + dd + '";\n'
         'F="' + gz_b93 + '";\n'
         # rANS base-93 byte decoder (no BigInt, sentinel-terminated)
-        'B=s=>{i=0,v=0,o=[];do{'
+        'B=s=>{i=v=0,o=[];do{'
         'while(v<2**24&&i<s.length)v=v*93+(s.charCodeAt(i++)+26)*58/59-57|0;'
         'o.push(v&255);v>>=8}while(v>1);return o};\n'
         # Decode F from base-93, decompress, eval payload
