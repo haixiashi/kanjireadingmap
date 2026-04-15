@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import re
+import shutil
 import subprocess
 import sys
 
@@ -51,15 +52,32 @@ def assert_contains(label, code, needle):
         )
 
 
+def assert_rename_map(label, code, expected_present=(), expected_absent=()):
+    rename_map = build.compute_rename_map(code)
+    for name in expected_present:
+        if name not in rename_map:
+            raise AssertionError(
+                f'{label}: expected {name!r} in rename map, got {rename_map}'
+            )
+    for name in expected_absent:
+        if name in rename_map:
+            raise AssertionError(
+                f'{label}: expected {name!r} to stay out of rename map, got {rename_map}'
+            )
+
+
 def main():
-    assert_same_runtime(
-        'for-let-header-and-body',
-        'for(let outerIndex=0;outerIndex<3;outerIndex++)console.log(outerIndex)',
-    )
-    assert_same_runtime(
-        'outer-binding-visible-in-child',
-        'let outerCount=0;{console.log(outerCount);let innerCount=1;console.log(innerCount)}',
-    )
+    if shutil.which('node'):
+        assert_same_runtime(
+            'for-let-header-and-body',
+            'for(let outerIndex=0;outerIndex<3;outerIndex++)console.log(outerIndex)',
+        )
+        assert_same_runtime(
+            'outer-binding-visible-in-child',
+            'let outerCount=0;{console.log(outerCount);let innerCount=1;console.log(innerCount)}',
+        )
+    else:
+        print('node not found; skipping runtime equivalence checks')
     assert_matches(
         'sibling-block-reuse',
         'let outerCount=0;{let innerCount=1;console.log(innerCount)}{let otherCount=2;console.log(otherCount)}',
@@ -99,6 +117,12 @@ def main():
         'property-access-not-rewritten',
         'console.log(obj.true,obj.false)',
         r'console\.log\([A-Za-z_$][A-Za-z0-9_$]*\.true,[A-Za-z_$][A-Za-z0-9_$]*\.false\)',
+    )
+    assert_rename_map(
+        'nested-lexical-bindings-stay-out-of-global-map',
+        'let globalState=0;use(globalState);{let localCounter=0;localCounter++;localCounter++;use(localCounter)}',
+        expected_present=('globalState',),
+        expected_absent=('localCounter',),
     )
     css = build._minify_css_numbers('opacity:0.10;zoom:1.0;scale:0.95;')
     if css != 'opacity:.10;zoom:1;scale:.95;':

@@ -215,94 +215,15 @@ def _minify_css_numbers(css):
     return css
 
 
-def compute_rename_map(js_code):
-    """Compute identifier rename map dynamically from js_code.
+def _analyze_lexical_scopes(code, rename_map=None):
+    """Collect lexical let/const bindings and their token positions.
 
-    Tokenizes the JS, counts standalone identifier frequencies (skipping
-    property accesses after '.'), then assigns short names by frequency:
-    1-char names to the most frequent, 2-char names to the rest.
+    This remains tokenizer-based rather than AST-based, but it is precise
+    enough to distinguish root-scope bindings from nested lexical bindings for
+    the minifier's name-allocation strategy.
     """
-    freq = {}
-    prev_dot = False  # was the previous non-whitespace token a single '.'?
-    dot_count = 0     # consecutive dot count (1=property access, 3=spread)
 
-    for kind, tok, _ in _iter_js_tokens(js_code):
-        if kind in ('str_dq', 'str_sq', 'template', 'line_comment', 'block_comment', 'num'):
-            prev_dot = False
-            dot_count = 0
-        elif kind == 'ident':
-            if not prev_dot:
-                freq[tok] = freq.get(tok, 0) + 1
-            prev_dot = False
-            dot_count = 0
-        elif kind == 'ws':
-            pass  # don't update prev_dot or dot_count
-        else:
-            if tok == '.':
-                dot_count += 1
-            else:
-                dot_count = 0
-            prev_dot = (tok == '.' and dot_count == 1)
-
-    # Candidates: not excluded, length > 2, freq >= 2
-    candidates = sorted(
-        [(name, count) for name, count in freq.items()
-         if name not in _EXCLUDED and len(name) > 2 and count >= 2],
-        key=lambda x: (-x[1], x[0])  # sort by freq desc, then name for determinism
-    )
-
-    # 1-char pool: single chars not already used as identifiers in the source.
-    # _ and $ are intentionally excluded: the scope-aware local renamer uses them
-    # and can reuse them freely across sibling scopes. If the global rename map
-    # claimed _ or $, they would be added to global_targets and blocked from
-    # every local scope, costing many bytes whenever the global pool shifts and
-    # a different identifier gets _ or $. Keeping them local-only makes the
-    # output size stable regardless of how many global identifiers are added.
-    used_as_ident = {name for name in freq if len(name) == 1}
-    pool_1 = [c for c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-              if c not in used_as_ident]
-
-    # 2-char pool: generated on demand, skipping any already used as identifiers
-    def gen_2char(used_targets):
-        first_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$'
-        tail_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$'
-        for c1 in first_chars:
-            for c2 in tail_chars:
-                name = c1 + c2
-                if (name not in freq and name not in used_targets
-                        and name not in _EXCLUDED):
-                    yield name
-
-    rename_map = {}
-    used_targets = set()
-    pool_1_idx = 0
-    pool_2 = gen_2char(used_targets)
-
-    for name, count in candidates:
-        if pool_1_idx < len(pool_1):
-            target = pool_1[pool_1_idx]
-            pool_1_idx += 1
-        else:
-            target = next(pool_2)
-        rename_map[name] = target
-        used_targets.add(target)
-
-    n1 = sum(1 for v in rename_map.values() if len(v) == 1)
-    n2 = sum(1 for v in rename_map.values() if len(v) == 2)
-    print(f"Rename map: {len(rename_map)} identifiers ({n1} × 1-char, {n2} × 2-char)",
-          file=__import__('sys').stderr)
-    return rename_map
-
-
-def _build_scope_renames(code, rename_map):
-    """Build token-level renames for let/const bindings.
-
-    The analysis models lexical block scopes plus explicit loop-header scopes
-    for `for (let ...)` so bindings remain visible in both the header and body.
-    Local short names are assigned per scope by binding frequency, with names
-    reused across nested scopes unless the child subtree still references the
-    outer binding.
-    """
+    rename_map = rename_map or {}
 
     scopes = {
         0: {
@@ -521,6 +442,115 @@ def _build_scope_renames(code, rename_map):
         else:
             dot_count = 0
         prev_dot = (tok == '.' and dot_count == 1)
+
+    return {
+        'scopes': scopes,
+        'bindings': bindings,
+        'token_bindings': token_bindings,
+        'scope_short_direct': scope_short_direct,
+    }
+
+
+def compute_rename_map(js_code):
+    """Compute identifier rename map dynamically from js_code.
+
+    Tokenizes the JS, counts standalone identifier frequencies (skipping
+    property accesses after '.'), and ignores nested lexical let/const bindings
+    because those are assigned separately by the local scope renamer.
+    """
+    analysis = _analyze_lexical_scopes(js_code)
+    local_token_positions = {
+        pos for pos, binding_id in analysis['token_bindings'].items()
+        if analysis['bindings'][binding_id]['scope'] != 0
+    }
+
+    freq = {}
+    prev_dot = False  # was the previous non-whitespace token a single '.'?
+    dot_count = 0     # consecutive dot count (1=property access, 3=spread)
+
+    for kind, tok, pos in _iter_js_tokens(js_code):
+        if kind in ('str_dq', 'str_sq', 'template', 'line_comment', 'block_comment', 'num'):
+            prev_dot = False
+            dot_count = 0
+        elif kind == 'ident':
+            if not prev_dot and pos not in local_token_positions:
+                freq[tok] = freq.get(tok, 0) + 1
+            prev_dot = False
+            dot_count = 0
+        elif kind == 'ws':
+            pass  # don't update prev_dot or dot_count
+        else:
+            if tok == '.':
+                dot_count += 1
+            else:
+                dot_count = 0
+            prev_dot = (tok == '.' and dot_count == 1)
+
+    # Candidates: not excluded, length > 2, freq >= 2
+    candidates = sorted(
+        [(name, count) for name, count in freq.items()
+         if name not in _EXCLUDED and len(name) > 2 and count >= 2],
+        key=lambda x: (-x[1], x[0])  # sort by freq desc, then name for determinism
+    )
+
+    # 1-char pool: single chars not already used as identifiers in the source.
+    # _ and $ are intentionally excluded: the scope-aware local renamer uses them
+    # and can reuse them freely across sibling scopes. If the global rename map
+    # claimed _ or $, they would be added to global_targets and blocked from
+    # every local scope, costing many bytes whenever the global pool shifts and
+    # a different identifier gets _ or $. Keeping them local-only makes the
+    # output size stable regardless of how many global identifiers are added.
+    used_as_ident = {name for name in freq if len(name) == 1}
+    pool_1 = [c for c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+              if c not in used_as_ident]
+
+    # 2-char pool: generated on demand, skipping any already used as identifiers
+    def gen_2char(used_targets):
+        first_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$'
+        tail_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$'
+        for c1 in first_chars:
+            for c2 in tail_chars:
+                name = c1 + c2
+                if (name not in freq and name not in used_targets
+                        and name not in _EXCLUDED):
+                    yield name
+
+    rename_map = {}
+    used_targets = set()
+    pool_1_idx = 0
+    pool_2 = gen_2char(used_targets)
+
+    for name, count in candidates:
+        if pool_1_idx < len(pool_1):
+            target = pool_1[pool_1_idx]
+            pool_1_idx += 1
+        else:
+            target = next(pool_2)
+        rename_map[name] = target
+        used_targets.add(target)
+
+    n1 = sum(1 for v in rename_map.values() if len(v) == 1)
+    n2 = sum(1 for v in rename_map.values() if len(v) == 2)
+    print(f"Rename map: {len(rename_map)} identifiers ({n1} × 1-char, {n2} × 2-char)",
+          file=__import__('sys').stderr)
+    return rename_map
+
+
+def _build_scope_renames(code, rename_map):
+    """Build token-level renames for let/const bindings.
+
+    The analysis models lexical block scopes plus explicit loop-header scopes
+    for `for (let ...)` so bindings remain visible in both the header and body.
+    Local short names are assigned per scope by binding frequency, with names
+    reused across nested scopes unless the child subtree still references the
+    outer binding.
+    """
+
+    analysis = _analyze_lexical_scopes(code, rename_map)
+    scopes = analysis['scopes']
+    bindings = analysis['bindings']
+    token_bindings = analysis['token_bindings']
+    scope_short_direct = analysis['scope_short_direct']
 
     subtree_short_idents = {}
 
