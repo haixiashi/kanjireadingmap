@@ -64,6 +64,55 @@ _EXCLUDED = {
     'blur','focus','click','submit','reset',
 }
 
+_TOKEN_RE = re.compile(
+    r'("(?:[^"\\]|\\.)*")'
+    r"|('(?:[^'\\]|\\.)*')"
+    r'|(`(?:[^`\\]|\\.)*`)'
+    r'|(//[^\n]*)'
+    r'|(/\*[\s\S]*?\*/)'
+    r'|([a-zA-Z_$][a-zA-Z0-9_$]*)'
+    r'|(0[xX][0-9a-fA-F]+|[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)'
+    r'|(\s+)'
+    r'|(.)'
+)
+
+
+def _iter_js_tokens(js_code):
+    for m in _TOKEN_RE.finditer(js_code):
+        str_dq, str_sq, tmpl, lcmt, bcmt, ident, num, ws, other = m.groups()
+        if str_dq:
+            kind = 'str_dq'
+        elif str_sq:
+            kind = 'str_sq'
+        elif tmpl:
+            kind = 'template'
+        elif lcmt:
+            kind = 'line_comment'
+        elif bcmt:
+            kind = 'block_comment'
+        elif ident:
+            kind = 'ident'
+        elif num:
+            kind = 'num'
+        elif ws:
+            kind = 'ws'
+        else:
+            kind = 'other'
+        yield kind, m.group(0), m.start()
+
+
+def _iter_local_targets(used):
+    first_chars = 'ijklmnopqrstuvwxyzabcdefghABCDEFGHIJKLMNOPQRSTUVWXYZ_$'
+    tail_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$'
+    for name in first_chars:
+        if name not in used and name not in _EXCLUDED:
+            yield name
+    for c1 in first_chars:
+        for c2 in tail_chars:
+            name = c1 + c2
+            if name not in used and name not in _EXCLUDED:
+                yield name
+
 
 def compute_rename_map(js_code):
     """Compute identifier rename map dynamically from js_code.
@@ -72,41 +121,27 @@ def compute_rename_map(js_code):
     property accesses after '.'), then assigns short names by frequency:
     1-char names to the most frequent, 2-char names to the rest.
     """
-    import re
-    TOKEN_RE = re.compile(
-        r'("(?:[^"\\]|\\.)*")'
-        r"|('(?:[^'\\]|\\.)*')"
-        r'|(`(?:[^`\\]|\\.)*`)'
-        r'|(//[^\n]*)'
-        r'|(/\*[\s\S]*?\*/)'
-        r'|([a-zA-Z_$][a-zA-Z0-9_$]*)'
-        r'|(0[xX][0-9a-fA-F]+|[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)'
-        r'|(\s+)'
-        r'|(.)'
-    )
-
     freq = {}
     prev_dot = False  # was the previous non-whitespace token a single '.'?
     dot_count = 0     # consecutive dot count (1=property access, 3=spread)
 
-    for m in TOKEN_RE.finditer(js_code):
-        str_dq, str_sq, tmpl, lcmt, bcmt, ident, num, ws, other = m.groups()
-        if str_dq or str_sq or tmpl or lcmt or bcmt or num:
+    for kind, tok, _ in _iter_js_tokens(js_code):
+        if kind in ('str_dq', 'str_sq', 'template', 'line_comment', 'block_comment', 'num'):
             prev_dot = False
             dot_count = 0
-        elif ident:
+        elif kind == 'ident':
             if not prev_dot:
-                freq[ident] = freq.get(ident, 0) + 1
+                freq[tok] = freq.get(tok, 0) + 1
             prev_dot = False
             dot_count = 0
-        elif ws:
+        elif kind == 'ws':
             pass  # don't update prev_dot or dot_count
         else:
-            if other == '.':
+            if tok == '.':
                 dot_count += 1
             else:
                 dot_count = 0
-            prev_dot = (other == '.' and dot_count == 1)
+            prev_dot = (tok == '.' and dot_count == 1)
 
     # Candidates: not excluded, length > 2, freq >= 2
     candidates = sorted(
@@ -128,11 +163,13 @@ def compute_rename_map(js_code):
 
     # 2-char pool: generated on demand, skipping any already used as identifiers
     def gen_2char(used_targets):
-        chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$'
-        for c1 in chars:
-            for c2 in chars:
+        first_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$'
+        tail_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$'
+        for c1 in first_chars:
+            for c2 in tail_chars:
                 name = c1 + c2
-                if name not in freq and name not in used_targets:
+                if (name not in freq and name not in used_targets
+                        and name not in _EXCLUDED):
                     yield name
 
     rename_map = {}
@@ -157,159 +194,306 @@ def compute_rename_map(js_code):
 
 
 def _build_scope_renames(code, rename_map):
-    """Build scope-aware rename maps for let/const declarations.
+    """Build token-level renames for let/const bindings.
 
-    Scans the JS source to find let/const declarations in each {} scope,
-    then assigns short names that can be reused across sibling scopes.
-    Returns a dict mapping (scope_id, original_name) -> short_name.
-    Also returns scope_id for each token position.
+    The analysis models lexical block scopes plus explicit loop-header scopes
+    for `for (let ...)` so bindings remain visible in both the header and body.
+    Local short names are assigned per scope by binding frequency, with names
+    reused across nested scopes unless the child subtree still references the
+    outer binding.
     """
-    import re
-    TOKEN_RE = re.compile(
-        r'("(?:[^"\\]|\\.)*")'
-        r"|('(?:[^'\\]|\\.)*')"
-        r'|(`(?:[^`\\]|\\.)*`)'
-        r'|(//[^\n]*)'
-        r'|(/\*[\s\S]*?\*/)'
-        r'|([a-zA-Z_$][a-zA-Z0-9_$]*)'
-        r'|(0[xX][0-9a-fA-F]+|[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)'
-        r'|(\s+)'
-        r'|(.)'
-    )
 
-    # Phase 1: identify scopes and let/const declarations
-    # scope_stack tracks scope IDs; scope_id increments on each new {
-    # for(let ...) declarations are assigned to the NEXT scope (the for-body)
-    scope_counter = 0
-    scope_stack = [0]  # global scope = 0
-    scope_parent = {0: None}
-    scope_lets = {}  # scope_id -> set of declared names
-    token_scopes = {}  # token_start_pos -> scope_id
-    let_positions = {}  # token_start_pos -> True
+    scopes = {
+        0: {
+            'parent': None,
+            'children': [],
+            'bindings': [],
+            'binding_by_name': {},
+        },
+    }
+    bindings = {}
+    token_bindings = {}
+    scope_short_direct = {}
+    active_scopes = [0]
+    next_scope_id = 1
+    next_binding_id = 0
 
-    prev_kw = None
     prev_dot = False
     dot_count = 0
-    for_state = 0  # 0=idle, 1=saw 'for', 2=saw 'for('
-    for_let_names = []
+    pending_for = False
+    decl_ctx = None
+    loop_stack = []
 
-    for m in TOKEN_RE.finditer(code):
-        str_dq, str_sq, tmpl, lcmt, bcmt, ident, num, ws, other = m.groups()
-        pos = m.start()
-        cur_scope = scope_stack[-1]
-        token_scopes[pos] = cur_scope
+    def current_scope():
+        return active_scopes[-1]
 
-        if str_dq or str_sq or tmpl or lcmt or bcmt or num:
-            prev_kw = None
+    def new_scope(parent_id):
+        nonlocal next_scope_id
+        scope_id = next_scope_id
+        next_scope_id += 1
+        scopes[scope_id] = {
+            'parent': parent_id,
+            'children': [],
+            'bindings': [],
+            'binding_by_name': {},
+        }
+        scopes[parent_id]['children'].append(scope_id)
+        return scope_id
+
+    def declare_binding(name, pos):
+        nonlocal next_binding_id
+        scope_id = current_scope()
+        binding_id = next_binding_id
+        next_binding_id += 1
+        bindings[binding_id] = {
+            'name': name,
+            'scope': scope_id,
+            'decl_pos': pos,
+            'count': 1,
+            'use_scopes': set(),
+            'positions': [pos],
+            'renamable': len(name) > 2 or name in rename_map,
+        }
+        scopes[scope_id]['bindings'].append(binding_id)
+        scopes[scope_id]['binding_by_name'][name] = binding_id
+        token_bindings[pos] = binding_id
+        return binding_id
+
+    def resolve_binding(name):
+        for scope_id in reversed(active_scopes):
+            binding_id = scopes[scope_id]['binding_by_name'].get(name)
+            if binding_id is not None:
+                return binding_id
+        return None
+
+    def add_short_ident(name):
+        scope_short_direct.setdefault(current_scope(), set()).add(name)
+
+    def decl_top_level():
+        return decl_ctx and not any(decl_ctx[k] for k in ('paren', 'brace', 'bracket'))
+
+    for kind, tok, pos in _iter_js_tokens(code):
+        if kind == 'ws':
+            continue
+
+        if kind in ('line_comment', 'block_comment'):
+            continue
+
+        if loop_stack and loop_stack[-1]['phase'] == 'await_body' and kind != 'ws':
+            if not (kind == 'other' and tok == '{'):
+                loop_stack[-1].update({
+                    'phase': 'stmt',
+                    'stmt_paren': 0,
+                    'stmt_brace': 0,
+                    'stmt_bracket': 0,
+                })
+
+        if kind in ('str_dq', 'str_sq', 'template', 'num'):
             prev_dot = False
             dot_count = 0
-            for_state = 0
-        elif ident:
-            if prev_kw in ('let', 'const') and not prev_dot:
-                if for_state == 2:
-                    for_let_names.append(ident)
-                else:
-                    if cur_scope not in scope_lets:
-                        scope_lets[cur_scope] = set()
-                    scope_lets[cur_scope].add(ident)
-                let_positions[pos] = True
-            if ident == 'for':
-                for_state = 1
-            elif for_state != 2:
-                for_state = 0
-            prev_kw = ident if ident in ('let', 'const', 'var', 'function') else None
-            prev_dot = False
-            dot_count = 0
-        elif ws:
-            pass
-        else:
-            if other == '(' and for_state == 1:
-                for_state = 2
-            elif other == '{':
-                scope_counter += 1
-                scope_parent[scope_counter] = cur_scope
-                scope_stack.append(scope_counter)
-                if for_let_names:
-                    if scope_counter not in scope_lets:
-                        scope_lets[scope_counter] = set()
-                    scope_lets[scope_counter].update(for_let_names)
-                    for_let_names = []
-                for_state = 0
-            elif other == '}' and len(scope_stack) > 1:
-                scope_stack.pop()
-                for_state = 0
-            else:
-                if other != '(' and for_state != 2:
-                    for_state = 0
-            prev_kw = None
-            if other == '.':
-                dot_count += 1
-            else:
+            pending_for = False
+            continue
+
+        if kind == 'ident':
+            if (decl_ctx and decl_ctx['in_for'] and decl_top_level()
+                    and not decl_ctx['expect_name'] and not prev_dot
+                    and tok in ('in', 'of')):
+                decl_ctx = None
+                prev_dot = False
                 dot_count = 0
-            prev_dot = (other == '.' and dot_count == 1)
+                pending_for = False
+                continue
 
-    # Phase 2: collect short identifiers used per scope (params, references)
-    # These cannot be reused for let renames in that scope
-    scope_short_idents = {}
-    prev_dot2 = False
-    dot_count2 = 0
-    scope_stack2 = [0]
-    scope_counter2 = 0
-    scope_parent2 = {0: None}
-    for m2 in TOKEN_RE.finditer(code):
-        s_dq, s_sq, s_t, s_lc, s_bc, s_id, s_n, s_ws, s_o = m2.groups()
-        cur2 = scope_stack2[-1]
-        if s_id and not prev_dot2 and len(s_id) <= 2:
-            # Short ident used in this scope (could be param, var ref, etc.)
-            # Only track if it's NOT a let-declared name in this scope
-            if s_id not in scope_lets.get(cur2, set()):
-                if cur2 not in scope_short_idents:
-                    scope_short_idents[cur2] = set()
-                scope_short_idents[cur2].add(s_id)
-        if s_o == '{':
-            scope_counter2 += 1
-            scope_parent2[scope_counter2] = cur2
-            scope_stack2.append(scope_counter2)
-        elif s_o == '}' and len(scope_stack2) > 1:
-            scope_stack2.pop()
-        if s_id or s_dq or s_sq or s_t or s_lc or s_bc or s_n:
-            prev_dot2 = False
-            dot_count2 = 0
-        elif s_o:
-            if s_o == '.':
-                dot_count2 += 1
+            if decl_ctx and decl_ctx['expect_name'] and not prev_dot:
+                binding_id = declare_binding(tok, pos)
+                if len(tok) <= 2 and not bindings[binding_id]['renamable']:
+                    add_short_ident(tok)
+                decl_ctx['expect_name'] = False
             else:
-                dot_count2 = 0
-            prev_dot2 = (s_o == '.' and dot_count2 == 1)
+                if not prev_dot:
+                    binding_id = resolve_binding(tok)
+                    if binding_id is not None:
+                        bindings[binding_id]['count'] += 1
+                        bindings[binding_id]['use_scopes'].add(current_scope())
+                        bindings[binding_id]['positions'].append(pos)
+                        token_bindings[pos] = binding_id
+                    elif len(tok) <= 2:
+                        add_short_ident(tok)
+
+                if not prev_dot and tok == 'for':
+                    pending_for = True
+                elif not prev_dot and tok in ('let', 'const'):
+                    decl_ctx = {
+                        'expect_name': True,
+                        'in_for': bool(loop_stack and loop_stack[-1]['phase'] == 'header'),
+                        'paren': 0,
+                        'brace': 0,
+                        'bracket': 0,
+                    }
+                    pending_for = False
+                else:
+                    pending_for = False
+
+            prev_dot = False
+            dot_count = 0
+            continue
+
+        if tok == '(':
+            if pending_for:
+                loop_scope = new_scope(current_scope())
+                active_scopes.append(loop_scope)
+                loop_stack.append({
+                    'scope': loop_scope,
+                    'phase': 'header',
+                    'paren_depth': 1,
+                    'body_block': None,
+                })
+                pending_for = False
+            elif loop_stack and loop_stack[-1]['phase'] == 'header':
+                loop_stack[-1]['paren_depth'] += 1
+            elif loop_stack and loop_stack[-1]['phase'] == 'stmt':
+                loop_stack[-1]['stmt_paren'] += 1
+            if decl_ctx:
+                decl_ctx['paren'] += 1
+        elif tok == ')':
+            if decl_ctx and decl_ctx['paren'] > 0:
+                decl_ctx['paren'] -= 1
+            if loop_stack and loop_stack[-1]['phase'] == 'header':
+                loop_stack[-1]['paren_depth'] -= 1
+                if loop_stack[-1]['paren_depth'] == 0:
+                    loop_stack[-1]['phase'] = 'await_body'
+                    if decl_ctx and decl_ctx['in_for'] and decl_top_level():
+                        decl_ctx = None
+            elif loop_stack and loop_stack[-1]['phase'] == 'stmt' and loop_stack[-1]['stmt_paren'] > 0:
+                loop_stack[-1]['stmt_paren'] -= 1
+            pending_for = False
+        elif tok == '{':
+            if decl_ctx:
+                decl_ctx['brace'] += 1
+            elif loop_stack and loop_stack[-1]['phase'] == 'stmt':
+                loop_stack[-1]['stmt_brace'] += 1
+            block_scope = new_scope(current_scope())
+            active_scopes.append(block_scope)
+            if loop_stack and loop_stack[-1]['phase'] == 'await_body':
+                loop_stack[-1]['phase'] = 'block'
+                loop_stack[-1]['body_block'] = block_scope
+            pending_for = False
+        elif tok == '}':
+            if decl_ctx and decl_ctx['brace'] > 0:
+                decl_ctx['brace'] -= 1
+            elif loop_stack and loop_stack[-1]['phase'] == 'stmt' and loop_stack[-1]['stmt_brace'] > 0:
+                loop_stack[-1]['stmt_brace'] -= 1
+            popped_scope = active_scopes.pop() if len(active_scopes) > 1 else 0
+            if (loop_stack and loop_stack[-1]['phase'] == 'block'
+                    and popped_scope == loop_stack[-1]['body_block']):
+                active_scopes.pop()
+                loop_stack.pop()
+            pending_for = False
+        elif tok == '[':
+            if decl_ctx:
+                decl_ctx['bracket'] += 1
+            elif loop_stack and loop_stack[-1]['phase'] == 'stmt':
+                loop_stack[-1]['stmt_bracket'] += 1
+            pending_for = False
+        elif tok == ']':
+            if decl_ctx and decl_ctx['bracket'] > 0:
+                decl_ctx['bracket'] -= 1
+            elif loop_stack and loop_stack[-1]['phase'] == 'stmt' and loop_stack[-1]['stmt_bracket'] > 0:
+                loop_stack[-1]['stmt_bracket'] -= 1
+            pending_for = False
+        elif tok == ',' and decl_ctx and decl_top_level():
+            decl_ctx['expect_name'] = True
+            pending_for = False
+        elif tok == ';':
+            if decl_ctx and decl_top_level():
+                decl_ctx = None
+            if (loop_stack and loop_stack[-1]['phase'] == 'stmt'
+                    and not any(loop_stack[-1][k] for k in ('stmt_paren', 'stmt_brace', 'stmt_bracket'))):
+                active_scopes.pop()
+                loop_stack.pop()
+            pending_for = False
+        else:
+            pending_for = False
+
+        if tok == '.':
+            dot_count += 1
+        else:
+            dot_count = 0
+        prev_dot = (tok == '.' and dot_count == 1)
+
+    subtree_short_idents = {}
+
+    def fold_short_idents(scope_id):
+        names = set(scope_short_direct.get(scope_id, set()))
+        for child_id in scopes[scope_id]['children']:
+            names |= fold_short_idents(child_id)
+        subtree_short_idents[scope_id] = names
+        return names
+
+    fold_short_idents(0)
+
+    tin = {}
+    tout = {}
+    clock = 0
+
+    def index_scopes(scope_id):
+        nonlocal clock
+        tin[scope_id] = clock
+        clock += 1
+        for child_id in scopes[scope_id]['children']:
+            index_scopes(child_id)
+        tout[scope_id] = clock
+
+    index_scopes(0)
+
+    def scope_contains(root_id, child_id):
+        return tin[root_id] <= tin[child_id] < tout[root_id]
+
+    def binding_used_in_subtree(binding_id, scope_id):
+        return any(scope_contains(scope_id, use_scope)
+                   for use_scope in bindings[binding_id]['use_scopes'])
 
     global_targets = set(rename_map.values())
-    local_pool = list('ijklmnopqrstuvwxyzabcdefghABCDEFGHIJKLMNOPQRSTUVWXYZ_$')
+    binding_targets = {}
 
-    scope_renames = {}
-
-    for scope_id, names in scope_lets.items():
-        # Unavailable: global targets + ancestor scope renames +
-        # short idents used in this scope and ancestor scopes (params, refs)
+    def assign_scope(scope_id, blocked_from_ancestors):
         used = set(global_targets)
-        s = scope_id
-        while s is not None:
-            used |= scope_short_idents.get(s, set())
-            for n in scope_lets.get(s, set()):
-                if s != scope_id and (s, n) in scope_renames:
-                    used.add(scope_renames[(s, n)])
-            s = scope_parent.get(s)
+        used |= subtree_short_idents.get(scope_id, set())
+        used |= blocked_from_ancestors
 
-        pool_idx = 0
-        for name in sorted(names):
-            if name not in rename_map and len(name) <= 2:
-                continue
-            while pool_idx < len(local_pool) and local_pool[pool_idx] in used:
-                pool_idx += 1
-            if pool_idx < len(local_pool):
-                scope_renames[(scope_id, name)] = local_pool[pool_idx]
-            pool_idx += 1
+        local_bindings = [
+            binding_id for binding_id in scopes[scope_id]['bindings']
+            if bindings[binding_id]['renamable']
+        ]
+        local_bindings.sort(
+            key=lambda binding_id: (
+                -bindings[binding_id]['count'],
+                bindings[binding_id]['name'],
+                bindings[binding_id]['decl_pos'],
+            )
+        )
 
-    return scope_renames, token_scopes, let_positions, scope_lets
+        target_iter = _iter_local_targets(used)
+        for binding_id in local_bindings:
+            target = next(target_iter)
+            binding_targets[binding_id] = target
+            used.add(target)
+
+        for child_id in scopes[scope_id]['children']:
+            child_blocked = set(blocked_from_ancestors)
+            for binding_id in local_bindings:
+                if binding_used_in_subtree(binding_id, child_id):
+                    child_blocked.add(binding_targets[binding_id])
+            assign_scope(child_id, child_blocked)
+
+    assign_scope(0, set())
+
+    local_token_renames = {}
+    for pos, binding_id in token_bindings.items():
+        target = binding_targets.get(binding_id)
+        if target is not None:
+            local_token_renames[pos] = target
+    return local_token_renames
 
 
 def minify_js(code, rename_map):
@@ -320,92 +504,51 @@ def minify_js(code, rename_map):
     adjacent word tokens (identifiers/keywords/numbers).
     Scope-aware: let/const variables get short names reused across scopes.
     """
-    import re
-    TOKEN_RE = re.compile(
-        r'("(?:[^"\\]|\\.)*")'                             # double-quoted string
-        r"|('(?:[^'\\]|\\.)*')"                            # single-quoted string
-        r'|(`(?:[^`\\]|\\.)*`)'                            # template literal
-        r'|(//[^\n]*)'                                     # line comment
-        r'|(/\*[\s\S]*?\*/)'                               # block comment
-        r'|([a-zA-Z_$][a-zA-Z0-9_$]*)'                    # identifier / keyword
-        r'|(0[xX][0-9a-fA-F]+|[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)'  # number (hex or decimal)
-        r'|(\s+)'                                          # whitespace
-        r'|(.)'                                            # any other char
-    )
-
     # Build scope-aware renames for let/const declarations
-    scope_renames, token_scopes, let_positions, scope_lets = \
-        _build_scope_renames(code, rename_map)
-
-    # Track which names are let-declared in each scope for use-site lookup
-    # When we see an identifier, check if it's let-declared in the current
-    # scope or any ancestor scope
-    scope_parent = {}
-    scope_counter = 0
-    scope_stack = [0]
-    scope_parent[0] = None
+    local_token_renames = _build_scope_renames(code, rename_map)
 
     out = []
     prev_word = False
     prev_dot = False
     dot_count = 0
 
-    for m in TOKEN_RE.finditer(code):
-        str_dq, str_sq, template, line_cmt, block_cmt, ident, num, ws, other = m.groups()
-        pos = m.start()
-
-        if str_dq or str_sq or template:
-            out.append(m.group(0))
+    for kind, tok, pos in _iter_js_tokens(code):
+        if kind in ('str_dq', 'str_sq', 'template'):
+            out.append(tok)
             prev_word = False
             prev_dot = False
             dot_count = 0
-        elif line_cmt or block_cmt:
+        elif kind in ('line_comment', 'block_comment'):
             pass  # strip
-        elif ident:
+        elif kind == 'ident':
             if prev_dot:
                 # Property access — don't rename
-                tok = ident
+                out_tok = tok
             else:
-                # Check scope-local rename first
-                cur_scope = scope_stack[-1]
-                tok = None
-                s = cur_scope
-                while s is not None:
-                    if (s, ident) in scope_renames and ident in scope_lets.get(s, set()):
-                        tok = scope_renames[(s, ident)]
-                        break
-                    s = scope_parent.get(s)
-                if tok is None:
-                    tok = rename_map.get(ident, ident)
+                out_tok = local_token_renames.get(pos, rename_map.get(tok, tok))
+            if prev_word:
+                out.append(' ')
+            out.append(out_tok)
+            prev_word = True
+            prev_dot = False
+            dot_count = 0
+        elif kind == 'num':
             if prev_word:
                 out.append(' ')
             out.append(tok)
             prev_word = True
             prev_dot = False
             dot_count = 0
-        elif num:
-            if prev_word:
-                out.append(' ')
-            out.append(m.group(0))
-            prev_word = True
-            prev_dot = False
-            dot_count = 0
-        elif ws:
+        elif kind == 'ws':
             pass  # strip; spacing re-added by prev_word logic
         else:
-            if other == '{':
-                scope_counter += 1
-                scope_parent[scope_counter] = scope_stack[-1]
-                scope_stack.append(scope_counter)
-            elif other == '}' and len(scope_stack) > 1:
-                scope_stack.pop()
-            out.append(other)
+            out.append(tok)
             prev_word = False
-            if other == '.':
+            if tok == '.':
                 dot_count += 1
             else:
                 dot_count = 0
-            prev_dot = (other == '.' and dot_count == 1)
+            prev_dot = (tok == '.' and dot_count == 1)
 
     result = ''.join(out)
 
