@@ -180,7 +180,9 @@ ONKUN_SCORE_MAX = 2
 # All other models are computed from snapshot data at encode time.
 # Call compute_models(snap) before encoding.
 M_CELL = M_KT0 = M_KT1 = M_ONKUN = M_TDP = None
-M_D1K = M_D1O = M_D2_0 = M_D2_1 = M_EXTRA = M_OKURI = None
+M_D1K = M_D1O = M_D2_0 = M_D2_1 = M_ON_EXTRA = M_ON_KANA = M_EXTRA = M_OKURI = None
+ON_KANA = 'ウクンツキ'
+ON_KANA_INDEX = {c: i for i, c in enumerate(ON_KANA)}
 
 
 def _m999(ct):
@@ -197,7 +199,7 @@ def _m999(ct):
 def compute_models(snap):
     """Compute all probability models from snapshot data."""
     global M_CELL, M_KT0, M_KT1, M_ONKUN, M_TDP
-    global M_D1K, M_D1O, M_D2_0, M_D2_1, M_EXTRA, M_OKURI
+    global M_D1K, M_D1O, M_D2_0, M_D2_1, M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI
 
     kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
     cell_ct = Counter()
@@ -207,6 +209,8 @@ def compute_models(snap):
     d1o_ct = Counter()
     d2_0_ct = Counter()
     d2_1_ct = Counter()
+    on_extra_ct = Counter()
+    on_kana_ct = Counter()
     ef_ct = Counter()
     of_ct = Counter()
     more_ct = Counter()
@@ -268,9 +272,22 @@ def compute_models(snap):
                     d2_0_ct[d2] += 1
 
                 extra = furigana[len(cell_kana):]
-                for c in extra:
-                    ef_ct[1] += 1
-                ef_ct[0] += 1
+                if is_on:
+                    max_on_extra = 1 if len(cell_kana) > 1 else 0
+                    assert len(extra) <= max_on_extra, (
+                        f"Unexpected on-yomi extra length {len(extra)} in {row}+{col}: {furigana}"
+                    )
+                    if len(cell_kana) > 1:
+                        on_extra_ct[1 if extra else 0] += 1
+                        if extra:
+                            assert extra[0] in ON_KANA_INDEX, (
+                                f"Unexpected on-yomi extra kana {extra[0]} in {row}+{col}: {furigana}"
+                            )
+                            on_kana_ct[ON_KANA_INDEX[extra[0]]] += 1
+                else:
+                    for c in extra:
+                        ef_ct[1] += 1
+                    ef_ct[0] += 1
 
                 if not is_on:
                     for c in okurigana:
@@ -291,6 +308,8 @@ def compute_models(snap):
     M_D1O = _m999(d1o_ct)
     M_D2_0 = _m999(d2_0_ct)
     M_D2_1 = _m999(d2_1_ct)
+    M_ON_EXTRA = _m999(on_extra_ct)
+    M_ON_KANA = _m999(on_kana_ct)
     M_EXTRA = _m999(ef_ct)
     M_OKURI = _m999(of_ct)
 
@@ -531,11 +550,21 @@ def encode_snapshot(snap):
                 em(M_D2_1 if d1 else M_D2_0, d2 + 1)  # d2 is -1/0/1, encode as 0/1/2
 
                 extra = furigana[len(prefix):]
-                for c in extra:
-                    em(M_EXTRA, 1)
-                    code = ord(c) - H - ko
-                    em(M_KANA_ALL, code)
-                em(M_EXTRA, 0)
+                if is_on:
+                    max_on_extra = 1 if len(prefix) > 1 else 0
+                    assert len(extra) <= max_on_extra, (
+                        f"Unexpected on-yomi extra length {len(extra)} in {cell_key}: {furigana}"
+                    )
+                    if len(prefix) > 1:
+                        em(M_ON_EXTRA, 1 if extra else 0)
+                        if extra:
+                            em(M_ON_KANA, ON_KANA_INDEX[extra[0]])
+                else:
+                    for c in extra:
+                        em(M_EXTRA, 1)
+                        code = ord(c) - H - ko
+                        em(M_KANA_ALL, code)
+                    em(M_EXTRA, 0)
 
                 if not is_on:
                     for c in okurigana:

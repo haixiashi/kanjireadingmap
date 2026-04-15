@@ -139,7 +139,7 @@ decodeCell = (() => {
             let isOn = decode(OK[Math.max(0, Math.min(3, okScore + 1))]);         // 0=kun, 1=on
             prevTier -= decode(...TP[prevTier - 1]);        // tier delta from prevTier
             let tier = prevTier;
-            okScore += isOn ? 1 : -1;
+            okScore += isOn * 2 - 1;
 
             // Variant offsets for dakuten/handakuten readings:
             // d1 = offset for first kana char (conditional on on/kun)
@@ -149,18 +149,23 @@ decodeCell = (() => {
             let variantOffsets = [firstKanaVariant, secondKanaVariant];
 
             // Reconstruct full reading from cell position + katakana shift + variant
-            let katakanaShift = isOn * 96;
             let reading = cellKana.replace(/./g, (c, idx) =>
-                String.fromCharCode(c.charCodeAt(0) + katakanaShift + variantOffsets[idx]));
-
-            // Extra kana beyond the cell prefix (EF flag loop)
-            while (decode(EF))
-                reading += String.fromCharCode(decode(...kanaCumFreq) + 12354 + katakanaShift);
-
-            // Okurigana suffix (kun-yomi only, OF flag loop)
+                String.fromCharCode(c.charCodeAt(0) + isOn * 96 + variantOffsets[idx]));
             let okurigana = '';
-            while (!isOn && decode(OF))
-                okurigana += String.fromCharCode(decode(...kanaCumFreq) + 12354);
+
+            // Extra kana beyond the cell prefix:
+            // on-yomi has at most one extra kana, and none in the first column.
+            // kun-yomi keeps the general repeat-until-terminator form.
+            if (isOn) {
+                if (cellKana[1] && decode(OE))
+                    reading += 'ウクンツキ'[decode(OM)];
+            } else {
+                while (decode(EF))
+                    reading += String.fromCharCode(decode(...kanaCumFreq) + 12354);
+                // Okurigana suffix (kun-yomi only, OF flag loop)
+                while (decode(OF))
+                    okurigana += String.fromCharCode(decode(...kanaCumFreq) + 12354);
+            }
 
             // Emit one entry per kanji in the group (all share reading/tier/okurigana)
             kanjiGroup.map(kanji => entries.push([kanji, reading, tier, okurigana, isOn]));

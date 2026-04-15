@@ -144,7 +144,7 @@ def decode_da_from_decoder(dec, kt):
     with open(SNAPSHOT_PATH) as _f:
         compute_models(_json.load(_f))
     from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN, M_TDP,
-                               M_D1K, M_D1O, M_D2_0, M_D2_1, M_EXTRA, M_OKURI)
+                               M_D1K, M_D1O, M_D2_0, M_D2_1, M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI)
     CP = M_CELL[1:-1]
     KT0 = [m[1:-1] for m in M_KT0]
     KT1 = M_KT1[1:-1]
@@ -154,6 +154,8 @@ def decode_da_from_decoder(dec, kt):
     D1O = M_D1O[1:-1]
     D2_0 = M_D2_0[1:-1]
     D2_1 = M_D2_1[1:-1]
+    OE = M_ON_EXTRA[1:-1]
+    OM = M_ON_KANA[1:-1]
     EF = M_EXTRA[1:-1]
     OF = M_OKURI[1:-1]
 
@@ -219,8 +221,12 @@ def decode_da_from_decoder(dec, kt):
                     pr += FC(ord(c) + ko + (d2 if ci2 else d1))
 
                 rd = ''
-                while Z(EF):
-                    rd += FC(RK(ko))
+                if on:
+                    if col_kana and Z(OE):
+                        rd += 'ウクンツキ'[Z(OM)]
+                else:
+                    while Z(EF):
+                        rd += FC(RK(ko))
 
                 sf = ''
                 while not on and Z(OF):

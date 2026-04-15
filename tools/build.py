@@ -672,13 +672,13 @@ def main():
     import json as _json
     from reencode_bac import (compute_models, M_CELL, M_KT0, M_KT1, M_ONKUN,
                                M_TDP, M_D1K, M_D1O, M_D2_0, M_D2_1,
-                               M_EXTRA, M_OKURI)
+                               M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI)
     with open(os.path.join(SRC_DIR, 'data.json')) as f:
         snap = _json.load(f)
     compute_models(snap)
     from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN,
                                M_TDP, M_D1K, M_D1O, M_D2_0, M_D2_1,
-                               M_EXTRA, M_OKURI)
+                               M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI)
 
     # Inline model values into JS (replace variable refs with literals)
     def inner(m):
@@ -714,6 +714,8 @@ def main():
         ('decode(OK[Math.max(0, Math.min(3, okScore + 1))])',
          f'decode({ok}[Math.max(0,Math.min(3,okScore+1))])'),
         ('decode(isOn ? DO : DK)', f'decode(isOn?{inner(M_D1O)[0]}:{inner(M_D1K)[0]})'),
+        ('decode(OE)', f'decode({inner(M_ON_EXTRA)[0]})'),
+        ('decode(OM)', f'decode({",".join(str(x) for x in inner(M_ON_KANA))})'),
         ('decode(D0)', f'decode({d2_0})'),
         ('decode(D1)', f'decode({d2_1})'),
         ('decode(EF)', f'decode({inner(M_EXTRA)[0]})'),
