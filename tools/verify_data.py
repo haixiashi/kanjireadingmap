@@ -4,7 +4,7 @@
 Usage: python3 tools/verify_data.py
 
 Exits 0 if all entries match, 1 if there are mismatches.
-The snapshot (tools/data.json) is the authoritative reference derived
+The snapshot (src/data.json) is the authoritative reference derived
 from commit aa96857. Any data-encoding change should be verified against it.
 """
 
@@ -19,15 +19,26 @@ SRC_DIR = os.path.join(ROOT_DIR, 'src')
 SNAPSHOT_PATH = os.path.join(SRC_DIR, 'data.json')
 INDEX_PATH = os.path.join(ROOT_DIR, 'index.html')
 
-sys.path.insert(0, SCRIPT_DIR)
-from reencode_da import decode_b93
-
-
 # 32-bit arithmetic decoder (must match JS decoder exactly)
 BITS = 32
 MASK = (1 << BITS) - 1
 TOP = 1 << (BITS - 1)
 QTR = 1 << (BITS - 2)
+
+
+def decode_bootstrap_b93(s):
+    """Match the inline JS B(s) decoder used by index.html exactly."""
+    pos = 0
+    state = 0
+    out = []
+    while True:
+        while state < 0x1000000 and pos < len(s):
+            state = state * 93 + (ord(s[pos]) + 26) * 58 // 59 - 57
+            pos += 1
+        out.append(state & 255)
+        state >>= 8
+        if state <= 1:
+            return out
 
 
 class ArithDecoder:
@@ -42,7 +53,8 @@ class ArithDecoder:
 
     def _rb(self):
         byte_idx = self.p >> 3
-        bit_idx = 7 - (self.p & 7)
+        # Match the encoder and JS sentinel reader: bytes are packed LSB-first.
+        bit_idx = self.p & 7
         b = (self.bytes[byte_idx] >> bit_idx) & 1 if byte_idx < len(self.bytes) else 0
         self.p += 1
         return b
@@ -233,7 +245,9 @@ def main():
     # kana_str is decoded from the DD stream
 
     # Decode everything from single stream
-    byte_data = decode_b93(dd, len(dd))  # generous upper bound
+    # index.html decodes D with the inline B(s) helper, then consumes bytes
+    # via pop(); reverse to turn that into forward sequential access here.
+    byte_data = decode_bootstrap_b93(dd)[::-1]
     dec = ArithDecoder(byte_data)
     kt = decode_kt_from_decoder(dec, count_kanji(snapshot))
     decoded, kana_str = decode_da_from_decoder(dec, kt)
