@@ -174,7 +174,8 @@ def decode_kd(kd_str, kt_count):
 
 # Fixed model (data-independent)
 M_KD_CASE = [0, 339, 652, 861, 961, 992, 997, 998, 999]  # KD delta bucket: 8 doubling cases (q=2<<z)
-ONKUN_SCORE_CLAMP = 2
+ONKUN_SCORE_MIN = -1
+ONKUN_SCORE_MAX = 2
 
 # All other models are computed from snapshot data at encode time.
 # Call compute_models(snap) before encoding.
@@ -201,7 +202,7 @@ def compute_models(snap):
     kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
     cell_ct = Counter()
     kt1_ct = Counter()
-    ok_ct = [Counter({0: 0, 1: 0}) for _ in range(ONKUN_SCORE_CLAMP * 2 + 1)]
+    ok_ct = [Counter({0: 0, 1: 0}) for _ in range(ONKUN_SCORE_MAX - ONKUN_SCORE_MIN + 1)]
     d1k_ct = Counter()
     d1o_ct = Counter()
     d2_0_ct = Counter()
@@ -247,7 +248,7 @@ def compute_models(snap):
                 for i in range(1, len(kanji_list)):
                     kt1_ct[0] += 1
                 kt1_ct[1] += 1
-                ok_ct[max(-ONKUN_SCORE_CLAMP, min(ONKUN_SCORE_CLAMP, ok_score)) + ONKUN_SCORE_CLAMP][1 if is_on else 0] += 1
+                ok_ct[max(ONKUN_SCORE_MIN, min(ONKUN_SCORE_MAX, ok_score)) - ONKUN_SCORE_MIN][1 if is_on else 0] += 1
 
                 cell_kana = row + col
                 ko = 96 if is_on else 0
@@ -511,7 +512,7 @@ def encode_snapshot(snap):
                     eu(kt_index[kc], len(kt))
                 em(M_KT1, 1)  # terminator
 
-                em(M_ONKUN[max(-ONKUN_SCORE_CLAMP, min(ONKUN_SCORE_CLAMP, ok_score)) + ONKUN_SCORE_CLAMP], 1 if is_on else 0)
+                em(M_ONKUN[max(ONKUN_SCORE_MIN, min(ONKUN_SCORE_MAX, ok_score)) - ONKUN_SCORE_MIN], 1 if is_on else 0)
                 delta = pt - tier
                 if pt > 1:
                     em(M_TDP[pt], delta)

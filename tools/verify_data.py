@@ -204,7 +204,7 @@ def decode_da_from_decoder(dec, kt):
                 while not Z(KT1):
                     kl.append(kt[U(len(kt))])
 
-                on = Z(OK[max(-2, min(2, ok_score)) + 2])
+                on = Z(OK[max(-1, min(2, ok_score)) + 1])
                 if pt > 1:
                     pt -= Z(TDP[pt])
                 tier = pt

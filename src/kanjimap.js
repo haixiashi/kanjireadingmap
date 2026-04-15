@@ -136,7 +136,7 @@ decodeCell = (() => {
                 kanjiGroup.push(kanjiTable[decodeUniform(KL)]);
 
             // On/kun flag and tier assignment
-            let isOn = decode(OK[Math.max(-2, Math.min(2, okScore)) + 2]);         // 0=kun, 1=on
+            let isOn = decode(OK[Math.max(0, Math.min(3, okScore + 1))]);         // 0=kun, 1=on
             prevTier -= decode(...TP[prevTier - 1]);        // tier delta from prevTier
             let tier = prevTier;
             okScore += isOn ? 1 : -1;
