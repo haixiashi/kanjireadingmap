@@ -792,7 +792,7 @@ def main():
         'o.push(v&255);v>>=8}while(v>1);return o};\n'
         # Decode F from base-93, decompress, eval payload
         '(async()=>{'
-        'eval(await new Response(new Blob([new Uint8Array(B(F))]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text())'
+        'eval(await new Response(new Response(new Uint8Array(B(F))).body.pipeThrough(new DecompressionStream("deflate-raw"))).text())'
         '})()'
     )
 
