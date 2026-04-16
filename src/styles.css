@@ -7,11 +7,13 @@
 }
 
 body {
-    font-family: serif;
+    --font-serif-ja: "Hiragino Mincho ProN", serif;
+    --font-sans-ja: sans-serif;
+    font-family: var(--font-serif-ja);
     background: #fff;
     color: #333;
 }
-body.sans-font { font-family: sans-serif; }
+body.sans-font { font-family: var(--font-sans-ja); }
 
 .viewport {
     overflow: auto;
@@ -133,10 +135,13 @@ body.dark td.has-more::after { color: #777; }
     gap: 8px;
 }
 .fixed-btn {
+    -webkit-appearance: none;
+    appearance: none;
     height: 44px;
     border-radius: 6px;
     border: 1px solid #999;
     background: #fff;
+    color: inherit;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -146,7 +151,9 @@ body.dark td.has-more::after { color: #777; }
     font-family: inherit;
     transition: background 0.3s, border-color 0.3s;
 }
-.fixed-btn:hover { background: #ccc; }
+@media (hover: hover) {
+    .fixed-btn:hover { background: #ccc; }
+}
 .tier-toggle { width: 44px; font-size: 22px; }
 .tier-toggle.off { filter: grayscale(1) saturate(0.2); }
 .theme-toggle { width: 44px; font-size: 24px; }
@@ -183,4 +190,6 @@ body.dark.tier-colors .tier3 { color: #fe5; }
 body.dark.tier-colors .tier2 { color: #f90; }
 body.dark.tier-colors .tier1 { color: #e55; }
 body.dark .fixed-btn { background: #222; border-color: #666; color: #ddd; }
-body.dark .fixed-btn:hover { background: #444; }
+@media (hover: hover) {
+    body.dark .fixed-btn:hover { background: #444; }
+}

@@ -217,6 +217,7 @@ def _minify_css_numbers(css):
 
 _CSS_CLASS_RE = re.compile(r'(?<!\d)\.([A-Za-z_][A-Za-z0-9_-]*)')
 _CLASS_LIST_RE = re.compile(r'[A-Za-z_][A-Za-z0-9_-]*(?: [A-Za-z_][A-Za-z0-9_-]*)*')
+_CSS_CUSTOM_PROP_RE = re.compile(r'--([A-Za-z_][A-Za-z0-9_-]*)')
 
 
 def _iter_css_class_targets():
@@ -227,6 +228,67 @@ def _iter_css_class_targets():
     for c1 in first_chars:
         for c2 in tail_chars:
             yield c1 + c2
+
+
+def _iter_css_custom_prop_targets():
+    yield from _iter_css_class_targets()
+
+
+def compute_css_custom_prop_rename_map(css_code):
+    prop_names = set(_CSS_CUSTOM_PROP_RE.findall(css_code))
+    if not prop_names:
+        return {}
+
+    freq = {name: 0 for name in prop_names}
+    for name in _CSS_CUSTOM_PROP_RE.findall(css_code):
+        freq[name] += 1
+
+    rename_map = {}
+    target_iter = _iter_css_custom_prop_targets()
+    for name, _count in sorted(freq.items(), key=lambda item: (-item[1], item[0])):
+        rename_map[name] = next(target_iter)
+
+    n1 = sum(1 for value in rename_map.values() if len(value) == 1)
+    n2 = sum(1 for value in rename_map.values() if len(value) == 2)
+    print(
+        f"Custom prop rename map: {len(rename_map)} props ({n1} × 1-char, {n2} × 2-char)",
+        file=sys.stderr,
+    )
+    return rename_map
+
+
+def _rewrite_css_custom_properties(css_code, prop_map):
+    if not prop_map:
+        return css_code
+    return _CSS_CUSTOM_PROP_RE.sub(
+        lambda m: '--' + prop_map.get(m.group(1), m.group(1)),
+        css_code,
+    )
+
+
+def _rewrite_js_custom_prop_strings(js_code, prop_map):
+    if not prop_map:
+        return js_code
+
+    def rewrite_string_token(token):
+        quote = token[0]
+        inner = token[1:-1]
+        inner = _CSS_CUSTOM_PROP_RE.sub(
+            lambda m: '--' + prop_map.get(m.group(1), m.group(1)),
+            inner,
+        )
+        return quote + inner + quote
+
+    out = []
+    last = 0
+    for kind, tok, pos in _iter_js_tokens(js_code):
+        if kind not in ('str_dq', 'str_sq'):
+            continue
+        out.append(js_code[last:pos])
+        out.append(rewrite_string_token(tok))
+        last = pos + len(tok)
+    out.append(js_code[last:])
+    return ''.join(out)
 
 
 def _extract_js_class_refs(inner, class_names):
@@ -785,6 +847,9 @@ def main():
     class_rename_map = compute_class_rename_map(css, js_payload)
     css = _rewrite_css_classes(css, class_rename_map)
     js_payload = _rewrite_js_class_strings(js_payload, class_rename_map)
+    custom_prop_rename_map = compute_css_custom_prop_rename_map(css)
+    css = _rewrite_css_custom_properties(css, custom_prop_rename_map)
+    js_payload = _rewrite_js_custom_prop_strings(js_payload, custom_prop_rename_map)
 
     # Minify CSS: strip comments, collapse whitespace, remove unnecessary spaces
     import re as _re_css

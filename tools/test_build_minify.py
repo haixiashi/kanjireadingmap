@@ -157,6 +157,36 @@ def main():
     )
     if html_js_output != expected_html_js:
         raise AssertionError(f'class-rename-html: got {html_js_output!r}')
+    custom_prop_input = (
+        "body{--font-serif-ja:serif;--font-sans-ja:sans-serif;"
+        "font-family:var(--font-serif-ja);border-color:var(--font-sans-ja,#000)}"
+    )
+    custom_prop_map = build.compute_css_custom_prop_rename_map(custom_prop_input)
+    custom_prop_output = build._rewrite_css_custom_properties(custom_prop_input, custom_prop_map)
+    expected_custom_prop_output = (
+        f"body{{--{custom_prop_map['font-serif-ja']}:serif;--{custom_prop_map['font-sans-ja']}:sans-serif;"
+        f"font-family:var(--{custom_prop_map['font-serif-ja']});"
+        f"border-color:var(--{custom_prop_map['font-sans-ja']},#000)}}"
+    )
+    if custom_prop_output != expected_custom_prop_output:
+        raise AssertionError(f'custom-prop-rename-css: got {custom_prop_output!r}')
+    custom_prop_js_input = (
+        "document.body.style.setProperty('--fs',1);"
+        "document.body.style.setProperty('--font-serif-ja','serif')"
+    )
+    custom_prop_js_map = build.compute_css_custom_prop_rename_map(
+        "body{--fs:1;--font-serif-ja:serif;font-size:calc(12px*var(--fs));font-family:var(--font-serif-ja)}"
+    )
+    custom_prop_js_output = build._rewrite_js_custom_prop_strings(
+        custom_prop_js_input,
+        custom_prop_js_map,
+    )
+    expected_custom_prop_js_output = (
+        f"document.body.style.setProperty('--{custom_prop_js_map['fs']}',1);"
+        f"document.body.style.setProperty('--{custom_prop_js_map['font-serif-ja']}','serif')"
+    )
+    if custom_prop_js_output != expected_custom_prop_js_output:
+        raise AssertionError(f'custom-prop-rename-js: got {custom_prop_js_output!r}')
     print('build.py minify regression tests passed')
 
 
