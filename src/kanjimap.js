@@ -352,9 +352,9 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         });
 
         // Size and position the card centered on the tapped cell.
-        // transformScale is clamped to at least 1.2 so the card never appears
-        // smaller than it would at zoom=1, regardless of zoom level.
-        let transformScale = Math.max(scale, 1) * 1.2;
+        // Keep the card slightly larger than the tapped cell, but allow it to
+        // shrink with zoom-out so large cells can fit on smaller screens.
+        let transformScale = scale * 1.2;
         let rect  = td.getBoundingClientRect();
         // cellW is in unscaled CSS px (the card is sized before the transform is applied)
         let cellW = rect.width / scale;
