@@ -7,10 +7,11 @@
 }
 
 body {
-    font-family: sans-serif;
+    font-family: serif;
     background: #fff;
     color: #333;
 }
+body.sans-font { font-family: sans-serif; }
 
 .viewport {
     overflow: auto;
@@ -122,10 +123,16 @@ body.dark td.has-more::after { color: #777; }
 .group-bottom { border-bottom: 2.5px solid var(--g, #555); }
 
 /* Toggle buttons */
-.fixed-btn {
+.toggle-grid {
     position: fixed;
+    right: 16px;
     bottom: 16px;
     z-index: 10;
+    display: grid;
+    grid-template-columns: repeat(2, 44px);
+    gap: 8px;
+}
+.fixed-btn {
     height: 44px;
     border-radius: 6px;
     border: 1px solid #999;
@@ -136,13 +143,15 @@ body.dark td.has-more::after { color: #777; }
     justify-content: center;
     line-height: 1;
     padding: 0;
+    font-family: inherit;
     transition: background 0.3s, border-color 0.3s;
 }
 .fixed-btn:hover { background: #ccc; }
-.tier-toggle { right: 16px; width: 44px; font-size: 22px; font-weight: bold; }
+.tier-toggle { width: 44px; font-size: 22px; }
 .tier-toggle.off { filter: grayscale(1) saturate(0.2); }
-.theme-toggle { right: 68px; width: 44px; font-size: 24px; }
-.reading-toggle { right: 120px; width: 44px; font-size: 22px; font-weight: bold; }
+.theme-toggle { width: 44px; font-size: 24px; }
+.font-toggle { width: 44px; font-size: 22px; font-weight: bold; }
+.reading-toggle { width: 44px; font-size: 22px; font-weight: bold; }
 
 ::view-transition-old(root),
 ::view-transition-new(root) {

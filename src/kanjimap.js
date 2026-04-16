@@ -244,6 +244,9 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     storage  = localStorage;
     viewport = document.querySelector('.viewport');
     table    = document.getElementById('grid');
+    toggleGrid = document.createElement('div');
+    toggleGrid.className = 'toggle-grid';
+    document.body.append(toggleGrid);
 
     // --- Reading mode toggle (漢=both / 訓=kun-only / 音=on-only) ---
     readingBtn = document.createElement('button');
@@ -307,13 +310,11 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         });
     });
     updateReadings();
-    document.body.append(readingBtn);
 
     // --- Theme toggle (light / dark) ---
     themeBtn = document.createElement('button');
     themeBtn.className   = 'fixed-btn theme-toggle';
     themeBtn.textContent = '☀';
-    document.body.append(themeBtn);
     if (storage.getItem('dk') === '1') document.body.classList.add('dark');
     if (document.body.classList.contains('dark')) themeBtn.textContent = '☾';
     themeBtn.addEventListener('click', () => {
@@ -330,7 +331,6 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     tierBtn = document.createElement('button');
     tierBtn.className = 'fixed-btn tier-toggle';
     tierBtn.textContent = '🌈';
-    document.body.append(tierBtn);
     if (storage.getItem('tc') === '1') document.body.classList.add('tier-colors');
     tierBtn.classList.toggle('off', !document.body.classList.contains('tier-colors'));
     tierBtn.addEventListener('click', () => {
@@ -342,6 +342,22 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         };
         runViewTransition(applyTierColors);
     });
+
+    // --- Font toggle (serif / sans-serif) ---
+    fontBtn = document.createElement('button');
+    fontBtn.className = 'fixed-btn font-toggle';
+    fontBtn.textContent = '字';
+    if (storage.getItem('sf') === '1') document.body.classList.add('sans-font');
+    fontBtn.addEventListener('click', () => {
+        let nextSans = !document.body.classList.contains('sans-font');
+        let applyFont = () => {
+            document.body.classList.toggle('sans-font', nextSans);
+            storage.setItem('sf', nextSans ? '1' : '0');
+        };
+        runViewTransition(applyFont);
+    });
+
+    toggleGrid.append(themeBtn, tierBtn, readingBtn, fontBtn);
 
     // --- Hover card ---
     hoverCell = null;
