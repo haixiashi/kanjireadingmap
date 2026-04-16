@@ -108,7 +108,11 @@ body.dark td.has-more::after { color: #777; }
     transform-origin: center center;
     overflow: hidden;
     box-shadow: 0 2px 12px #0004;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
 }
+.hover-card.visible { opacity: 1; visibility: visible; transition-delay: 0s; }
 
 /* Tier colors (light mode) */
 .tier5 { color: #373; }
@@ -138,7 +142,7 @@ body.dark td.has-more::after { color: #777; }
     justify-content: center;
     line-height: 1;
     padding: 0;
-    transition: background 0.2s, border-color 0.2s;
+    transition: background 0.3s, border-color 0.3s;
 }
 .fixed-btn:hover { background: #ccc; }
 .theme-toggle { right: 16px; width: 44px; font-size: 24px; }
@@ -146,7 +150,7 @@ body.dark td.has-more::after { color: #777; }
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
-    animation-duration: 500ms;
+    animation-duration: 300ms;
     animation-timing-function: ease;
 }
 

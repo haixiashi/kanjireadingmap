@@ -328,9 +328,12 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     // --- Hover card ---
     hoverCell = null;
     hoverCard = document.createElement('div');
-    hoverCard.className    = 'hover-card';
-    hoverCard.style.display = 'none';
+    hoverCard.className = 'hover-card';
     document.body.append(hoverCard);
+    hideHover = () => {
+        hoverCell = null;
+        hoverCard.classList.remove('visible');
+    };
 
     showHover = td => {
         hoverCell = td;
@@ -355,7 +358,6 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         let rect  = td.getBoundingClientRect();
         // cellW is in unscaled CSS px (the card is sized before the transform is applied)
         let cellW = rect.width / scale;
-        hoverCard.style.display = 'block';
         hoverCard.style.width   = cellW + 'px';
         hoverCard.style.height  = 'auto';
 
@@ -377,6 +379,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         let cy = rect.top  + rect.height / 2;
         hoverCard.style.left = cx - sz / 2 + 'px';
         hoverCard.style.top  = cy - sz / 2 + 'px';
+        hoverCard.classList.add('visible');
     };
 
     // --- Layout constants and state ---
@@ -621,8 +624,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
 
     document.addEventListener('click', e => {
         if (hoverCell && !hoverCell.contains(e.target)) {
-            hoverCard.style.display = 'none';
-            hoverCell = null;
+            hideHover();
         }
     });
 
@@ -632,8 +634,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         while (el && el.tagName !== 'TD') el = el.parentElement;
         if (!el || !el._entries || !el._entries.length || el.classList.contains('empty')) return;
         if (el === hoverCell) {
-            hoverCard.style.display = 'none';
-            hoverCell = null;
+            hideHover();
         } else {
             showHover(el);
         }
