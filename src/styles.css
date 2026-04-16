@@ -9,6 +9,7 @@
 body {
     font-family: sans-serif;
     background: #fff;
+    color: #333;
 }
 
 .viewport {
@@ -114,13 +115,6 @@ body.dark td.has-more::after { color: #777; }
 }
 .hover-card.visible { opacity: 1; visibility: visible; transition-delay: 0s; }
 
-/* Tier colors (light mode) */
-.tier5 { color: #373; }
-.tier4 { color: #693; }
-.tier3 { color: #fa2; }
-.tier2 { color: #e50; }
-.tier1 { color: #b22; }
-
 /* Group borders */
 .group-left   { border-left:   2.5px solid var(--g, #555); }
 .group-top    { border-top:    2.5px solid var(--g, #555); }
@@ -145,8 +139,10 @@ body.dark td.has-more::after { color: #777; }
     transition: background 0.3s, border-color 0.3s;
 }
 .fixed-btn:hover { background: #ccc; }
-.theme-toggle { right: 16px; width: 44px; font-size: 24px; }
-.reading-toggle { right: 68px; width: 44px; font-size: 22px; font-weight: bold; }
+.tier-toggle { right: 16px; width: 44px; font-size: 22px; font-weight: bold; }
+.tier-toggle.off { filter: grayscale(1) saturate(0.2); }
+.theme-toggle { right: 68px; width: 44px; font-size: 24px; }
+.reading-toggle { right: 120px; width: 44px; font-size: 22px; font-weight: bold; }
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -158,6 +154,13 @@ body.dark td.has-more::after { color: #777; }
 body.kun-only .kanji-group.on { display: none; }
 body.on-only .kanji-group.kun { display: none; }
 
+/* Tier colors */
+body.tier-colors .tier5 { color: #373; }
+body.tier-colors .tier4 { color: #693; }
+body.tier-colors .tier3 { color: #fa2; }
+body.tier-colors .tier2 { color: #e50; }
+body.tier-colors .tier1 { color: #b22; }
+
 /* Dark mode */
 body.dark { background: #222; --b: #444; --g: #999; }
 body.dark td { background: #222; color: #ddd; }
@@ -165,10 +168,10 @@ body.dark td.first-col { border-right-color: #aaa; }
 body.dark .watermark { color: #666; opacity: 0.18; }
 body.dark rt { color: #999; }
 body.dark .hover-card { background: #222; border-color: #59f; }
-body.dark .tier5 { color: #6b6; }
-body.dark .tier4 { color: #9c6; }
-body.dark .tier3 { color: #fe5; }
-body.dark .tier2 { color: #f90; }
-body.dark .tier1 { color: #e55; }
+body.dark.tier-colors .tier5 { color: #6b6; }
+body.dark.tier-colors .tier4 { color: #9c6; }
+body.dark.tier-colors .tier3 { color: #fe5; }
+body.dark.tier-colors .tier2 { color: #f90; }
+body.dark.tier-colors .tier1 { color: #e55; }
 body.dark .fixed-btn { background: #222; border-color: #666; color: #ddd; }
 body.dark .fixed-btn:hover { background: #444; }

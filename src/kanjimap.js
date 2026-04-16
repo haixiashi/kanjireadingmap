@@ -311,18 +311,35 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     // --- Theme toggle (light / dark) ---
     themeBtn = document.createElement('button');
     themeBtn.className   = 'fixed-btn theme-toggle';
-    themeBtn.textContent = '☾';
+    themeBtn.textContent = '☀';
     document.body.append(themeBtn);
-    if (storage.getItem('dk') !== '0') document.body.classList.add('dark');
-    if (document.body.classList.contains('dark')) themeBtn.textContent = '☀';
+    if (storage.getItem('dk') === '1') document.body.classList.add('dark');
+    if (document.body.classList.contains('dark')) themeBtn.textContent = '☾';
     themeBtn.addEventListener('click', () => {
         let nextDark = !document.body.classList.contains('dark');
         let applyTheme = () => {
             document.body.classList.toggle('dark', nextDark);
-            themeBtn.textContent = nextDark ? '☀' : '☾';
+            themeBtn.textContent = nextDark ? '☾' : '☀';
             storage.setItem('dk', nextDark ? '1' : '0');
         };
         runViewTransition(applyTheme);
+    });
+
+    // --- Tier color toggle ---
+    tierBtn = document.createElement('button');
+    tierBtn.className = 'fixed-btn tier-toggle';
+    tierBtn.textContent = '🌈';
+    document.body.append(tierBtn);
+    if (storage.getItem('tc') === '1') document.body.classList.add('tier-colors');
+    tierBtn.classList.toggle('off', !document.body.classList.contains('tier-colors'));
+    tierBtn.addEventListener('click', () => {
+        let nextColored = !document.body.classList.contains('tier-colors');
+        let applyTierColors = () => {
+            document.body.classList.toggle('tier-colors', nextColored);
+            tierBtn.classList.toggle('off', !nextColored);
+            storage.setItem('tc', nextColored ? '1' : '0');
+        };
+        runViewTransition(applyTierColors);
     });
 
     // --- Hover card ---
