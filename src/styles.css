@@ -7,13 +7,10 @@
 }
 
 body {
-    --font-serif-ja: "Hiragino Mincho ProN", serif;
-    --font-sans-ja: sans-serif;
-    font-family: var(--font-serif-ja);
+    font-family: "Hiragino Mincho ProN";
     background: #fff;
     color: #222;
 }
-body.sans-font { font-family: var(--font-sans-ja); }
 
 .viewport {
     overflow: auto;
@@ -131,7 +128,7 @@ body.dark td.has-more::after { color: #777; }
     bottom: 16px;
     z-index: 10;
     display: grid;
-    grid-template-columns: repeat(2, 44px);
+    grid-template-columns: repeat(3, 44px);
     gap: 8px;
 }
 .fixed-btn {
@@ -157,7 +154,6 @@ body.dark td.has-more::after { color: #777; }
 .tier-toggle { width: 44px; font-size: 22px; }
 .tier-toggle.off { filter: grayscale(1) saturate(0.2); }
 .theme-toggle { width: 44px; font-size: 24px; }
-.font-toggle { width: 44px; font-size: 22px; font-weight: bold; }
 .reading-toggle { width: 44px; font-size: 22px; font-weight: bold; }
 
 ::view-transition-old(root),

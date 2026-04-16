@@ -342,21 +342,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         runViewTransition(applyTierColors);
     });
 
-    // --- Font toggle (serif / sans-serif) ---
-    fontBtn = document.createElement('button');
-    fontBtn.className = 'fixed-btn font-toggle';
-    fontBtn.textContent = '字';
-    if (storage.getItem('sf') === '1') document.body.classList.add('sans-font');
-    fontBtn.addEventListener('click', () => {
-        let nextSans = !document.body.classList.contains('sans-font');
-        let applyFont = () => {
-            document.body.classList.toggle('sans-font', nextSans);
-            storage.setItem('sf', nextSans ? '1' : '0');
-        };
-        runViewTransition(applyFont);
-    });
-
-    toggleGrid.append(themeBtn, tierBtn, readingBtn, fontBtn);
+    toggleGrid.append(themeBtn, tierBtn, readingBtn);
 
     // --- Hover card ---
     hoverCell = null;
@@ -656,6 +642,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     // --- Scroll and click ---
 
     document.addEventListener('click', e => {
+        if (e.target.closest('.fixed-btn')) return;
         if (hoverCell && !hoverCell.contains(e.target)) {
             hideHover();
         }
