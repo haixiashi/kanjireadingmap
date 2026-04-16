@@ -7,11 +7,11 @@
 }
 
 body {
-    --font-serif-ja: "Hiragino Mincho ProN";
+    --font-serif-ja: "Hiragino Mincho ProN", serif;
     --font-sans-ja: sans-serif;
     font-family: var(--font-serif-ja);
     background: #fff;
-    color: #333;
+    color: #222;
 }
 body.sans-font { font-family: var(--font-sans-ja); }
 
@@ -104,7 +104,7 @@ body.dark td.has-more::after { color: #777; }
     position: fixed;
     z-index: 5;
     background: #fff;
-    border: 2px solid #37d;
+    border: 2px solid #777;
     pointer-events: none;
     border-radius: 6px;
     padding: 2px 4px;
@@ -183,7 +183,7 @@ body.dark td { background: #222; color: #ddd; }
 body.dark td.first-col { border-right-color: #aaa; }
 body.dark .watermark { color: #666; opacity: 0.18; }
 body.dark rt { color: #999; }
-body.dark .hover-card { background: #222; border-color: #59f; color: #ddd; }
+body.dark .hover-card { background: #222; border-color: #999; color: #ddd; }
 body.dark.tier-colors .tier5 { color: #6b6; }
 body.dark.tier-colors .tier4 { color: #9c6; }
 body.dark.tier-colors .tier3 { color: #fe5; }
