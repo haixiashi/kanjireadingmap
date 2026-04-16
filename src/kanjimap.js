@@ -172,11 +172,12 @@ decodeCell = (() => {
         }
     };
 })();
+tierClasses = ['', 'tier1', 'tier2', 'tier3', 'tier4', 'tier5'];
 makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     let span = document.createElement('span');
     span.className = 'kanji-group';
     span.classList.add(isOn ? 'on' : 'kun');
-    if (tier > 0) span.classList.add('tier' + tier);
+    if (tier > 0) span.classList.add(tierClasses[tier]);
     let rubyEl = document.createElement('ruby');
     rubyEl.textContent = kanji;
     let rtEl = document.createElement('rt');

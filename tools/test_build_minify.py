@@ -127,6 +127,36 @@ def main():
     css = build._minify_css_numbers('opacity:0.10;zoom:1.0;scale:0.95;')
     if css != 'opacity:.10;zoom:1;scale:.95;':
         raise AssertionError(f'css-number-minify: got {css!r}')
+    css_input = '.alpha.beta{color:red}body.dark .alpha{}'
+    js_input = (
+        "el.className='alpha beta';"
+        "el.classList.add('dark');"
+        "el.querySelector('.alpha.beta')"
+    )
+    class_map = build.compute_class_rename_map(css_input, js_input)
+    css_output = build._rewrite_css_classes(css_input, class_map)
+    js_output = build._rewrite_js_class_strings(js_input, class_map)
+    expected_css = (
+        f".{class_map['alpha']}.{class_map['beta']}{{color:red}}"
+        f"body.{class_map['dark']} .{class_map['alpha']}{{}}"
+    )
+    expected_js = (
+        f"el.className='{class_map['alpha']} {class_map['beta']}';"
+        f"el.classList.add('{class_map['dark']}');"
+        f"el.querySelector('.{class_map['alpha']}.{class_map['beta']}')"
+    )
+    if css_output != expected_css:
+        raise AssertionError(f'class-rename-css: got {css_output!r}')
+    if js_output != expected_js:
+        raise AssertionError(f'class-rename-js: got {js_output!r}')
+    html_js_input = "document.body.innerHTML='<div class=\"alpha beta\"></div>'"
+    html_js_output = build._rewrite_js_class_strings(html_js_input, class_map)
+    expected_html_js = (
+        "document.body.innerHTML="
+        f"'<div class=\"{class_map['alpha']} {class_map['beta']}\"></div>'"
+    )
+    if html_js_output != expected_html_js:
+        raise AssertionError(f'class-rename-html: got {html_js_output!r}')
     print('build.py minify regression tests passed')
 
 

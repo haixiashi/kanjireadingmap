@@ -215,6 +215,100 @@ def _minify_css_numbers(css):
     return css
 
 
+_CSS_CLASS_RE = re.compile(r'(?<!\d)\.([A-Za-z_][A-Za-z0-9_-]*)')
+_CLASS_LIST_RE = re.compile(r'[A-Za-z_][A-Za-z0-9_-]*(?: [A-Za-z_][A-Za-z0-9_-]*)*')
+
+
+def _iter_css_class_targets():
+    first_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    tail_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    for name in first_chars:
+        yield name
+    for c1 in first_chars:
+        for c2 in tail_chars:
+            yield c1 + c2
+
+
+def _extract_js_class_refs(inner, class_names):
+    refs = [m.group(1) for m in _CSS_CLASS_RE.finditer(inner) if m.group(1) in class_names]
+    if _CLASS_LIST_RE.fullmatch(inner):
+        refs.extend(name for name in inner.split(' ') if name in class_names)
+    refs.extend(
+        name
+        for m in re.finditer(r'class=(["\'])([^"\']+)\1', inner)
+        for name in m.group(2).split(' ')
+        if name in class_names
+    )
+    return refs
+
+
+def compute_class_rename_map(css_code, js_code):
+    class_names = set(_CSS_CLASS_RE.findall(css_code))
+    if not class_names:
+        return {}
+
+    freq = {name: 0 for name in class_names}
+    for name in _CSS_CLASS_RE.findall(css_code):
+        freq[name] += 1
+
+    for kind, tok, _pos in _iter_js_tokens(js_code):
+        if kind not in ('str_dq', 'str_sq'):
+            continue
+        for name in _extract_js_class_refs(tok[1:-1], class_names):
+            freq[name] += 1
+
+    rename_map = {}
+    target_iter = _iter_css_class_targets()
+    for name, _count in sorted(freq.items(), key=lambda item: (-item[1], item[0])):
+        rename_map[name] = next(target_iter)
+
+    n1 = sum(1 for value in rename_map.values() if len(value) == 1)
+    n2 = sum(1 for value in rename_map.values() if len(value) == 2)
+    print(f"Class rename map: {len(rename_map)} classes ({n1} × 1-char, {n2} × 2-char)",
+          file=sys.stderr)
+    return rename_map
+
+
+def _rewrite_css_classes(css_code, class_map):
+    if not class_map:
+        return css_code
+    return _CSS_CLASS_RE.sub(lambda m: '.' + class_map.get(m.group(1), m.group(1)), css_code)
+
+
+def _rewrite_js_class_strings(js_code, class_map):
+    if not class_map:
+        return js_code
+
+    def rewrite_string_token(token):
+        quote = token[0]
+        inner = token[1:-1]
+        inner = _CSS_CLASS_RE.sub(
+            lambda m: '.' + class_map.get(m.group(1), m.group(1)),
+            inner,
+        )
+        if _CLASS_LIST_RE.fullmatch(inner):
+            inner = ' '.join(class_map.get(name, name) for name in inner.split(' '))
+        inner = re.sub(
+            r'class=(["\'])([^"\']+)\1',
+            lambda m: 'class=' + m.group(1) + ' '.join(
+                class_map.get(name, name) for name in m.group(2).split(' ')
+            ) + m.group(1),
+            inner,
+        )
+        return quote + inner + quote
+
+    out = []
+    last = 0
+    for kind, tok, pos in _iter_js_tokens(js_code):
+        if kind not in ('str_dq', 'str_sq'):
+            continue
+        out.append(js_code[last:pos])
+        out.append(rewrite_string_token(tok))
+        last = pos + len(tok)
+    out.append(js_code[last:])
+    return ''.join(out)
+
+
 def _analyze_lexical_scopes(code, rename_map=None):
     """Collect lexical let/const bindings and their token positions.
 
@@ -686,6 +780,11 @@ def main():
         js_payload = f.read()
     with open(os.path.join(SRC_DIR, 'styles.css')) as f:
         css = f.read()
+
+    # Rename CSS classes with a pool separate from JS identifiers.
+    class_rename_map = compute_class_rename_map(css, js_payload)
+    css = _rewrite_css_classes(css, class_rename_map)
+    js_payload = _rewrite_js_class_strings(js_payload, class_rename_map)
 
     # Minify CSS: strip comments, collapse whitespace, remove unnecessary spaces
     import re as _re_css
