@@ -167,7 +167,7 @@ body.dark td { background: #222; color: #ddd; }
 body.dark td.first-col { border-right-color: #aaa; }
 body.dark .watermark { color: #666; opacity: 0.18; }
 body.dark rt { color: #999; }
-body.dark .hover-card { background: #222; border-color: #59f; }
+body.dark .hover-card { background: #222; border-color: #59f; color: #ddd; }
 body.dark.tier-colors .tier5 { color: #6b6; }
 body.dark.tier-colors .tier4 { color: #9c6; }
 body.dark.tier-colors .tier3 { color: #fe5; }
