@@ -157,6 +157,20 @@ def main():
     )
     if html_js_output != expected_html_js:
         raise AssertionError(f'class-rename-html: got {html_js_output!r}')
+    tier_class_map = build.compute_class_rename_map(
+        '.tier1{}.tier2{}.tier3{}.tier4{}.tier5{}.alpha{}',
+        '',
+    )
+    expected_tier_map = {
+        'tier1': 't1',
+        'tier2': 't2',
+        'tier3': 't3',
+        'tier4': 't4',
+        'tier5': 't5',
+    }
+    for name, short in expected_tier_map.items():
+        if tier_class_map.get(name) != short:
+            raise AssertionError(f'tier-class-rename-map: expected {name}->{short}, got {tier_class_map}')
     custom_prop_input = (
         "body{--font-serif-ja:serif;--font-sans-ja:sans-serif;"
         "font-family:var(--font-serif-ja);border-color:var(--font-sans-ja,#000)}"

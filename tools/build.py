@@ -218,16 +218,27 @@ def _minify_css_numbers(css):
 _CSS_CLASS_RE = re.compile(r'(?<!\d)\.([A-Za-z_][A-Za-z0-9_-]*)')
 _CLASS_LIST_RE = re.compile(r'[A-Za-z_][A-Za-z0-9_-]*(?: [A-Za-z_][A-Za-z0-9_-]*)*')
 _CSS_CUSTOM_PROP_RE = re.compile(r'--([A-Za-z_][A-Za-z0-9_-]*)')
+_FIXED_CLASS_RENAMES = {
+    'tier1': 't1',
+    'tier2': 't2',
+    'tier3': 't3',
+    'tier4': 't4',
+    'tier5': 't5',
+}
 
 
-def _iter_css_class_targets():
+def _iter_css_class_targets(used=None):
+    used = used or set()
     first_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
     tail_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
     for name in first_chars:
-        yield name
+        if name not in used:
+            yield name
     for c1 in first_chars:
         for c2 in tail_chars:
-            yield c1 + c2
+            name = c1 + c2
+            if name not in used:
+                yield name
 
 
 def _iter_css_custom_prop_targets():
@@ -319,9 +330,15 @@ def compute_class_rename_map(css_code, js_code):
         for name in _extract_js_class_refs(tok[1:-1], class_names):
             freq[name] += 1
 
-    rename_map = {}
-    target_iter = _iter_css_class_targets()
+    rename_map = {
+        name: short
+        for name, short in _FIXED_CLASS_RENAMES.items()
+        if name in class_names
+    }
+    target_iter = _iter_css_class_targets(set(rename_map.values()))
     for name, _count in sorted(freq.items(), key=lambda item: (-item[1], item[0])):
+        if name in rename_map:
+            continue
         rename_map[name] = next(target_iter)
 
     n1 = sum(1 for value in rename_map.values() if len(value) == 1)
