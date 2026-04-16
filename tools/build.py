@@ -965,14 +965,14 @@ def main():
     print(f"Base-93: {len(gz_b93)} chars", file=sys.stderr)
 
     bootstrap = (
-        'D="' + dd + '";\n'
-        'F="' + gz_b93 + '";\n'
         # rANS base-93 byte decoder (no BigInt, sentinel-terminated)
         'B=s=>{i=v=0,o=[];do{'
         'while(v<2**24&&i<s.length)v=v*93+(s.charCodeAt(i++)+26)*58/59-57|0;'
-        'o.push(v&255);v>>=8}while(v>1);return o};\n'
-        # Decode F from base-93, decompress, eval payload
-        '(async()=>eval(await new Response(new Blob([new Uint8Array(B(F))]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text()))()'
+        'o.push(v&255);v>>=8}while(v>1);return o};'
+        'C="' + gz_b93 + '";'
+        'D="' + dd + '";'
+        # Decode C from base-93, decompress, eval payload
+        '(async()=>eval(await new Response(new Blob([new Uint8Array(B(C))]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text()))()'
     )
 
     # Build the HTML
