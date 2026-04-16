@@ -7,7 +7,7 @@
 }
 
 body {
-    --font-serif-ja: "Hiragino Mincho ProN", serif;
+    --font-serif-ja: "Hiragino Mincho ProN";
     --font-sans-ja: sans-serif;
     font-family: var(--font-serif-ja);
     background: #fff;
