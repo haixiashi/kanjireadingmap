@@ -382,6 +382,9 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
     // --- Layout constants and state ---
     let fsCap = 1;  // set after table render; used by applyScale
     const TABLE_MARGIN = 172;    // extra space around table for panning headroom
+    const MIN_SCALE = 0.4;
+    const MAX_SCALE = 2.5;
+    const TRANSFORM_SCALE_CAP = 2;
     scale = 1;
     zooming = 0;
     lastX = lastY = dragging = velX = velY = lastTime = animFrame = didDrag = 0;
@@ -396,23 +399,29 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
     table.style.left          = TABLE_MARGIN + 'px';
     table.style.transformOrigin = '0 0';
     table.style.willChange    = 'transform';
+    table.style.setProperty('--zs', 1);
     tableW = table.offsetWidth;
     tableH = table.offsetHeight;
     resetTimer = 0;
+    computeFontScale = () => scale < 1.5 ? Math.min(1.5 / scale, fsCap) : 1;
+    computeTransformScale = useTransient => useTransient ? Math.min(scale, TRANSFORM_SCALE_CAP) : 1;
+    computeLayoutScale = useTransient => scale / computeTransformScale(useTransient);
 
     // --- Scale / zoom ---
-    applyScale = () => {
-        table.style.transform = 'scale(' + scale + ')';
-        if (!zooming) {
-            let fontScale = scale < 1.5 ? Math.min(1.5 / scale, fsCap) : 1;
-            document.body.style.setProperty('--fs', fontScale);
-        }
-        let contentW = tableW * scale + TABLE_MARGIN * 2;
-        let contentH = tableH * scale + TABLE_MARGIN * 2;
+    applyScale = (useTransient = 0) => {
+        let transformScale = computeTransformScale(useTransient);
+        let layoutScale = computeLayoutScale(useTransient);
+        table.style.setProperty('--zs', layoutScale);
+        document.body.style.setProperty('--fs', computeFontScale());
+        tableW = table.offsetWidth;
+        tableH = table.offsetHeight;
+        table.style.transform = 'scale(' + transformScale + ')';
+        let contentW = tableW * transformScale + TABLE_MARGIN * 2;
+        let contentH = tableH * transformScale + TABLE_MARGIN * 2;
         let wrapW = Math.max(contentW, viewport.clientWidth);
         let wrapH = Math.max(contentH, viewport.clientHeight);
-        table.style.left      = (wrapW - tableW * scale) / 2 + 'px';
-        table.style.top       = (wrapH - tableH * scale) / 2 + 'px';
+        table.style.left      = (wrapW - tableW * transformScale) / 2 + 'px';
+        table.style.top       = (wrapH - tableH * transformScale) / 2 + 'px';
         wrapper.style.width   = wrapW + 'px';
         wrapper.style.height  = wrapH + 'px';
     };
@@ -420,12 +429,10 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
     // Hide spans whose bottom edge is clipped by their .content container.
     // Called once at init and again after each zoom settles.
     clipCellEntries = () => {
-        // content height = td(128px) - top(2px) - bottom(8px) = 118px, fixed by CSS.
         // Batch all writes before all reads to avoid layout thrashing:
         // 1. Reset all visibility (batch write — 1 layout invalidation)
         // 2. Read all offsets (batch read — 1 forced layout, then cached)
         // 3. Apply visibility:hidden + has-more (batch write)
-        const contentH = 124;  // td(128px) - top(2px) - bottom(2px)
         const allContent = Array.from(document.querySelectorAll('.content'));
         const allSpans = allContent.map(c => Array.from(c.querySelectorAll('.kanji-group')));
 
@@ -433,8 +440,8 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
         allSpans.forEach(spans => spans.forEach(sp => sp.style.visibility = ''));
 
         // Batch read: measure all (single layout calculation)
-        const overflows = allSpans.map(spans =>
-            spans.map(sp => sp.offsetTop + sp.offsetHeight > contentH)
+        const overflows = allContent.map((content, ci) =>
+            allSpans[ci].map(sp => sp.offsetTop + sp.offsetHeight > content.clientHeight)
         );
 
         // Batch write: apply results
@@ -529,9 +536,9 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
         let mouseY    = e.clientY - rect.top  + viewport.scrollTop;
         let prevScale = scale;
         scale *= e.deltaY > 0 ? 0.9 : 1 / 0.9;
-        scale = Math.max(0.4, Math.min(2.5, scale));
+        scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
         zooming = 1;
-        applyScale();
+        applyScale(1);
         let scaleRatio = scale / prevScale;
         viewport.scrollLeft = mouseX * scaleRatio - (e.clientX - rect.left);
         viewport.scrollTop  = mouseY * scaleRatio - (e.clientY - rect.top);
@@ -541,12 +548,23 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
 
     // --- Touch events ---
     gesture = null;
+    finalizePinch = g => {
+        applyScale(1);
+        viewport.scrollLeft = g.startScrollX - g.translateX;
+        viewport.scrollTop  = g.startScrollY - g.translateY;
+        clearTimeout(resetTimer);
+        resetWillChange();
+        schedHover();
+    };
+
     viewport.addEventListener('touchstart', e => {
         if (e.touches.length === 2) {
             e.preventDefault();
+            cancelAnimationFrame(animFrame);
+            velX = velY = 0;
             let a = e.touches[0], b = e.touches[1];
             gesture = {
-                pinch: true,
+                'p': true,
                 startDist: Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY),
                 cx: (a.clientX + b.clientX) / 2,
                 cy: (a.clientY + b.clientY) / 2,
@@ -560,12 +578,12 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
             cancelAnimationFrame(animFrame);
             velX = velY = 0;
             lastTime = performance.now();
-            gesture = { drag: true, x: e.touches[0].clientX, y: e.touches[0].clientY };
+            gesture = { 'd': true, x: e.touches[0].clientX, y: e.touches[0].clientY };
         }
     }, { passive: false });
 
     viewport.addEventListener('touchmove', e => {
-        if (e.touches.length === 2 && gesture && gesture.pinch) {
+        if (e.touches.length === 2 && gesture && gesture['p']) {
             e.preventDefault();
             let a = e.touches[0], b = e.touches[1];
             let dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
@@ -573,7 +591,7 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
             let cy   = (a.clientY + b.clientY) / 2;
             let rect = viewport.getBoundingClientRect();
             let prevScale = scale;
-            scale = Math.max(0.4, Math.min(2.5, gesture.startScale * (dist / gesture.startDist)));
+            scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, gesture.startScale * (dist / gesture.startDist)));
             let scaleRatio = scale / prevScale;
             let pivotX = gesture.cx - rect.left + gesture.startScrollX;
             let newCX  = cx - rect.left + gesture.startScrollX;
@@ -581,12 +599,16 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
             let newCY  = cy - rect.top  + gesture.startScrollY;
             gesture.translateX = newCX - (pivotX - gesture.translateX) * scaleRatio;
             gesture.translateY = newCY - (pivotY - gesture.translateY) * scaleRatio;
-            table.style.transform = 'translate(' + gesture.translateX + 'px,' + gesture.translateY + 'px) scale(' + scale + ')';
+            table.style.setProperty('--zs', computeLayoutScale(1));
+            document.body.style.setProperty('--fs', computeFontScale());
+            tableW = table.offsetWidth;
+            tableH = table.offsetHeight;
+            table.style.transform = 'translate(' + gesture.translateX + 'px,' + gesture.translateY + 'px) scale(' + computeTransformScale(1) + ')';
             gesture.cx = cx; gesture.cy = cy;
             gesture.startDist = dist;
             gesture.startScale = scale;
             if (hoverCell) showHover(hoverCell);
-        } else if (e.touches.length === 1 && gesture && gesture.drag) {
+        } else if (e.touches.length === 1 && gesture && gesture['d']) {
             e.preventDefault();
             let t   = e.touches[0];
             let now = performance.now();
@@ -605,15 +627,30 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
     }, { passive: false });
 
     viewport.addEventListener('touchend', e => {
-        if (gesture && gesture.drag && !e.touches.length) {
-            animFrame = requestAnimationFrame(coast);
-        } else if (gesture && gesture.pinch) {
-            applyScale();
-            viewport.scrollLeft = gesture.startScrollX - gesture.translateX;
-            viewport.scrollTop  = gesture.startScrollY - gesture.translateY;
-            clearTimeout(resetTimer);
-            resetWillChange();
+        if (!gesture) return;
+        if (gesture['p']) {
+            finalizePinch(gesture);
+            if (e.touches.length === 1) {
+                let t = e.touches[0];
+                lastTime = performance.now();
+                velX = velY = 0;
+                gesture = { 'd': true, x: t.clientX, y: t.clientY };
+            } else {
+                gesture = null;
+            }
+            return;
         }
+        if (gesture['d'] && !e.touches.length) {
+            animFrame = requestAnimationFrame(coast);
+        }
+        gesture = null;
+    });
+
+    viewport.addEventListener('touchcancel', () => {
+        if (!gesture) return;
+        if (gesture['p']) finalizePinch(gesture);
+        cancelAnimationFrame(animFrame);
+        velX = velY = 0;
         gesture = null;
     });
 

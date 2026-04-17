@@ -24,26 +24,29 @@ body {
 .viewport::-webkit-scrollbar { display: none; }
 .viewport.dragging { cursor: grabbing; }
 
-table { border-collapse: collapse; }
+table {
+    border-collapse: collapse;
+    --zs: 1;
+}
 
 td {
     border: 1px solid var(--b, #ccc);
     padding: 2px 4px;
     background: #fff;
     vertical-align: top;
-    font-size: calc(16px * var(--fs, 1));
-    width: 128px;
-    min-width: 128px;
-    height: 128px;
+    font-size: calc(16px * var(--fs, 1) * var(--zs, 1));
+    width: calc(128px * var(--zs, 1));
+    min-width: calc(128px * var(--zs, 1));
+    height: calc(128px * var(--zs, 1));
     overflow: hidden;
     position: relative;
     contain: strict;
 }
 
 /* Large (first) entry in each cell */
-.kanji-group.large { font-size: calc(16px * var(--fs, 1)); }
-.kanji-group.large ruby { font-size: calc(24px * var(--fs, 1)); }
-.kanji-group.large rt { font-size: calc(12px * var(--fs, 1)); }
+.kanji-group.large { font-size: calc(16px * var(--fs, 1) * var(--zs, 1)); }
+.kanji-group.large ruby { font-size: calc(24px * var(--fs, 1) * var(--zs, 1)); }
+.kanji-group.large rt { font-size: calc(12px * var(--fs, 1) * var(--zs, 1)); }
 
 td.first-col { border-right: 3px solid #000; }
 
@@ -57,7 +60,7 @@ td.first-col { border-right: 3px solid #000; }
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 48px;
+    font-size: calc(48px * var(--zs, 1));
     color: #f7f7f7;
     font-weight: bold;
     z-index: 0;
@@ -65,28 +68,28 @@ td.first-col { border-right: 3px solid #000; }
 
 .kanji-group {
     display: inline-block;
-    margin: 1px 2px;
+    margin: calc(1px * var(--zs, 1)) calc(2px * var(--zs, 1));
     white-space: nowrap;
-    padding: 1px 2px;
+    padding: calc(1px * var(--zs, 1)) calc(2px * var(--zs, 1));
     border-radius: 3px;
-    font-size: calc(16px * var(--fs, 1));
+    font-size: calc(16px * var(--fs, 1) * var(--zs, 1));
 }
 
 .kanji-group ruby {
-    font-size: calc(16px * var(--fs, 1));
+    font-size: calc(16px * var(--fs, 1) * var(--zs, 1));
 }
 
 .kanji-group rt {
-    font-size: calc(8px * var(--fs, 1));
+    font-size: calc(8px * var(--fs, 1) * var(--zs, 1));
     color: #666;
 }
 
 .content {
     position: absolute;
-    top: 2px;
-    left: 4px;
-    right: 4px;
-    bottom: 2px;
+    top: calc(2px * var(--zs, 1));
+    left: calc(4px * var(--zs, 1));
+    right: calc(4px * var(--zs, 1));
+    bottom: calc(2px * var(--zs, 1));
     overflow: hidden;
     z-index: 1;
 }
