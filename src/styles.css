@@ -118,6 +118,10 @@ body.dark td.has-more::after { color: #777; }
     transition: opacity 0.3s ease, visibility 0s linear 0.3s;
 }
 .hover-card.visible { opacity: 1; visibility: visible; transition-delay: 0s; }
+.hover-card .kanji-group {
+    position: relative;
+    z-index: 1;
+}
 
 /* Group borders */
 .group-left   { border-left:   2.5px solid var(--g, #555); }
