@@ -320,7 +320,7 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
         runViewTransition(applyTheme);
     });
 
-    toggleGrid.append(themeBtn, readingBtn);
+    toggleGrid.append(readingBtn, themeBtn);
 
     // --- Hover card ---
     hoverCell = null;
