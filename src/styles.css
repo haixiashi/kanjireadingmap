@@ -8,7 +8,7 @@
 
 body {
     font-family: "Hiragino Mincho ProN";
-    background: #fff;
+    background: #f5f5f5;
     color: #222;
 }
 
@@ -16,6 +16,7 @@ body {
     overflow: auto;
     width: 100vw;
     height: 100vh;
+    background: inherit;
     scrollbar-width: none;
     cursor: grab;
     user-select: none;
@@ -165,7 +166,7 @@ body.kun-only .kanji-group.on { display: none; }
 body.on-only .kanji-group.kun { display: none; }
 
 /* Dark mode */
-body.dark { background: #222; --b: #444; --g: #999; }
+body.dark { background: #2e2e2e; --b: #444; --g: #999; }
 body.dark td { background: #222; color: #ddd; }
 body.dark td.first-col { border-right-color: #aaa; }
 body.dark .watermark { color: #666; opacity: 0.18; }
