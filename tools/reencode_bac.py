@@ -179,7 +179,7 @@ ONKUN_SCORE_MAX = 2
 
 # All other models are computed from snapshot data at encode time.
 # Call compute_models(snap) before encoding.
-M_CELL = M_KT0 = M_KT1 = M_ONKUN = M_TDP = None
+M_CELL = M_KT0 = M_KT1 = M_ONKUN = None
 M_D1K = M_D1O = M_D2_0 = M_D2_1 = M_ON_EXTRA = M_ON_KANA = M_EXTRA = M_OKURI = None
 ON_KANA = 'ウクンツキ'
 ON_KANA_INDEX = {c: i for i, c in enumerate(ON_KANA)}
@@ -198,7 +198,7 @@ def _m999(ct):
 
 def compute_models(snap):
     """Compute all probability models from snapshot data."""
-    global M_CELL, M_KT0, M_KT1, M_ONKUN, M_TDP
+    global M_CELL, M_KT0, M_KT1, M_ONKUN
     global M_D1K, M_D1O, M_D2_0, M_D2_1, M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI
 
     kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
@@ -215,8 +215,6 @@ def compute_models(snap):
     of_ct = Counter()
     more_ct = Counter()
     done_ct = Counter()
-    delta_by_pt = {pt: Counter() for pt in range(1, 6)}
-
     for ri in range(44):
         row = kana_str[ri]
         for ci in range(46):
@@ -231,24 +229,22 @@ def compute_models(snap):
 
             parsed = []
             for e in entries:
-                kanji = e[1]; rest = e[2:]
+                kanji = e[0]; rest = e[1:]
                 parts = rest.split('|', 1) if '|' in rest else [rest, '']
                 is_on = any(0x30A0 <= ord(c) <= 0x30FF for c in parts[0]) if parts[0] else False
-                parsed.append((kanji, int(e[0]), parts[0], parts[1], is_on))
+                parsed.append((kanji, parts[0], parts[1], is_on))
 
             groups = []
-            for kanji, tier, furigana, okurigana, is_on in parsed:
-                key = (tier, furigana, okurigana, is_on)
+            for kanji, furigana, okurigana, is_on in parsed:
+                key = (furigana, okurigana, is_on)
                 if groups and groups[-1][0] == key:
                     groups[-1][1].append(kanji)
                 else:
                     groups.append((key, [kanji]))
 
-            pt = 5
             ok_score = 0
-            for (tier, furigana, okurigana, is_on), kanji_list in groups:
-                more_ct[pt] += 1
-                delta_by_pt[pt][pt - tier] += 1
+            for (furigana, okurigana, is_on), kanji_list in groups:
+                more_ct[1] += 1
                 for i in range(1, len(kanji_list)):
                     kt1_ct[0] += 1
                 kt1_ct[1] += 1
@@ -294,16 +290,13 @@ def compute_models(snap):
                         of_ct[1] += 1
                     of_ct[0] += 1
 
-                pt = tier
                 ok_score += 1 if is_on else -1
-            done_ct[pt] += 1
+            done_ct[1] += 1
 
     M_CELL = _m999(cell_ct)
-    M_KT0 = [[0, round(more_ct[pt] / (more_ct[pt] + done_ct[pt]) * 999), 999]
-              for pt in range(1, 6)]
+    M_KT0 = _m999({0: more_ct[1], 1: done_ct[1]})
     M_KT1 = _m999(kt1_ct)
     M_ONKUN = [_m999(ct) for ct in ok_ct]
-    M_TDP = [None] + [_m999(delta_by_pt[pt]) for pt in range(1, 6)]
     M_D1K = _m999(d1k_ct)
     M_D1O = _m999(d1o_ct)
     M_D2_0 = _m999(d2_0_ct)
@@ -380,17 +373,15 @@ def encode_snapshot(snap):
     all_kanji = set()
     for entries in snap.values():
         for e in entries:
-            cp = ord(e[1])
+            cp = ord(e[0])
             if 0x4E00 <= cp < 0x10000:
-                all_kanji.add(e[1])
+                all_kanji.add(e[0])
     kt = [chr(cp) for cp in sorted(ord(k) for k in all_kanji)]
     kt_index = {c: i for i, c in enumerate(kt)}
     print(f"KT: {len(kt)} entries", file=sys.stderr)
 
     kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
     H = 0x3042
-    tier_to_idx = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4}
-
     # Count kana frequencies for single prob table
     kana_ct = Counter()
     for ri in range(44):
@@ -398,7 +389,7 @@ def encode_snapshot(snap):
         for ci in range(46):
             col = '' if ci == 0 else kana_str[ci - 1]
             for e in snap.get(row + '+' + col, []):
-                rest = e[2:]
+                rest = e[1:]
                 parts = rest.split('|', 1) if '|' in rest else [rest, '']
                 is_on = any(0x30A0 <= ord(c) <= 0x30FF for c in parts[0]) if parts[0] else False
                 ko = 96 if is_on else 0
@@ -505,27 +496,26 @@ def encode_snapshot(snap):
 
             parsed = []
             for e in entries:
-                kanji = e[1]; rest = e[2:]
+                kanji = e[0]; rest = e[1:]
                 parts = rest.split('|', 1) if '|' in rest else [rest, '']
                 is_on = any(0x30A0 <= ord(c) <= 0x30FF for c in parts[0]) if parts[0] else False
-                parsed.append((kanji, int(e[0]), parts[0], parts[1], is_on))
+                parsed.append((kanji, parts[0], parts[1], is_on))
 
             groups = []
-            for kanji, tier, furigana, okurigana, is_on in parsed:
-                key = (tier, furigana, okurigana, is_on)
+            for kanji, furigana, okurigana, is_on in parsed:
+                key = (furigana, okurigana, is_on)
                 if groups and groups[-1][0] == key:
                     groups[-1][1].append(kanji)
                 else:
                     groups.append((key, [kanji]))
 
-            pt = 5
             ok_score = 0
-            for (tier, furigana, okurigana, is_on), kanji_list in groups:
+            for (furigana, okurigana, is_on), kanji_list in groups:
                 encodable = [k for k in kanji_list if k in kt_index]
                 if not encodable:
                     continue
 
-                em(M_KT0[pt - 1], 0)  # first kanji, conditioned on pt
+                em(M_KT0, 0)
                 eu(kt_index[encodable[0]], len(kt))
                 for kc in encodable[1:]:
                     em(M_KT1, 0)
@@ -533,10 +523,6 @@ def encode_snapshot(snap):
                 em(M_KT1, 1)  # terminator
 
                 em(M_ONKUN[max(ONKUN_SCORE_MIN, min(ONKUN_SCORE_MAX, ok_score)) - ONKUN_SCORE_MIN], 1 if is_on else 0)
-                delta = pt - tier
-                if pt > 1:
-                    em(M_TDP[pt], delta)
-                pt = tier
                 ok_score += 1 if is_on else -1
 
                 ko = 96 if is_on else 0
@@ -574,7 +560,7 @@ def encode_snapshot(snap):
                         em(M_KUN_KANA, code)
                     em(M_OKURI, 0)
 
-            em(M_KT0[pt - 1], 1)  # end of cell, conditioned on pt
+            em(M_KT0, 1)
 
     bits = enc.finish()
     print(f"Ops: {len(ops)}, bits: {len(bits)}", file=sys.stderr)

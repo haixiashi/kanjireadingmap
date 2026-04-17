@@ -290,14 +290,13 @@ def parse_jmdict(path, kanji_readings):
 
 def parse_entry(entry_str):
     """Parse a kanjiData entry string."""
-    level = int(entry_str[0])
-    kanji = entry_str[1]
-    reading_text = entry_str[2:]
+    kanji = entry_str[0]
+    reading_text = entry_str[1:]
     parts = reading_text.split('|')
     reading = parts[0]
     okurigana = parts[1] if len(parts) > 1 else ''
     full_reading = reading + okurigana
-    return level, kanji, reading, okurigana, full_reading
+    return kanji, reading, okurigana, full_reading
 
 
 def get_reading_freq(kanji, full_reading, freq_map):
@@ -323,11 +322,11 @@ def sort_entries(entries, freq_map):
     """Sort entries by reading frequency."""
     scored = []
     for idx, entry in enumerate(entries):
-        level, kanji, reading, okurigana, full_reading = parse_entry(entry)
+        kanji, reading, okurigana, full_reading = parse_entry(entry)
         reading_freq = get_reading_freq(kanji, full_reading, freq_map)
 
-        # Sort key: higher freq first, then higher JLPT, then original order
-        sort_key = (-reading_freq, -level, idx)
+        # Sort key: higher frequency first, then original order.
+        sort_key = (-reading_freq, idx)
         scored.append((sort_key, entry))
 
     scored.sort(key=lambda x: x[0])
@@ -438,9 +437,9 @@ def main():
     print("\n=== Detailed まど cell ===")
     if 'ま' in data['data'] and 'と' in data['data']['ま']:
         for entry in data['data']['ま']['と']:
-            level, kanji, reading, okurigana, full_reading = parse_entry(entry)
+            kanji, reading, okurigana, full_reading = parse_entry(entry)
             score = get_reading_freq(kanji, full_reading, freq_map)
-            print(f"  {entry:20s}  freq_score={score:8.1f}  JLPT={level}")
+            print(f"  {entry:20s}  freq_score={score:8.1f}")
 
     # Write back
     new_json = format_kanji_data(data)

@@ -90,7 +90,7 @@ python3 tools/verify_data.py
 
 - `tools/rebuild_snapshot.py`
   Rebuilds `src/data.json` from the dictionary sources and normalizes reading
-  choices, tiers, and sort order.
+  choices and sort order.
 
 - `tools/resort_by_reading.py`
   Core scoring logic for assigning reading frequency.
@@ -109,7 +109,6 @@ These matter more than individual helper names:
 - The grid shape is fixed at 44 rows × 46 columns.
 - Each cell is keyed in the snapshot as `row_kana + "+" + col_kana`.
 - Entries remain in display order inside each cell.
-- Tier values are non-increasing within a cell.
 - The generated page must remain dependency-free and self-contained.
 
 If you change the encoding, bit order, byte order, or model layout, update both
@@ -133,26 +132,26 @@ than hardcoded in the generated payload.
 
 ```json
 {
-  "あ+": ["5有あ|る"],
-  "あ+い": ["4愛アイ", "3藍アイ"]
+  "あ+": ["有あ|る"],
+  "あ+い": ["愛アイ", "藍アイ"]
 }
 ```
 
 Each entry string has this format:
 
 ```text
-<tier><kanji><reading>[|<okurigana>]
+<kanji><reading>[|<okurigana>]
 ```
 
 Examples:
 
-- `5有あ|る` = tier 5, kanji `有`, reading `あ`, okurigana `る`
-- `4愛アイ` = tier 4, kanji `愛`, on-yomi `アイ`
+- `有あ|る` = kanji `有`, reading `あ`, okurigana `る`
+- `愛アイ` = kanji `愛`, on-yomi `アイ`
 
 At runtime each decoded entry becomes:
 
 ```js
-[kanji, reading, tier, okurigana, isOn]
+[kanji, reading, okurigana, isOn]
 ```
 
 ## Runtime Architecture
@@ -188,7 +187,7 @@ The page supports:
 - light and dark themes,
 - pan and zoom,
 - hover/tap detail cards,
-- adaptive font scaling and clipping for dense cells.
+- adaptive scaling and clipping for dense cells.
 
 ## Build Pipeline
 
@@ -226,7 +225,7 @@ The snapshot maintenance scripts use two external dictionaries stored in
   Sole source of kanji readings.
 
 - `data/JMdict_e.xml`
-  Used only for frequency scoring and tier assignment.
+  Used only for frequency scoring.
 
 These files are gitignored. Download them from:
 
@@ -239,8 +238,7 @@ These files are gitignored. Download them from:
 
 1. Remove readings not supported by KANJIDIC2.
 2. Pick the best reading for each kanji/cell combination.
-3. Recompute tiers from JMdict-derived frequency scores.
-4. Re-sort entries within each cell.
+3. Re-sort entries within each cell.
 
 Two scoring choices matter:
 
@@ -276,8 +274,8 @@ The `D` stream is decoded sequentially in one arithmetic-decoder state:
    The 45 kana used to define row and column order.
 
 4. **Cell contents**
-   Presence flag, kanji grouping, on/kun flag, tier deltas, reading variants,
-   on-yomi extra-kana flag and symbol, kun-yomi extra kana, and okurigana.
+   Presence flag, kanji grouping, on/kun flag, reading variants, on-yomi
+   extra-kana flag and symbol, kun-yomi extra kana, and okurigana.
 
 ### Important implementation constraints
 

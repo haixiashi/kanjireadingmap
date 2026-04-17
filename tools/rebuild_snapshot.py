@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Rebuild data.json with optimal reading choices and correct tiers.
+Rebuild data.json with optimal reading choices.
 
 This script performs a full rebuild of the snapshot from the current
 data.json, applying the following fixes in order:
@@ -11,9 +11,7 @@ data.json, applying the following fixes in order:
    KANJIDIC2 reading with the highest JMdict frequency score
    (among readings that map to the same cell).
 
-2. Reassign tiers based on the (possibly new) reading's score.
-
-3. Re-sort entries within each cell by frequency score descending.
+2. Re-sort entries within each cell by frequency score descending.
 
 Usage: PYTHONPATH=tools python3 tools/rebuild_snapshot.py
 """
@@ -22,15 +20,13 @@ import json
 import os
 import sys
 import xml.etree.ElementTree as ET
-from collections import Counter
-
 # Allow importing from tools/ when run with PYTHONPATH=tools
 from resort_by_reading import (
     parse_kanjidic2, parse_jmdict, get_reading_freq, parse_entry,
     sort_entries, kata_to_hira, normalize_kanjidic_reading,
 )
 from expand_entries import (
-    score_to_tier, reassign_tier, reading_to_cell, base_kana,
+    reading_to_cell, base_kana,
     KANJIDIC2_PATH,
 )
 
@@ -59,7 +55,7 @@ def parse_kanjidic2_readings(path):
     return result
 
 
-def make_entry(tier, kanji, raw_reading, r_type):
+def make_entry(kanji, raw_reading, r_type):
     """Create entry string from a KANJIDIC2 reading.
 
     Returns (entry_string, full_reading_hira) or (None, None).
@@ -69,15 +65,15 @@ def make_entry(tier, kanji, raw_reading, r_type):
         return None, None
     if r_type == 'ja_on':
         full_hira = kata_to_hira(clean)
-        return f"{tier}{kanji}{clean}", full_hira
+        return f"{kanji}{clean}", full_hira
     elif r_type == 'ja_kun':
         if '.' in clean:
             stem, okurigana = clean.split('.', 1)
             full_hira = kata_to_hira(stem + okurigana)
-            return f"{tier}{kanji}{stem}|{okurigana}", full_hira
+            return f"{kanji}{stem}|{okurigana}", full_hira
         else:
             full_hira = kata_to_hira(clean)
-            return f"{tier}{kanji}{clean}", full_hira
+            return f"{kanji}{clean}", full_hira
     return None, None
 
 
@@ -103,7 +99,7 @@ def main():
     for cell in list(snap.keys()):
         new_entries = []
         for e in snap[cell]:
-            _, kanji, reading, okurigana, full_reading = parse_entry(e)
+            kanji, reading, okurigana, full_reading = parse_entry(e)
             full_hira = kata_to_hira(full_reading)
             if kanji in kd_reading_set and full_hira in kd_reading_set[kanji]:
                 new_entries.append(e)
@@ -128,8 +124,7 @@ def main():
         row, col = cell.split('+', 1)
         new_entries = []
         for e in entries:
-            tier_char = e[0]
-            kanji = e[1]
+            kanji = e[0]
 
             if kanji not in kanjidic_readings:
                 new_entries.append(e)
@@ -176,7 +171,7 @@ def main():
             candidates.sort(key=lambda c: (1 if c[0]==2 else 0, -c[1], c[0]))
             best_pri, best_score, best_raw, best_rtype = candidates[0]
 
-            candidate, _ = make_entry(tier_char, kanji, best_raw, best_rtype)
+            candidate, _ = make_entry(kanji, best_raw, best_rtype)
             if candidate and candidate != e:
                 upgraded += 1
                 new_entries.append(candidate)
@@ -186,24 +181,7 @@ def main():
 
     print(f"Phase 1: Upgraded {upgraded} entries to higher-scoring readings")
 
-    # --- Phase 2: Reassign tiers ---
-    tc = Counter()
-    for cell, entries in snap.items():
-        new_entries = []
-        for e in entries:
-            _, kanji, reading, okurigana, full_reading = parse_entry(e)
-            score = get_reading_freq(kanji, full_reading, freq_map)
-            tier = score_to_tier(score)
-            new_entries.append(reassign_tier(e, tier))
-            tc[tier] += 1
-        snap[cell] = new_entries
-
-    total = sum(tc.values())
-    print(f"Phase 2: Tier distribution ({total} entries):")
-    for t in sorted(tc, reverse=True):
-        print(f"  Tier {t}: {tc[t]:5d} ({tc[t]*100/total:.1f}%)")
-
-    # --- Phase 3: Re-sort ---
+    # --- Phase 2: Re-sort ---
     reordered = 0
     for cell, entries in snap.items():
         if len(entries) <= 1:
@@ -213,7 +191,7 @@ def main():
             reordered += 1
             snap[cell] = new_entries
 
-    print(f"Phase 3: Re-sorted {reordered} cells")
+    print(f"Phase 2: Re-sorted {reordered} cells")
 
     # --- Write ---
     with open(SNAPSHOT_PATH, 'w') as f:

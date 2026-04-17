@@ -218,13 +218,6 @@ def _minify_css_numbers(css):
 _CSS_CLASS_RE = re.compile(r'(?<!\d)\.([A-Za-z_][A-Za-z0-9_-]*)')
 _CLASS_LIST_RE = re.compile(r'[A-Za-z_][A-Za-z0-9_-]*(?: [A-Za-z_][A-Za-z0-9_-]*)*')
 _CSS_CUSTOM_PROP_RE = re.compile(r'--([A-Za-z_][A-Za-z0-9_-]*)')
-_FIXED_CLASS_RENAMES = {
-    'tier1': 't1',
-    'tier2': 't2',
-    'tier3': 't3',
-    'tier4': 't4',
-    'tier5': 't5',
-}
 
 
 def _iter_css_class_targets(used=None):
@@ -330,15 +323,9 @@ def compute_class_rename_map(css_code, js_code):
         for name in _extract_js_class_refs(tok[1:-1], class_names):
             freq[name] += 1
 
-    rename_map = {
-        name: short
-        for name, short in _FIXED_CLASS_RENAMES.items()
-        if name in class_names
-    }
-    target_iter = _iter_css_class_targets(set(rename_map.values()))
+    rename_map = {}
+    target_iter = _iter_css_class_targets()
     for name, _count in sorted(freq.items(), key=lambda item: (-item[1], item[0])):
-        if name in rename_map:
-            continue
         rename_map[name] = next(target_iter)
 
     n1 = sum(1 for value in rename_map.values() if len(value) == 1)
@@ -882,13 +869,13 @@ def main():
     # Compute models from snapshot and inject into JS
     import json as _json
     from reencode_bac import (compute_models, M_CELL, M_KT0, M_KT1, M_ONKUN,
-                               M_TDP, M_D1K, M_D1O, M_D2_0, M_D2_1,
+                               M_D1K, M_D1O, M_D2_0, M_D2_1,
                                M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI)
     with open(os.path.join(SRC_DIR, 'data.json')) as f:
         snap = _json.load(f)
     compute_models(snap)
     from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN,
-                               M_TDP, M_D1K, M_D1O, M_D2_0, M_D2_1,
+                               M_D1K, M_D1O, M_D2_0, M_D2_1,
                                M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI)
 
     # Inline model values into JS (replace variable refs with literals)
@@ -899,9 +886,9 @@ def main():
     all_kanji = set()
     for entries in snap.values():
         for e in entries:
-            cp = ord(e[1])
+            cp = ord(e[0])
             if 0x4E00 <= cp < 0x10000:
-                all_kanji.add(e[1])
+                all_kanji.add(e[0])
     kl = len(all_kanji)
 
     # Encode D string from snapshot (needed for DL placeholder)
@@ -911,9 +898,7 @@ def main():
     # Replace variable placeholders with computed values
     from reencode_bac import M_KD_CASE
     kd = ','.join(str(x) for x in inner(M_KD_CASE))
-    kp = ','.join(str(inner(m)[0]) for m in M_KT0)
     ok = '[' + ','.join(str(inner(m)[0]) for m in M_ONKUN) + ']'
-    tp = ','.join(str(inner(m)) for m in M_TDP[1:])
     d2_0 = ','.join(str(x) for x in inner(M_D2_0))
     d2_1 = ','.join(str(x) for x in inner(M_D2_1))
     replacements = [
@@ -922,6 +907,7 @@ def main():
         ('KL - 1', f'{kl-1}'),
         ('decode(CP)', f'decode({inner(M_CELL)[0]})'),
         ('decode(K1)', f'decode({inner(M_KT1)[0]})'),
+        ('decode(KP)', f'decode({inner(M_KT0)[0]})'),
         ('decode(OK[Math.max(0, Math.min(3, okScore + 1))])',
          f'decode({ok}[Math.max(0,Math.min(3,okScore+1))])'),
         ('decode(isOn ? DO : DK)', f'decode(isOn?{inner(M_D1O)[0]}:{inner(M_D1K)[0]})'),
@@ -931,8 +917,6 @@ def main():
         ('decode(D1)', f'decode({d2_1})'),
         ('decode(EF)', f'decode({inner(M_EXTRA)[0]})'),
         ('decode(OF)', f'decode({inner(M_OKURI)[0]})'),
-        ('KP[prevTier - 1]', f'[{kp}][prevTier-1]'),
-        ('TP[prevTier - 1]', f'[{tp.replace(" ","")}][prevTier-1]'),
     ]
     for old, new in replacements:
         js_payload = js_payload.replace(old, new)
@@ -944,8 +928,8 @@ def main():
     # Validate: check no symbolic placeholders remain in minified output
     # (checked after minification so comments can freely reference placeholders)
     import re as _re
-    KNOWN_PLACEHOLDERS = ['KD', 'KL', 'CP', 'K1', 'OK', 'DO', 'DK', 'D0', 'D1',
-                          'EF', 'OF', 'KP', 'TP']
+    KNOWN_PLACEHOLDERS = ['KD', 'KL', 'CP', 'K1', 'KP', 'OK', 'DO', 'DK', 'D0', 'D1',
+                          'EF', 'OF']
     for ph in KNOWN_PLACEHOLDERS:
         if _re.search(r'\b' + ph + r'\b', js_minified):
             print(f"ERROR: placeholder {ph!r} was not replaced in JS", file=sys.stderr)

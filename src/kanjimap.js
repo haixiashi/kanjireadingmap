@@ -5,7 +5,7 @@ document.body.innerHTML = '<div class="viewport"><table id="grid"><tbody id="tbo
 // CSS is loaded from src/styles.css and minified by build.py
 document.head.innerHTML += '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>CSS_PLACEHOLDER</style>';
 
-// Arithmetic decoder: rANS base-93 → bytes → bits → kanji/reading/tier data
+// Arithmetic decoder: rANS base-93 → bytes → bits → kanji/reading data
 decodeCell = (() => {
     // --- Base-93 → byte array → stateful bit reader ---
     // Bytes reversed by build.py (pop() reads forward), bits packed LSB-first.
@@ -114,31 +114,26 @@ decodeCell = (() => {
     // --- Section 4: Cell data (decoded on demand) ---
     // Returns a function that decodes one cell's entries from the stream.
     // cellKana is the 1-2 character kana prefix (row + optional column).
-    // Each entry is [kanji, reading, tier, okurigana, isOn].
+    // Each entry is [kanji, reading, okurigana, isOn].
     return cellKana => {
         // Non-first-column cells: decode cell_present flag (CP model)
         if (cellKana[1] && !decode(CP)) return [];
 
         let entries = [];
-        let prevTier = 5;
         let okScore = 0;
 
         for (;;) {
-            // End of cell? KT0 model conditioned on prevTier:
-            // higher tiers have higher probability of more groups
-            if (decode(KP[prevTier - 1])) return entries;
+            if (decode(KP)) return entries;
 
-            // Decode one kanji group: 1+ kanji sharing the same reading/tier.
+            // Decode one kanji group: 1+ kanji sharing the same reading.
             // First kanji uses KT0 model, subsequent use KT1 (27% more).
             let kanjiGroup = [];
             kanjiGroup.push(kanjiTable[decodeUniform(KL)]);
             while (!decode(K1))
                 kanjiGroup.push(kanjiTable[decodeUniform(KL)]);
 
-            // On/kun flag and tier assignment
+            // On/kun flag
             let isOn = decode(OK[Math.max(0, Math.min(3, okScore + 1))]);         // 0=kun, 1=on
-            prevTier -= decode(...TP[prevTier - 1]);        // tier delta from prevTier
-            let tier = prevTier;
             okScore += isOn * 2 - 1;
 
             // Variant offsets for dakuten/handakuten readings:
@@ -167,16 +162,15 @@ decodeCell = (() => {
                     okurigana += String.fromCharCode(decode(...kanaCumFreq) + 12354);
             }
 
-            // Emit one entry per kanji in the group (all share reading/tier/okurigana)
-            kanjiGroup.map(kanji => entries.push([kanji, reading, tier, okurigana, isOn]));
+            // Emit one entry per kanji in the group (all share reading/okurigana)
+            kanjiGroup.map(kanji => entries.push([kanji, reading, okurigana, isOn]));
         }
     };
 })();
-makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
+makeEntrySpan = (kanji, reading, okurigana, isOn) => {
     let span = document.createElement('span');
     span.className = 'kanji-group';
     span.classList.add(isOn ? 'on' : 'kun');
-    if (tier > 0) span.classList.add('t' + tier);
     let rubyEl = document.createElement('ruby');
     rubyEl.textContent = kanji;
     let rtEl = document.createElement('rt');
@@ -326,23 +320,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         runViewTransition(applyTheme);
     });
 
-    // --- Tier color toggle ---
-    tierBtn = document.createElement('button');
-    tierBtn.className = 'fixed-btn tier-toggle';
-    tierBtn.textContent = '🌈';
-    if (storage.getItem('tc') === '1') document.body.classList.add('tier-colors');
-    tierBtn.classList.toggle('off', !document.body.classList.contains('tier-colors'));
-    tierBtn.addEventListener('click', () => {
-        let nextColored = !document.body.classList.contains('tier-colors');
-        let applyTierColors = () => {
-            document.body.classList.toggle('tier-colors', nextColored);
-            tierBtn.classList.toggle('off', !nextColored);
-            storage.setItem('tc', nextColored ? '1' : '0');
-        };
-        runViewTransition(applyTierColors);
-    });
-
-    toggleGrid.append(themeBtn, tierBtn, readingBtn);
+    toggleGrid.append(themeBtn, readingBtn);
 
     // --- Hover card ---
     hoverCell = null;
@@ -363,7 +341,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
         const hiddenClass = document.body.classList.contains('kun-only') ? 'on'
                           : document.body.classList.contains('on-only')  ? 'kun' : '';
         let entries = td._entries || [];
-        let visible = entries.filter(e => !hiddenClass || (e[4] ? 'on' : 'kun') !== hiddenClass);
+        let visible = entries.filter(e => !hiddenClass || (e[3] ? 'on' : 'kun') !== hiddenClass);
         visible.forEach((e, i) => {
             let span = makeEntrySpan(...e);
             if (!i) span.classList.add('large');
@@ -673,7 +651,7 @@ makeEntrySpan = (kanji, reading, tier, okurigana, isOn) => {
     document.querySelectorAll('#tbody td:not(.empty)').forEach(td => {
         let entry = td._entries[0];
         if (!entry) return;
-        let est = Math.max(entry[0].length * 26, entry[1].length * 11) + entry[3].length * 16;
+        let est = Math.max(entry[0].length * 26, entry[1].length * 11) + entry[2].length * 16;
         let span = td.querySelector('.kanji-group');
         candidates.push([est, span]);
     });

@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
 """
-Expand kanji reading map with missing entries from KANJIDIC2 + JMdict,
-and assign 6-tier frequency levels based on JMdict reading frequency.
-
-Tiers (by reading frequency score):
-  6: score >= 2000  (core readings - dark green)
-  5: score >= 500   (very common - green)
-  4: score >= 100   (common - blue)
-  3: score >= 30    (moderate - purple)
-  2: score >= 5     (uncommon - orange)
-  1: score < 5      (rare/Hyogai - red)
+Expand the kanji reading map with missing entries from KANJIDIC2 + JMdict.
 """
 
 import xml.etree.ElementTree as ET
@@ -36,28 +27,6 @@ for group in ['がかぎきぐくげけごこ', 'ざさじしずすぜせぞそ'
 
 SMALL_MAP = {'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お',
              'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ'}
-
-# Tier thresholds: score >= threshold → tier
-# Scores use max-per-word scoring from JMdict priority tags.
-# Only the primary kanji form (first keb) in each JMdict entry is scored.
-# Thresholds concentrate most entries in the middle tiers (j2/j3).
-# Archaic/rarely-used kanji forms (JMdict oK/rK/uk/arch/obs) are excluded
-# before tier assignment, so tier 1 is the lowest tier.
-TIER_THRESHOLDS = [
-    (98,  5),   # ~9%  - core readings (e.g. 手て, 足あし, 秋あき)
-    (92,  4),   # ~18% - very common (e.g. 今いま, 猫ねこ, 安やす)
-    (49,  3),   # ~33% - common
-    (5,   2),   # ~21% - moderate
-    (0,   1),   # ~21% - attested, low frequency
-]
-
-
-def score_to_tier(score):
-    for threshold, tier in TIER_THRESHOLDS:
-        if score >= threshold:
-            return tier
-    return 1
-
 
 def base_kana(c):
     return SMALL_MAP.get(c, DAKUTEN_MAP.get(c, c))
@@ -145,28 +114,23 @@ def parse_kanjidic2_full(path):
     return kanji_info, archaic_to_common
 
 
-def make_entry_str(tier, kanji, raw_reading, r_type):
+def make_entry_str(kanji, raw_reading, r_type):
     """Create entry string from KANJIDIC2 reading."""
     clean = raw_reading.strip('-')
     if not clean:
         return None, None
     if r_type == 'ja_on':
         furigana_hira = kata_to_hira(clean)
-        return f"{tier}{kanji}{clean}", furigana_hira
+        return f"{kanji}{clean}", furigana_hira
     elif r_type == 'ja_kun':
         if '.' in clean:
             stem, okurigana = clean.split('.', 1)
             furigana_hira = kata_to_hira(stem)
-            return f"{tier}{kanji}{stem}|{okurigana}", furigana_hira
+            return f"{kanji}{stem}|{okurigana}", furigana_hira
         else:
             furigana_hira = kata_to_hira(clean)
-            return f"{tier}{kanji}{clean}", furigana_hira
+            return f"{kanji}{clean}", furigana_hira
     return None, None
-
-
-def reassign_tier(entry_str, new_tier):
-    """Replace the tier digit in an entry string."""
-    return str(new_tier) + entry_str[1:]
 
 
 def main():
@@ -186,10 +150,10 @@ def main():
     for row in data['data']:
         for col in data['data'][row]:
             for entry in data['data'][row][col]:
-                kanji = entry[1]
+                kanji = entry[0]
                 existing_in_cell[(row, col)].add(kanji)
                 existing_kanji.add(kanji)
-                reading_text = entry[2:].replace('|', '')
+                reading_text = entry[1:].replace('|', '')
                 existing_pairs.add((kanji, kata_to_hira(reading_text)))
 
     # --- Phase 1: Expand with new entries ---
@@ -205,11 +169,11 @@ def main():
             if raw_reading.startswith('-'):
                 continue
 
-            entry_str, furigana_hira = make_entry_str(1, kanji, raw_reading, r_type)
+            entry_str, furigana_hira = make_entry_str(kanji, raw_reading, r_type)
             if entry_str is None:
                 continue
 
-            full_reading = entry_str[2:].replace('|', '')
+            full_reading = entry_str[1:].replace('|', '')
             if (kanji, kata_to_hira(full_reading)) in existing_pairs:
                 continue
 
@@ -335,7 +299,7 @@ def main():
                 if score < FREQ_THRESHOLD:
                     continue
 
-                entry_str = f"1{kanji_char}{full_reading_text}"
+                entry_str = f"{kanji_char}{full_reading_text}"
                 if col not in data['data'][row]:
                     data['data'][row][col] = []
 
@@ -346,27 +310,7 @@ def main():
 
     print(f"Phase 1b - JMdict expansion: {jmdict_count} new entries")
 
-    # --- Phase 2: Reassign all tiers based on reading frequency ---
-    tier_counts = defaultdict(int)
-    for row in data['data']:
-        for col in data['data'][row]:
-            new_entries = []
-            for entry in data['data'][row][col]:
-                level, kanji, reading, okurigana, full_reading = parse_entry(entry)
-                score = get_reading_freq(kanji, full_reading, freq_map)
-                tier = score_to_tier(score)
-                new_entry = reassign_tier(entry, tier)
-                new_entries.append(new_entry)
-                tier_counts[tier] += 1
-            data['data'][row][col] = new_entries
-
-    print(f"\nPhase 2 - Tier assignment:")
-    total = sum(tier_counts.values())
-    for tier in sorted(tier_counts, reverse=True):
-        pct = tier_counts[tier] * 100 / total
-        print(f"  Tier {tier}: {tier_counts[tier]:5d} ({pct:4.1f}%)")
-
-    # --- Phase 3: Re-sort all cells ---
+    # --- Phase 2: Re-sort all cells ---
     sort_changes = 0
     for kana, readings in data['data'].items():
         for rkey, entries in readings.items():
@@ -376,23 +320,23 @@ def main():
             if new_entries != entries:
                 sort_changes += 1
                 readings[rkey] = new_entries
-    print(f"\nPhase 3 - Re-sorted {sort_changes} cells")
+    print(f"\nPhase 2 - Re-sorted {sort_changes} cells")
 
-    # --- Phase 4: Remove archaic variants ---
+    # --- Phase 3: Remove archaic variants ---
     dedup_count = 0
     for row in data['data']:
         for col in data['data'][row]:
             entries = data['data'][row][col]
-            kanji_in_cell = {e[1] for e in entries}
+            kanji_in_cell = {e[0] for e in entries}
             new_entries = []
             for e in entries:
-                common = archaic_to_common.get(e[1])
+                common = archaic_to_common.get(e[0])
                 if common and common in kanji_in_cell:
                     dedup_count += 1
                 else:
                     new_entries.append(e)
             data['data'][row][col] = new_entries
-    print(f"\nPhase 4 - Removed {dedup_count} archaic variants")
+    print(f"\nPhase 3 - Removed {dedup_count} archaic variants")
 
     # Show examples
     print("\n=== Examples ===")

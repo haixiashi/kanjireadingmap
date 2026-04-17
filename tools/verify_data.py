@@ -113,9 +113,9 @@ def count_kanji(snapshot):
     kanji = set()
     for entries in snapshot.values():
         for e in entries:
-            cp = ord(e[1])
+            cp = ord(e[0])
             if 0x4E00 <= cp < 0x10000:
-                kanji.add(e[1])
+                kanji.add(e[0])
     return len(kanji)
 
 
@@ -143,13 +143,12 @@ def decode_da_from_decoder(dec, kt):
     from reencode_bac import compute_models
     with open(SNAPSHOT_PATH) as _f:
         compute_models(_json.load(_f))
-    from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN, M_TDP,
+    from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN,
                                M_D1K, M_D1O, M_D2_0, M_D2_1, M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI)
     CP = M_CELL[1:-1]
-    KT0 = [m[1:-1] for m in M_KT0]
+    KT0 = M_KT0[1:-1]
     KT1 = M_KT1[1:-1]
     OK = [m[1:-1] for m in M_ONKUN]
-    TDP = [None] + [m[1:-1] for m in M_TDP[1:]]
     D1K = M_D1K[1:-1]
     D1O = M_D1O[1:-1]
     D2_0 = M_D2_0[1:-1]
@@ -196,21 +195,16 @@ def decode_da_from_decoder(dec, kt):
                 continue
 
             entries = []
-            pt = 5
             ok_score = 0
             while True:
                 kl = []
-                if Z(KT0[pt - 1]):  # conditioned on pt
+                if Z(KT0):
                     break
                 kl.append(kt[U(len(kt))])
                 while not Z(KT1):
                     kl.append(kt[U(len(kt))])
 
                 on = Z(OK[max(-1, min(2, ok_score)) + 1])
-                if pt > 1:
-                    pt -= Z(TDP[pt])
-                tier = pt
-                tr = str(tier)
                 ok_score += 1 if on else -1
                 d1 = Z(D1O if on else D1K)
                 d2 = Z(D2_1 if d1 else D2_0) - 1
@@ -232,7 +226,7 @@ def decode_da_from_decoder(dec, kt):
                 while not on and Z(OF):
                     sf += FC(RK(0))
 
-                t = pr + rd + tr + sf
+                t = pr + rd + sf
                 for k in kl:
                     entries.append(k + t)
 
@@ -266,7 +260,7 @@ def main():
     # Check all snapshot cells exist in decoded
     for cell_key, expected_entries in snapshot.items():
         # Filter entries that can't be encoded (U+10000+)
-        encodable = [e for e in expected_entries if ord(e[1]) < 0x10000]
+        encodable = [e for e in expected_entries if ord(e[0]) < 0x10000]
 
         actual = decoded.get(cell_key, [])
 
@@ -277,9 +271,8 @@ def main():
 
         # Compare by converting decoded entries back to original format
         for i, (act, exp) in enumerate(zip(actual, encodable)):
-            exp_fmt = exp[1:]  # strip tier prefix
-            tier = exp[0]
-            # Reconstruct: kanji + reading + tier + okurigana
+            exp_fmt = exp
+            # Reconstruct: kanji + reading + okurigana
             kanji = ''
             j = 0
             while j < len(exp_fmt):
@@ -289,7 +282,7 @@ def main():
                 j += 1
             reading_okuri = exp_fmt[j:]
             parts = reading_okuri.split('|', 1) if '|' in reading_okuri else [reading_okuri, '']
-            expected_decoded = kanji + parts[0] + tier + parts[1]
+            expected_decoded = kanji + parts[0] + parts[1]
 
             if act != expected_decoded:
                 print(f'MISMATCH {cell_key}[{i}]: got "{act}", expected "{expected_decoded}"')
@@ -302,7 +295,7 @@ def main():
             warnings += 1
 
     total_expected = sum(len(v) for v in snapshot.values())
-    total_encodable = sum(len([e for e in v if ord(e[1]) < 0x10000]) for v in snapshot.values())
+    total_encodable = sum(len([e for e in v if ord(e[0]) < 0x10000]) for v in snapshot.values())
     total_decoded = sum(len(v) for v in decoded.values())
 
     print(f'\nSnapshot: {total_expected} entries ({total_expected - total_encodable} unencodable)')
