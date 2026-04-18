@@ -352,32 +352,16 @@ makeHoverEntrySpan = (entry, showReading) => {
                           : document.body.classList.contains('on-only')  ? 'kun' : '';
         let entries = td._entries || [];
         let visible = entries.filter(e => !hiddenClass || (e[3] ? 'on' : 'kun') !== hiddenClass);
-        let grouped = [];
-        let onGroups = new Map();
-        visible.forEach(entry => {
-            if (!entry[3]) {
-                grouped.push([entry]);
-                return;
-            }
-            let key = entry[1];
-            let group = onGroups.get(key);
-            if (!group) {
-                group = [];
-                onGroups.set(key, group);
-                grouped.push(group);
-            }
-            group.push(entry);
-        });
         let firstVisible = 1;
-        grouped.forEach(group => {
-            group.forEach((entry, idx) => {
-                let span = makeHoverEntrySpan(entry, !entry[3] || idx === 0);
-                if (firstVisible) {
-                    span.classList.add('large');
-                    firstVisible = 0;
-                }
-                hoverCard.append(span);
-            });
+        visible.forEach((entry, idx) => {
+            let prev = visible[idx - 1];
+            let showReading = !entry[3] || !prev || !prev[3] || prev[1] !== entry[1];
+            let span = makeHoverEntrySpan(entry, showReading);
+            if (firstVisible) {
+                span.classList.add('large');
+                firstVisible = 0;
+            }
+            hoverCard.append(span);
         });
     };
 
