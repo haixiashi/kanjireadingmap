@@ -404,7 +404,7 @@ makeHoverEntrySpan = (entry, showReading) => {
 
     // --- Layout constants and state ---
     let fsCap = 1;  // set after table render; used by applyScale
-    const TABLE_MARGIN = 172;    // extra space around table for panning headroom
+    const TABLE_MARGIN = 320;    // extra space around table for panning headroom
     const MIN_SCALE = 0.5;
     const MAX_SCALE = 2.5;
     const PINCH_HANDOFF_DRAG_THRESHOLD = 8;
