@@ -180,6 +180,16 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
     if (okurigana) span.append(document.createTextNode(okurigana));
     return span;
 };
+
+makeHoverEntrySpan = (entry, showReading) => {
+    if (showReading) return makeEntrySpan(...entry);
+    let [kanji, _reading, okurigana, isOn] = entry;
+    let span = document.createElement('span');
+    span.className = 'kanji-group';
+    span.classList.add(isOn ? 'on' : 'kun');
+    span.textContent = kanji + okurigana;
+    return span;
+};
 (() => {
     const colKana = ['', ...kanaGrid];
     const rowKana = [...kanaGrid].slice(0, -1);
@@ -342,16 +352,29 @@ makeEntrySpan = (kanji, reading, okurigana, isOn) => {
                           : document.body.classList.contains('on-only')  ? 'kun' : '';
         let entries = td._entries || [];
         let visible = entries.filter(e => !hiddenClass || (e[3] ? 'on' : 'kun') !== hiddenClass);
-        visible.forEach((e, i) => {
-            let span = makeEntrySpan(...e);
-            if (!i) span.classList.add('large');
-            hoverCard.append(span);
+        let grouped = new Map();
+        visible.forEach(entry => {
+            let key = entry[1];
+            let group = grouped.get(key);
+            if (!group) grouped.set(key, group = []);
+            group.push(entry);
+        });
+        let firstVisible = 1;
+        grouped.forEach(group => {
+            group.forEach((entry, idx) => {
+                let span = makeHoverEntrySpan(entry, !entry[3] || idx === 0);
+                if (firstVisible) {
+                    span.classList.add('large');
+                    firstVisible = 0;
+                }
+                hoverCard.append(span);
+            });
         });
 
         // Size and position the card centered on the tapped cell.
         // Keep the card slightly larger than the tapped cell, but allow it to
         // shrink with zoom-out so large cells can fit on smaller screens.
-        let transformScale = Math.max(scale * 1.2, 0.8);
+        let transformScale = Math.max(scale * 1.2, 0.7);
         let rect  = td.getBoundingClientRect();
         // cellW is in unscaled CSS px (the card is sized before the transform is applied)
         let cellW = rect.width / scale;
