@@ -71,7 +71,6 @@ td.first-col { border-right: 3px solid #000; }
     margin: calc(1px * var(--zs, 1)) calc(2px * var(--zs, 1));
     white-space: nowrap;
     padding: calc(1px * var(--zs, 1)) calc(2px * var(--zs, 1));
-    border-radius: 3px;
     font-size: calc(16px * var(--fs, 1) * var(--zs, 1));
 }
 
@@ -99,7 +98,7 @@ td.has-more::after {
     position: absolute;
     bottom: 1px;
     right: 3px;
-    font-size: calc(12px * var(--fs, 1));
+    font-size: calc(8px * var(--fs, 1));
     color: #aaa;
     pointer-events: none;
 }
