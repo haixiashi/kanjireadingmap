@@ -338,6 +338,7 @@ makeHoverEntrySpan = (entry, showReading) => {
     hoverCard.className = 'hover-card';
     document.body.append(hoverCard);
     hoverCardSize = 0;
+    hoverCardLayoutScale = 1;
     hideHover = () => {
         hoverCell = null;
         hoverCard.classList.remove('visible');
@@ -368,11 +369,15 @@ makeHoverEntrySpan = (entry, showReading) => {
     };
 
     positionHover = (td, remeasure = 0) => {
-        let transformScale = Math.max(scale * 1.2, 0.7);
+        let desiredScale = Math.max(scale * 1.2, 0.7);
         let rect  = td.getBoundingClientRect();
         if (remeasure || !hoverCardSize) {
-            // cellW is in unscaled CSS px (the card is sized before the transform is applied)
-            let cellW = rect.width / scale;
+            hoverCardLayoutScale = desiredScale;
+            hoverCard.style.setProperty('--zs', hoverCardLayoutScale);
+            hoverCard.style.transform = 'scale(1)';
+
+            // cellW is in unscaled CSS px, then expanded to the hover-card layout scale
+            let cellW = rect.width / scale * hoverCardLayoutScale;
             hoverCard.style.width   = cellW + 'px';
             hoverCard.style.height  = 'auto';
 
@@ -388,7 +393,7 @@ makeHoverEntrySpan = (entry, showReading) => {
             hoverCard.style.height = hoverCardSize + 'px';
         }
 
-        hoverCard.style.transform = 'scale(' + transformScale + ')';
+        hoverCard.style.transform = 'scale(' + (desiredScale / hoverCardLayoutScale) + ')';
         let cx = rect.left + rect.width  / 2;
         let cy = rect.top  + rect.height / 2;
         hoverCard.style.left = cx - hoverCardSize / 2 + 'px';
