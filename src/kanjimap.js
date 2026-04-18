@@ -421,6 +421,7 @@ makeHoverEntrySpan = (entry, showReading) => {
     const TABLE_MARGIN = 172;    // extra space around table for panning headroom
     const MIN_SCALE = 0.4;
     const MAX_SCALE = 2.5;
+    const PINCH_HANDOFF_DRAG_THRESHOLD = 8;
     scale = 1;
     settledScale = 1;
     zooming = 0;
@@ -516,6 +517,27 @@ makeHoverEntrySpan = (entry, showReading) => {
         clearTimeout(resetTimer);
         resetTimer = setTimeout(resetWillChange, 150);
     };
+    settleTransientZoom = deferCleanup => {
+        zooming = 0;
+        let before = table.getBoundingClientRect();
+        applySettledScale();
+        let after = table.getBoundingClientRect();
+        viewport.scrollLeft += after.left - before.left;
+        viewport.scrollTop  += after.top - before.top;
+        if (!deferCleanup) return;
+        table.style.willChange = 'auto';
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                table.style.willChange = 'transform';
+                clipCellEntries();
+                if (hoverCell) showHover(hoverCell);
+            });
+        });
+    };
+    commitPinch = () => {
+        clearTimeout(resetTimer);
+        settleTransientZoom(0);
+    };
     applySettledScale();
 
     // Reposition hover card after scroll/drag, throttled to one rAF per frame
@@ -594,11 +616,9 @@ makeHoverEntrySpan = (entry, showReading) => {
 
     // --- Touch events ---
     gesture = null;
-    finalizePinch = g => {
-        viewport.scrollLeft = g.startScrollX - g.translateX;
-        viewport.scrollTop  = g.startScrollY - g.translateY;
+    finalizePinch = () => {
         clearTimeout(resetTimer);
-        resetWillChange();
+        settleTransientZoom(1);
     };
 
     viewport.addEventListener('touchstart', e => {
@@ -607,14 +627,21 @@ makeHoverEntrySpan = (entry, showReading) => {
             cancelAnimationFrame(animFrame);
             velX = velY = 0;
             let a = e.touches[0], b = e.touches[1];
+            let cx = (a.clientX + b.clientX) / 2;
+            let cy = (a.clientY + b.clientY) / 2;
+            let rect = table.getBoundingClientRect();
             gesture = {
                 'p': true,
                 startDist: Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY),
-                cx: (a.clientX + b.clientX) / 2,
-                cy: (a.clientY + b.clientY) / 2,
+                startCx: cx,
+                startCy: cy,
+                cx: cx,
+                cy: cy,
                 startScale:  scale,
                 startScrollX: viewport.scrollLeft,
                 startScrollY: viewport.scrollTop,
+                anchorX: cx - rect.left,
+                anchorY: cy - rect.top,
                 translateX: 0,
                 translateY: 0,
             };
@@ -634,21 +661,23 @@ makeHoverEntrySpan = (entry, showReading) => {
             let dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
             let cx   = (a.clientX + b.clientX) / 2;
             let cy   = (a.clientY + b.clientY) / 2;
-            let rect = viewport.getBoundingClientRect();
-            let prevScale = scale;
             scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, gesture.startScale * (dist / gesture.startDist)));
-            let scaleRatio = scale / prevScale;
-            let pivotX = gesture.cx - rect.left + gesture.startScrollX;
-            let newCX  = cx - rect.left + gesture.startScrollX;
-            let pivotY = gesture.cy - rect.top  + gesture.startScrollY;
-            let newCY  = cy - rect.top  + gesture.startScrollY;
-            gesture.translateX = newCX - (pivotX - gesture.translateX) * scaleRatio;
-            gesture.translateY = newCY - (pivotY - gesture.translateY) * scaleRatio;
+            let transformScale = scale / gesture.startScale;
+            gesture.translateX = cx - gesture.startCx - gesture.anchorX * (transformScale - 1);
+            gesture.translateY = cy - gesture.startCy - gesture.anchorY * (transformScale - 1);
             applyTransientTransform(gesture.translateX, gesture.translateY);
             gesture.cx = cx; gesture.cy = cy;
-            gesture.startDist = dist;
-            gesture.startScale = scale;
             if (hoverCell) showHover(hoverCell, 1);
+        } else if (e.touches.length === 1 && gesture && gesture['h']) {
+            e.preventDefault();
+            let t = e.touches[0];
+            let dx = t.clientX - gesture.x;
+            let dy = t.clientY - gesture.y;
+            if (Math.hypot(dx, dy) >= PINCH_HANDOFF_DRAG_THRESHOLD) {
+                lastTime = performance.now();
+                velX = velY = 0;
+                gesture = { 'd': true, x: t.clientX, y: t.clientY };
+            }
         } else if (e.touches.length === 1 && gesture && gesture['d']) {
             e.preventDefault();
             let t   = e.touches[0];
@@ -670,15 +699,18 @@ makeHoverEntrySpan = (entry, showReading) => {
     viewport.addEventListener('touchend', e => {
         if (!gesture) return;
         if (gesture['p']) {
-            finalizePinch(gesture);
             if (e.touches.length === 1) {
+                commitPinch();
                 let t = e.touches[0];
-                lastTime = performance.now();
-                velX = velY = 0;
-                gesture = { 'd': true, x: t.clientX, y: t.clientY };
+                gesture = { 'h': true, x: t.clientX, y: t.clientY };
             } else {
+                finalizePinch();
                 gesture = null;
             }
+            return;
+        }
+        if (gesture['h']) {
+            gesture = null;
             return;
         }
         if (gesture['d'] && !e.touches.length) {
@@ -689,7 +721,7 @@ makeHoverEntrySpan = (entry, showReading) => {
 
     viewport.addEventListener('touchcancel', () => {
         if (!gesture) return;
-        if (gesture['p']) finalizePinch(gesture);
+        if (gesture['p']) finalizePinch();
         cancelAnimationFrame(animFrame);
         velX = velY = 0;
         gesture = null;
