@@ -352,11 +352,20 @@ makeHoverEntrySpan = (entry, showReading) => {
                           : document.body.classList.contains('on-only')  ? 'kun' : '';
         let entries = td._entries || [];
         let visible = entries.filter(e => !hiddenClass || (e[3] ? 'on' : 'kun') !== hiddenClass);
-        let grouped = new Map();
+        let grouped = [];
+        let onGroups = new Map();
         visible.forEach(entry => {
+            if (!entry[3]) {
+                grouped.push([entry]);
+                return;
+            }
             let key = entry[1];
-            let group = grouped.get(key);
-            if (!group) grouped.set(key, group = []);
+            let group = onGroups.get(key);
+            if (!group) {
+                group = [];
+                onGroups.set(key, group);
+                grouped.push(group);
+            }
             group.push(entry);
         });
         let firstVisible = 1;
@@ -469,11 +478,16 @@ makeHoverEntrySpan = (entry, showReading) => {
 
         // Batch write: apply results
         allContent.forEach((content, ci) => {
-            let anyHidden = false;
+            let hiddenCount = 0;
             allSpans[ci].forEach((sp, si) => {
-                if (overflows[ci][si]) { sp.style.visibility = 'hidden'; anyHidden = true; }
+                if (overflows[ci][si]) {
+                    sp.style.visibility = 'hidden';
+                    hiddenCount++;
+                }
             });
-            content.parentElement.classList.toggle('has-more', anyHidden);
+            content.parentElement.classList.toggle('has-more', hiddenCount > 0);
+            if (hiddenCount) content.parentElement.dataset.more = '+' + hiddenCount;
+            else delete content.parentElement.dataset.more;
         });
     };
 

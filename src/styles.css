@@ -94,11 +94,11 @@ td.first-col { border-right: 3px solid #000; }
 }
 
 td.has-more::after {
-    content: "…";
+    content: attr(data-more);
     position: absolute;
-    bottom: 1px;
-    right: 3px;
-    font-size: calc(8px * var(--fs, 1));
+    bottom: calc(1px * var(--zs, 1));
+    right: calc(3px * var(--zs, 1));
+    font-size: calc(8px * var(--fs, 1) * var(--zs, 1));
     color: #aaa;
     pointer-events: none;
 }
