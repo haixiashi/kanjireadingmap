@@ -590,6 +590,27 @@ makeHoverEntrySpan = (entry, showReading) => {
         animFrame = requestAnimationFrame(coast);
     };
 
+    // --- Keyboard pan ---
+    document.addEventListener('keydown', e => {
+        if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+        let target = e.target;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' ||
+            target.tagName === 'SELECT' || target.isContentEditable)) return;
+
+        let step = 128 * scale;
+        let dx = 0, dy = 0;
+        if (e.key === 'ArrowLeft') dx = -step;
+        else if (e.key === 'ArrowRight') dx = step;
+        else if (e.key === 'ArrowUp') dy = -step;
+        else if (e.key === 'ArrowDown') dy = step;
+        else return;
+
+        e.preventDefault();
+        viewport.scrollLeft += dx;
+        viewport.scrollTop += dy;
+        schedHover();
+    });
+
     // --- Mouse events ---
     viewport.addEventListener('mousedown', e => startDrag(e.clientX, e.clientY));
     document.addEventListener('mousemove', e => {
