@@ -425,6 +425,7 @@ makeHoverEntrySpan = (entry, showReading) => {
     tableW = table.offsetWidth;
     tableH = table.offsetHeight;
     resetTimer = 0;
+    pendingZoomCleanup = 0;
     computeFontScale = targetScale => targetScale < 1.5 ? Math.min(1.5 / targetScale, fsCap) : 1;
 
     // --- Scale / zoom ---
@@ -487,7 +488,20 @@ makeHoverEntrySpan = (entry, showReading) => {
     // Reset willChange after a zoom gesture to free compositor resources
     resetWillChange = () => {
         zooming = 0;
+        pendingZoomCleanup = 0;
         applySettledScale();
+        table.style.willChange = 'auto';
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                table.style.willChange = 'transform';
+                clipCellEntries();
+                if (hoverCell) showHover(hoverCell);
+            });
+        });
+    };
+    flushPendingZoomCleanup = () => {
+        if (!pendingZoomCleanup) return;
+        pendingZoomCleanup = 0;
         table.style.willChange = 'auto';
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -521,6 +535,7 @@ makeHoverEntrySpan = (entry, showReading) => {
     commitPinch = () => {
         clearTimeout(resetTimer);
         settleTransientZoom(0);
+        pendingZoomCleanup = 1;
     };
     applySettledScale();
 
@@ -694,10 +709,12 @@ makeHoverEntrySpan = (entry, showReading) => {
             return;
         }
         if (gesture['h']) {
+            flushPendingZoomCleanup();
             gesture = null;
             return;
         }
         if (gesture['d'] && !e.touches.length) {
+            flushPendingZoomCleanup();
             animFrame = requestAnimationFrame(coast);
         }
         gesture = null;
@@ -706,6 +723,7 @@ makeHoverEntrySpan = (entry, showReading) => {
     viewport.addEventListener('touchcancel', () => {
         if (!gesture) return;
         if (gesture['p']) finalizePinch();
+        else flushPendingZoomCleanup();
         cancelAnimationFrame(animFrame);
         velX = velY = 0;
         gesture = null;
