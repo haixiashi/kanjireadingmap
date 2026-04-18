@@ -868,13 +868,13 @@ def main():
 
     # Compute models from snapshot and inject into JS
     import json as _json
-    from reencode_bac import (compute_models, M_CELL, M_KT0, M_KT1, M_ONKUN,
+    from reencode_bac import (compute_models, M_CELL, M_KT0, M_KT1, M_SWITCH,
                                M_D1K, M_D1O, M_D2_0, M_D2_1,
                                M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI)
     with open(os.path.join(SRC_DIR, 'data.json')) as f:
         snap = _json.load(f)
     compute_models(snap)
-    from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN,
+    from reencode_bac import (M_CELL, M_KT0, M_KT1, M_SWITCH,
                                M_D1K, M_D1O, M_D2_0, M_D2_1,
                                M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI)
 
@@ -898,7 +898,7 @@ def main():
     # Replace variable placeholders with computed values
     from reencode_bac import M_KD_CASE
     kd = ','.join(str(x) for x in inner(M_KD_CASE))
-    ok = '[' + ','.join(str(inner(m)[0]) for m in M_ONKUN) + ']'
+    sw = ','.join(str(x) for x in inner(M_SWITCH))
     d2_0 = ','.join(str(x) for x in inner(M_D2_0))
     d2_1 = ','.join(str(x) for x in inner(M_D2_1))
     replacements = [
@@ -908,8 +908,7 @@ def main():
         ('decode(CP)', f'decode({inner(M_CELL)[0]})'),
         ('decode(K1)', f'decode({inner(M_KT1)[0]})'),
         ('decode(KP)', f'decode({inner(M_KT0)[0]})'),
-        ('decode(OK[Math.max(0, Math.min(3, okScore + 1))])',
-         f'decode({ok}[Math.max(0,Math.min(3,okScore+1))])'),
+        ('decode(SW)', f'decode({sw})'),
         ('decode(isOn ? DO : DK)', f'decode(isOn?{inner(M_D1O)[0]}:{inner(M_D1K)[0]})'),
         ('decode(OE)', f'decode({inner(M_ON_EXTRA)[0]})'),
         ('decode(OM)', f'decode({",".join(str(x) for x in inner(M_ON_KANA))})'),

@@ -143,12 +143,12 @@ def decode_da_from_decoder(dec, kt):
     from reencode_bac import compute_models
     with open(SNAPSHOT_PATH) as _f:
         compute_models(_json.load(_f))
-    from reencode_bac import (M_CELL, M_KT0, M_KT1, M_ONKUN,
+    from reencode_bac import (M_CELL, M_KT0, M_KT1, M_SWITCH,
                                M_D1K, M_D1O, M_D2_0, M_D2_1, M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI)
     CP = M_CELL[1:-1]
     KT0 = M_KT0[1:-1]
     KT1 = M_KT1[1:-1]
-    OK = [m[1:-1] for m in M_ONKUN]
+    SW = M_SWITCH[1:-1]
     D1K = M_D1K[1:-1]
     D1O = M_D1O[1:-1]
     D2_0 = M_D2_0[1:-1]
@@ -195,7 +195,7 @@ def decode_da_from_decoder(dec, kt):
                 continue
 
             entries = []
-            ok_score = 0
+            switched_to_on = 0
             while True:
                 kl = []
                 if Z(KT0):
@@ -204,8 +204,9 @@ def decode_da_from_decoder(dec, kt):
                 while not Z(KT1):
                     kl.append(kt[U(len(kt))])
 
-                on = Z(OK[max(-1, min(2, ok_score)) + 1])
-                ok_score += 1 if on else -1
+                on = 1 if switched_to_on else Z(SW)
+                if on:
+                    switched_to_on = 1
                 d1 = Z(D1O if on else D1K)
                 d2 = Z(D2_1 if d1 else D2_0) - 1
                 ko = on * 96

@@ -174,12 +174,10 @@ def decode_kd(kd_str, kt_count):
 
 # Fixed model (data-independent)
 M_KD_CASE = [0, 339, 652, 861, 961, 992, 997, 998, 999]  # KD delta bucket: 8 doubling cases (q=2<<z)
-ONKUN_SCORE_MIN = -1
-ONKUN_SCORE_MAX = 2
 
 # All other models are computed from snapshot data at encode time.
 # Call compute_models(snap) before encoding.
-M_CELL = M_KT0 = M_KT1 = M_ONKUN = None
+M_CELL = M_KT0 = M_KT1 = M_SWITCH = None
 M_D1K = M_D1O = M_D2_0 = M_D2_1 = M_ON_EXTRA = M_ON_KANA = M_EXTRA = M_OKURI = None
 ON_KANA = 'ウクンツキ'
 ON_KANA_INDEX = {c: i for i, c in enumerate(ON_KANA)}
@@ -198,13 +196,13 @@ def _m999(ct):
 
 def compute_models(snap):
     """Compute all probability models from snapshot data."""
-    global M_CELL, M_KT0, M_KT1, M_ONKUN
+    global M_CELL, M_KT0, M_KT1, M_SWITCH
     global M_D1K, M_D1O, M_D2_0, M_D2_1, M_ON_EXTRA, M_ON_KANA, M_EXTRA, M_OKURI
 
     kana_str = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん'
     cell_ct = Counter()
     kt1_ct = Counter()
-    ok_ct = [Counter({0: 0, 1: 0}) for _ in range(ONKUN_SCORE_MAX - ONKUN_SCORE_MIN + 1)]
+    switch_ct = Counter({0: 0, 1: 0})
     d1k_ct = Counter()
     d1o_ct = Counter()
     d2_0_ct = Counter()
@@ -242,13 +240,18 @@ def compute_models(snap):
                 else:
                     groups.append((key, [kanji]))
 
-            ok_score = 0
+            seen_on = False
             for (furigana, okurigana, is_on), kanji_list in groups:
                 more_ct[1] += 1
                 for i in range(1, len(kanji_list)):
                     kt1_ct[0] += 1
                 kt1_ct[1] += 1
-                ok_ct[max(ONKUN_SCORE_MIN, min(ONKUN_SCORE_MAX, ok_score)) - ONKUN_SCORE_MIN][1 if is_on else 0] += 1
+                if seen_on:
+                    assert is_on, f"kun-yomi after on-yomi in cell {row}+{col}"
+                else:
+                    switch_ct[1 if is_on else 0] += 1
+                    if is_on:
+                        seen_on = True
 
                 cell_kana = row + col
                 ko = 96 if is_on else 0
@@ -289,14 +292,12 @@ def compute_models(snap):
                     for c in okurigana:
                         of_ct[1] += 1
                     of_ct[0] += 1
-
-                ok_score += 1 if is_on else -1
             done_ct[1] += 1
 
     M_CELL = _m999(cell_ct)
     M_KT0 = _m999({0: more_ct[1], 1: done_ct[1]})
     M_KT1 = _m999(kt1_ct)
-    M_ONKUN = [_m999(ct) for ct in ok_ct]
+    M_SWITCH = _m999(switch_ct)
     M_D1K = _m999(d1k_ct)
     M_D1O = _m999(d1o_ct)
     M_D2_0 = _m999(d2_0_ct)
@@ -509,7 +510,7 @@ def encode_snapshot(snap):
                 else:
                     groups.append((key, [kanji]))
 
-            ok_score = 0
+            seen_on = False
             for (furigana, okurigana, is_on), kanji_list in groups:
                 encodable = [k for k in kanji_list if k in kt_index]
                 if not encodable:
@@ -522,8 +523,12 @@ def encode_snapshot(snap):
                     eu(kt_index[kc], len(kt))
                 em(M_KT1, 1)  # terminator
 
-                em(M_ONKUN[max(ONKUN_SCORE_MIN, min(ONKUN_SCORE_MAX, ok_score)) - ONKUN_SCORE_MIN], 1 if is_on else 0)
-                ok_score += 1 if is_on else -1
+                if seen_on:
+                    assert is_on, f"kun-yomi after on-yomi in cell {cell_key}"
+                else:
+                    em(M_SWITCH, 1 if is_on else 0)
+                    if is_on:
+                        seen_on = True
 
                 ko = 96 if is_on else 0
                 prefix = cell_kana

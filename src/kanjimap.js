@@ -120,7 +120,7 @@ decodeCell = (() => {
         if (cellKana[1] && !decode(CP)) return [];
 
         let entries = [];
-        let okScore = 0;
+        let switchedToOn = 0;
 
         for (;;) {
             if (decode(KP)) return entries;
@@ -132,9 +132,9 @@ decodeCell = (() => {
             while (!decode(K1))
                 kanjiGroup.push(kanjiTable[decodeUniform(KL)]);
 
-            // On/kun flag
-            let isOn = decode(OK[Math.max(0, Math.min(3, okScore + 1))]);         // 0=kun, 1=on
-            okScore += isOn * 2 - 1;
+            // On/kun flag: once a cell switches to on-yomi, remaining groups stay on.
+            let isOn = switchedToOn || decode(SW);
+            if (isOn) switchedToOn = 1;
 
             // Variant offsets for dakuten/handakuten readings:
             // d1 = offset for first kana char (conditional on on/kun)
