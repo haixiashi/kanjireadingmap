@@ -356,6 +356,8 @@ makeHoverEntrySpan = (entry, showReading) => {
         visible.forEach((entry, idx) => {
             let prev = visible[idx - 1];
             let showReading = !entry[3] || !prev || !prev[3] || prev[1] !== entry[1];
+            if (!firstVisible && entry[3] && showReading)
+                hoverCard.append(document.createElement('br'));
             let span = makeHoverEntrySpan(entry, showReading);
             if (firstVisible) {
                 span.classList.add('large');
