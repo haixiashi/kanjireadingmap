@@ -337,13 +337,13 @@ makeHoverEntrySpan = (entry, showReading) => {
     hoverCard = document.createElement('div');
     hoverCard.className = 'hover-card';
     document.body.append(hoverCard);
+    hoverCardSize = 0;
     hideHover = () => {
         hoverCell = null;
         hoverCard.classList.remove('visible');
     };
 
-    showHover = td => {
-        hoverCell = td;
+    renderHoverContent = td => {
         hoverCard.innerHTML = '';
         let wm = td.querySelector('.watermark');
         if (wm) hoverCard.append(wm.cloneNode(true));
@@ -379,35 +379,40 @@ makeHoverEntrySpan = (entry, showReading) => {
                 hoverCard.append(span);
             });
         });
+    };
 
-        // Size and position the card centered on the tapped cell.
-        // Keep the card slightly larger than the tapped cell, but allow it to
-        // shrink with zoom-out so large cells can fit on smaller screens.
+    positionHover = (td, remeasure = 0) => {
         let transformScale = Math.max(scale * 1.2, 0.7);
         let rect  = td.getBoundingClientRect();
-        // cellW is in unscaled CSS px (the card is sized before the transform is applied)
-        let cellW = rect.width / scale;
-        hoverCard.style.width   = cellW + 'px';
-        hoverCard.style.height  = 'auto';
+        if (remeasure || !hoverCardSize) {
+            // cellW is in unscaled CSS px (the card is sized before the transform is applied)
+            let cellW = rect.width / scale;
+            hoverCard.style.width   = cellW + 'px';
+            hoverCard.style.height  = 'auto';
 
-        // Grow toward a square that fits all content
-        let scrollH = hoverCard.scrollHeight + 8;
-        let side    = Math.sqrt(cellW * scrollH);
-        side = Math.max(side, cellW);
-        hoverCard.style.width  = side + 'px';
-        hoverCard.style.height = 'auto';
-        scrollH = hoverCard.scrollHeight + 8;
-        let sz = Math.max(side, scrollH);
-        hoverCard.style.width  = sz + 'px';
-        hoverCard.style.height = sz + 'px';
+            // Grow toward a square that fits all content
+            let scrollH = hoverCard.scrollHeight + 8;
+            let side    = Math.sqrt(cellW * scrollH);
+            side = Math.max(side, cellW);
+            hoverCard.style.width  = side + 'px';
+            hoverCard.style.height = 'auto';
+            scrollH = hoverCard.scrollHeight + 8;
+            hoverCardSize = Math.max(side, scrollH);
+            hoverCard.style.width  = hoverCardSize + 'px';
+            hoverCard.style.height = hoverCardSize + 'px';
+        }
 
-        // transform-origin is center center, so left/top position the pre-transform center.
-        // Apparent (post-transform) size = sz * transformScale; center on the cell center.
         hoverCard.style.transform = 'scale(' + transformScale + ')';
         let cx = rect.left + rect.width  / 2;
         let cy = rect.top  + rect.height / 2;
-        hoverCard.style.left = cx - sz / 2 + 'px';
-        hoverCard.style.top  = cy - sz / 2 + 'px';
+        hoverCard.style.left = cx - hoverCardSize / 2 + 'px';
+        hoverCard.style.top  = cy - hoverCardSize / 2 + 'px';
+    };
+
+    showHover = (td, repositionOnly = 0) => {
+        hoverCell = td;
+        if (!repositionOnly) renderHoverContent(td);
+        positionHover(td, !repositionOnly);
         hoverCard.classList.add('visible');
     };
 
@@ -416,8 +421,8 @@ makeHoverEntrySpan = (entry, showReading) => {
     const TABLE_MARGIN = 172;    // extra space around table for panning headroom
     const MIN_SCALE = 0.4;
     const MAX_SCALE = 2.5;
-    const TRANSFORM_SCALE_CAP = 2;
     scale = 1;
+    settledScale = 1;
     zooming = 0;
     lastX = lastY = dragging = velX = velY = lastTime = animFrame = didDrag = 0;
 
@@ -435,27 +440,30 @@ makeHoverEntrySpan = (entry, showReading) => {
     tableW = table.offsetWidth;
     tableH = table.offsetHeight;
     resetTimer = 0;
-    computeFontScale = () => scale < 1.5 ? Math.min(1.5 / scale, fsCap) : 1;
-    computeTransformScale = useTransient => useTransient ? Math.min(scale, TRANSFORM_SCALE_CAP) : 1;
-    computeLayoutScale = useTransient => scale / computeTransformScale(useTransient);
+    computeFontScale = targetScale => targetScale < 1.5 ? Math.min(1.5 / targetScale, fsCap) : 1;
 
     // --- Scale / zoom ---
-    applyScale = (useTransient = 0) => {
-        let transformScale = computeTransformScale(useTransient);
-        let layoutScale = computeLayoutScale(useTransient);
-        table.style.setProperty('--zs', layoutScale);
-        document.body.style.setProperty('--fs', computeFontScale());
+    applySettledScale = () => {
+        settledScale = scale;
+        table.style.setProperty('--zs', settledScale);
+        document.body.style.setProperty('--fs', computeFontScale(scale));
         tableW = table.offsetWidth;
         tableH = table.offsetHeight;
-        table.style.transform = 'scale(' + transformScale + ')';
-        let contentW = tableW * transformScale + TABLE_MARGIN * 2;
-        let contentH = tableH * transformScale + TABLE_MARGIN * 2;
+        table.style.transform = 'scale(1)';
+        let contentW = tableW + TABLE_MARGIN * 2;
+        let contentH = tableH + TABLE_MARGIN * 2;
         let wrapW = Math.max(contentW, viewport.clientWidth);
         let wrapH = Math.max(contentH, viewport.clientHeight);
-        table.style.left      = (wrapW - tableW * transformScale) / 2 + 'px';
-        table.style.top       = (wrapH - tableH * transformScale) / 2 + 'px';
+        table.style.left      = (wrapW - tableW) / 2 + 'px';
+        table.style.top       = (wrapH - tableH) / 2 + 'px';
         wrapper.style.width   = wrapW + 'px';
         wrapper.style.height  = wrapH + 'px';
+    };
+    applyTransientTransform = (translateX = 0, translateY = 0) => {
+        let transformScale = scale / settledScale;
+        table.style.transform =
+            (translateX || translateY ? 'translate(' + translateX + 'px,' + translateY + 'px) ' : '') +
+            'scale(' + transformScale + ')';
     };
 
     // Hide spans whose bottom edge is clipped by their .content container.
@@ -494,12 +502,13 @@ makeHoverEntrySpan = (entry, showReading) => {
     // Reset willChange after a zoom gesture to free compositor resources
     resetWillChange = () => {
         zooming = 0;
-        applyScale();
+        applySettledScale();
         table.style.willChange = 'auto';
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 table.style.willChange = 'transform';
                 clipCellEntries();
+                if (hoverCell) showHover(hoverCell);
             });
         });
     };
@@ -507,12 +516,12 @@ makeHoverEntrySpan = (entry, showReading) => {
         clearTimeout(resetTimer);
         resetTimer = setTimeout(resetWillChange, 150);
     };
-    applyScale();
+    applySettledScale();
 
     // Reposition hover card after scroll/drag, throttled to one rAF per frame
     let hoverPending = 0;
     schedHover = () => {
-        if (hoverCell && !hoverPending) {
+        if (!zooming && hoverCell && !hoverPending) {
             hoverPending = 1;
             requestAnimationFrame(() => { if (hoverCell) showHover(hoverCell); hoverPending = 0; });
         }
@@ -575,23 +584,21 @@ makeHoverEntrySpan = (entry, showReading) => {
         scale *= e.deltaY > 0 ? 0.9 : 1 / 0.9;
         scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
         zooming = 1;
-        applyScale(1);
+        applyTransientTransform();
         let scaleRatio = scale / prevScale;
         viewport.scrollLeft = mouseX * scaleRatio - (e.clientX - rect.left);
         viewport.scrollTop  = mouseY * scaleRatio - (e.clientY - rect.top);
-        schedHover();
+        if (hoverCell) showHover(hoverCell, 1);
         scheduleWillChangeReset();
     }, { passive: false });
 
     // --- Touch events ---
     gesture = null;
     finalizePinch = g => {
-        applyScale(1);
         viewport.scrollLeft = g.startScrollX - g.translateX;
         viewport.scrollTop  = g.startScrollY - g.translateY;
         clearTimeout(resetTimer);
         resetWillChange();
-        schedHover();
     };
 
     viewport.addEventListener('touchstart', e => {
@@ -622,6 +629,7 @@ makeHoverEntrySpan = (entry, showReading) => {
     viewport.addEventListener('touchmove', e => {
         if (e.touches.length === 2 && gesture && gesture['p']) {
             e.preventDefault();
+            zooming = 1;
             let a = e.touches[0], b = e.touches[1];
             let dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
             let cx   = (a.clientX + b.clientX) / 2;
@@ -636,15 +644,11 @@ makeHoverEntrySpan = (entry, showReading) => {
             let newCY  = cy - rect.top  + gesture.startScrollY;
             gesture.translateX = newCX - (pivotX - gesture.translateX) * scaleRatio;
             gesture.translateY = newCY - (pivotY - gesture.translateY) * scaleRatio;
-            table.style.setProperty('--zs', computeLayoutScale(1));
-            document.body.style.setProperty('--fs', computeFontScale());
-            tableW = table.offsetWidth;
-            tableH = table.offsetHeight;
-            table.style.transform = 'translate(' + gesture.translateX + 'px,' + gesture.translateY + 'px) scale(' + computeTransformScale(1) + ')';
+            applyTransientTransform(gesture.translateX, gesture.translateY);
             gesture.cx = cx; gesture.cy = cy;
             gesture.startDist = dist;
             gesture.startScale = scale;
-            if (hoverCell) showHover(hoverCell);
+            if (hoverCell) showHover(hoverCell, 1);
         } else if (e.touches.length === 1 && gesture && gesture['d']) {
             e.preventDefault();
             let t   = e.touches[0];
@@ -745,6 +749,6 @@ makeHoverEntrySpan = (entry, showReading) => {
     document.body.removeChild(probe);
     // 128px cell minus 4px+4px .content insets minus 2px+2px .kanji-group padding = 116px usable
     fsCap = maxLargeEntryWidth > 0 ? 116 / maxLargeEntryWidth : 1;
-    applyScale();
+    applySettledScale();
     clipCellEntries();
 })()
