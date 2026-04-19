@@ -209,17 +209,26 @@ def parse_jmdict(path, kanji_readings):
         for k_idx, (keb, k_pri, k_inf) in enumerate(k_eles):
             if k_inf & {'oK', 'rK', 'iK'}:
                 continue
+            applicable_r_eles = []
             for reb, r_pri, restrs in r_eles:
                 # If re_restr exists, this reading only applies to specific kanji forms
                 if restrs and keb not in restrs:
                     continue
+                applicable_r_eles.append((reb, r_pri))
 
-                # Use this keb's own ke_pri tags as primary signal.
-                # Combine with re_pri only if keb has its own ke_pri
-                # (prevents rare alternate kebs like 詩 inheriting
-                # the reading's priority from the primary keb 歌).
-                if k_pri:
-                    all_pri = list(set(k_pri + r_pri)) if r_pri else k_pri
+            single_reading_form = len(applicable_r_eles) == 1
+            for reb, r_pri in applicable_r_eles:
+                # JMdict ke_pri is attached to the written form, not necessarily to
+                # every reading of that form. Only let keb-level priority flow into a
+                # reading when that written form has a single applicable reading.
+                #
+                # If a keb has multiple readings, only readings with explicit re_pri
+                # may inherit the keb's priority. This prevents cases like 銅 from
+                # incorrectly giving nf06 to あかがね.
+                if single_reading_form:
+                    all_pri = list(set(k_pri + r_pri)) if (k_pri or r_pri) else []
+                elif r_pri:
+                    all_pri = list(set(k_pri + r_pri)) if k_pri else r_pri
                 else:
                     all_pri = []
                 score = compute_entry_score(all_pri)
