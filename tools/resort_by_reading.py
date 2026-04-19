@@ -28,6 +28,14 @@ JMDICT_PATH = os.path.join(DATA_DIR, 'JMdict_e.xml')
 INDEX_PATH = os.path.join(PROJECT_DIR, 'index.html')
 
 
+class ReadingFreqMap(dict):
+    """Dictionary of base reading scores plus optional secondary bonuses."""
+
+    def __init__(self, *args, family_bonus=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.family_bonus = family_bonus or {}
+
+
 def is_kanji(c):
     cp = ord(c)
     return (0x4E00 <= cp <= 0x9FFF or 0x3400 <= cp <= 0x4DBF
@@ -87,6 +95,33 @@ def parse_kanjidic2(path):
 
     print(f"  {len(kanji_readings)} kanji with readings")
     return kanji_readings
+
+
+def parse_kanjidic2_kun_families(path):
+    """Parse KANJIDIC2 kun readings with okurigana as (stem, full) pairs."""
+    tree = ET.parse(path)
+    root = tree.getroot()
+    families = defaultdict(list)
+
+    for char in root.iter('character'):
+        literal = char.find('literal').text
+        rmg = char.find('reading_meaning')
+        if rmg is None:
+            continue
+        for group in rmg.findall('rmgroup'):
+            for reading in group.findall('reading'):
+                if reading.get('r_type') != 'ja_kun':
+                    continue
+                clean = reading.text.strip('-')
+                if '.' not in clean:
+                    continue
+                stem, okuri = clean.split('.', 1)
+                stem_hira = kata_to_hira(stem)
+                full_hira = kata_to_hira(stem + okuri)
+                if stem_hira and full_hira and stem_hira != full_hira:
+                    families[literal].append((stem_hira, full_hira))
+
+    return families
 
 
 def segment_reading(word_chars, reading, kanji_readings, depth=0):
@@ -172,6 +207,7 @@ def parse_jmdict(path, kanji_readings):
     re_restr_pattern = re.compile(r'<re_restr>(.*?)</re_restr>')
 
     freq_all = defaultdict(list)  # (kanji_char, reading_hira) -> [word scores]
+    kun_families = parse_kanjidic2_kun_families(KANJIDIC2_PATH)
     total_entries = 0
     segmented = 0
     unsegmented = 0
@@ -294,7 +330,37 @@ def parse_jmdict(path, kanji_readings):
     freq = {}
     for key, scores in freq_all.items():
         freq[key] = max(scores)
-    return freq
+
+    # Conservative secondary signal for kun-yomi dictionary forms:
+    # if a weakly-scored lemma has multiple common same-kanji derived forms
+    # sharing its KANJIDIC2 stem, let that family evidence raise the lemma.
+    # This helps cases like 忘れる, where 忘れ物 is common but the base lemma
+    # itself has only ichi1 in JMdict.
+    family_hits = defaultdict(list)
+    for (kanji, observed), score in freq.items():
+        for stem, full in kun_families.get(kanji, []):
+            if not full.endswith(('る', 'い')):
+                continue
+            family_prefix = full[:-1]
+            if observed != full and observed.startswith(family_prefix):
+                family_hits[(kanji, full)].append(score)
+
+    family_bonus = {}
+    boosted = 0
+    for key, hits in family_hits.items():
+        base = freq.get(key, 0)
+        if base > 30 or not hits:
+            continue
+        hits.sort(reverse=True)
+        if hits[0] < 45:
+            continue
+        bonus = min(35, hits[0] * 0.6)
+        if bonus > 0:
+            family_bonus[key] = bonus
+            boosted += 1
+
+    print(f"  {boosted} weak kun readings boosted by family evidence")
+    return ReadingFreqMap(freq, family_bonus=family_bonus)
 
 
 def parse_entry(entry_str):
@@ -311,11 +377,12 @@ def parse_entry(entry_str):
 def get_reading_freq(kanji, full_reading, freq_map):
     """Look up frequency score for a kanji-reading pair."""
     reading_hira = kata_to_hira(full_reading)
+    family_bonus = getattr(freq_map, 'family_bonus', {}).get((kanji, reading_hira), 0)
 
     # Try exact match
     score = freq_map.get((kanji, reading_hira), 0)
     if score > 0:
-        return score
+        return score + family_bonus if score <= 30 else score
 
     # Try without okurigana (just the stem)
     # This handles cases where JMdict has the word with okurigana
@@ -324,7 +391,7 @@ def get_reading_freq(kanji, full_reading, freq_map):
         if k == kanji and (r.startswith(reading_hira) or reading_hira.startswith(r)):
             score = max(score, s)
 
-    return score
+    return score + family_bonus if score <= 30 else score
 
 
 def sort_entries(entries, freq_map):
