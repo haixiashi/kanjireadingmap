@@ -27,6 +27,22 @@ KANJIDIC2_PATH = os.path.join(DATA_DIR, 'kanjidic2.xml')
 JMDICT_PATH = os.path.join(DATA_DIR, 'JMdict_e.xml')
 INDEX_PATH = os.path.join(PROJECT_DIR, 'index.html')
 
+# Explicit display overrides for cells where the generic scorer picks a less
+# representative first entry. These survive future resorting/rebuilds.
+CELL_ENTRY_OVERRIDES = {
+    'い+': '言い|う',
+    'え+': '江え',
+    'け+': '毛け',
+    'そ+': '染そ|める',
+    'ね+': '根ね',
+    'と+う': '峠とうげ',
+}
+
+# Explicit form corrections for snapshot entries.
+ENTRY_REWRITES = {
+    '又また|の': '又また',
+}
+
 
 class ReadingFreqMap(dict):
     """Dictionary of base reading scores plus optional secondary bonuses."""
@@ -374,6 +390,10 @@ def parse_entry(entry_str):
     return kanji, reading, okurigana, full_reading
 
 
+def apply_entry_rewrite(entry):
+    return ENTRY_REWRITES.get(entry, entry)
+
+
 def get_reading_freq(kanji, full_reading, freq_map):
     """Look up frequency score for a kanji-reading pair."""
     reading_hira = kata_to_hira(full_reading)
@@ -401,6 +421,8 @@ def sort_entries(entries, freq_map):
     sorted by per-entry reading frequency. On-yomi are grouped by reading, then
     the reading groups are ordered by the strongest member score.
     """
+    entries = [apply_entry_rewrite(entry) for entry in entries]
+
     parsed = []
     for idx, entry in enumerate(entries):
         kanji, reading, okurigana, full_reading = parse_entry(entry)
@@ -433,6 +455,15 @@ def sort_entries(entries, freq_map):
         ordered_on.extend(group_entries)
 
     return [entry for _, entry in kun] + ordered_on
+
+
+def apply_cell_override(cell, entries):
+    preferred = CELL_ENTRY_OVERRIDES.get(cell)
+    if not preferred:
+        return entries
+    if preferred not in entries:
+        return entries
+    return [preferred] + [entry for entry in entries if entry != preferred]
 
 
 def extract_kanji_data(html_content):
