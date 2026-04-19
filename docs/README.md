@@ -90,10 +90,11 @@ python3 tools/verify_data.py
 
 - `tools/rebuild_snapshot.py`
   Rebuilds `src/data.json` from the dictionary sources and normalizes reading
-  choices and sort order.
+  choices, mixed on/kun collisions, and sort order.
 
 - `tools/resort_by_reading.py`
-  Core scoring logic for assigning reading frequency.
+  Core scoring logic for assigning reading frequency, display ordering, and
+  narrow representative-entry overrides.
 
 - `tools/expand_entries.py`
   Data-maintenance helper for adding entries and handling archaic variants.
@@ -240,12 +241,26 @@ These files are gitignored. Download them from:
 2. Pick the best reading for each kanji/cell combination.
 3. Re-sort entries within each cell.
 
-Two scoring choices matter:
+The ranking pipeline is intentionally conservative. The important rules are:
 
 - **Max-per-word scoring**: a `(kanji, reading)` pair gets the score of its
   best matching JMdict word, not a sum across all words.
+- **Restricted `ke_pri` flow**: JMdict written-form priority is only allowed to
+  flow into a reading when that spelling has a single applicable reading, or
+  when the reading itself has explicit `re_pri`. This avoids false boosts from
+  common spellings onto rarer readings of the same kanji.
 - **Primary-form bias**: alternate spellings do not inherit the primary kanji
   form's score automatically.
+- **Weak lemma family bonus**: a weakly-scored kun-yomi dictionary form ending
+  in `る` or `い` may receive a small secondary bonus when multiple common
+  same-kanji derived forms strongly support the same KANJIDIC2 stem.
+- **Mixed on/kun exact-support fix**: when the same kanji has both on- and
+  kun-yomi candidates in the same cell, rebuild only switches readings when an
+  exact JMdict match is meaningfully stronger than the current choice.
+- **Display order**: kun-yomi remain before on-yomi for codec compatibility;
+  on-yomi are grouped contiguously by reading and then ordered by the strongest
+  member in each reading group. A small set of explicit cell overrides remains
+  for especially visible representative entries.
 
 ## Encoding Reference
 
@@ -256,7 +271,7 @@ for format changes or debugging.
 
 The generated page contains two encoded strings:
 
-- `F`: deflate-raw compressed JS/CSS payload, transported via base-93.
+- `C`: deflate-raw compressed JS/CSS payload, transported via base-93.
 - `D`: arithmetic-coded data stream for the grid content.
 
 ### `D` stream sections
@@ -310,7 +325,7 @@ avoid re-investigating them.
 
 ### Making `B()` return `Uint8Array` or a stream
 
-`B(F)` currently returns a plain array, which gets wrapped in `new
+`B(C)` currently returns a plain array, which gets wrapped in `new
 Uint8Array(...)` before being fed to `Blob` for decompression. Making `B`
 return `Uint8Array` directly would save that wrapper call in the bootstrap, but
 the saving cancels out exactly: `B` would have to do `return new
