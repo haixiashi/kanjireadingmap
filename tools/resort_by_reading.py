@@ -319,18 +319,44 @@ def get_reading_freq(kanji, full_reading, freq_map):
 
 
 def sort_entries(entries, freq_map):
-    """Sort entries by reading frequency."""
-    scored = []
+    """Sort entries with contiguous on-yomi reading groups.
+
+    Kun-yomi stay ahead of on-yomi for codec compatibility. Kun entries are
+    sorted by per-entry reading frequency. On-yomi are grouped by reading, then
+    the reading groups are ordered by the strongest member score.
+    """
+    parsed = []
     for idx, entry in enumerate(entries):
         kanji, reading, okurigana, full_reading = parse_entry(entry)
         reading_freq = get_reading_freq(kanji, full_reading, freq_map)
+        is_on = bool(reading) and is_katakana(reading[0])
+        parsed.append((idx, entry, reading, okurigana, is_on, reading_freq))
 
-        # Sort key: higher frequency first, then original order.
-        sort_key = (-reading_freq, idx)
-        scored.append((sort_key, entry))
+    kun = []
+    on_groups = {}
+    for idx, entry, reading, okurigana, is_on, reading_freq in parsed:
+        if not is_on:
+            kun.append(((-reading_freq, idx), entry))
+            continue
+        key = (reading, okurigana)
+        bucket = on_groups.setdefault(key, [])
+        bucket.append(((-reading_freq, idx), entry, reading_freq))
 
-    scored.sort(key=lambda x: x[0])
-    return [entry for _, entry in scored]
+    kun.sort(key=lambda x: x[0])
+
+    ordered_on = []
+    grouped = []
+    for key, bucket in on_groups.items():
+        bucket.sort(key=lambda x: x[0])
+        best_score = max(item[2] for item in bucket)
+        first_idx = min(item[0][1] for item in bucket)
+        grouped.append(((-best_score, first_idx), [item[1] for item in bucket]))
+
+    grouped.sort(key=lambda x: x[0])
+    for _, group_entries in grouped:
+        ordered_on.extend(group_entries)
+
+    return [entry for _, entry in kun] + ordered_on
 
 
 def extract_kanji_data(html_content):
