@@ -30,12 +30,9 @@ INDEX_PATH = os.path.join(PROJECT_DIR, 'index.html')
 # Explicit display overrides for cells where the generic scorer picks a less
 # representative first entry. These survive future resorting/rebuilds.
 CELL_ENTRY_OVERRIDES = {
-    'い+': '言い|う',
     'え+': '江え',
-    'け+': '毛け',
     'そ+': '染そ|める',
     'ね+': '根ね',
-    'と+う': '峠とうげ',
 }
 
 # Explicit form corrections for snapshot entries.

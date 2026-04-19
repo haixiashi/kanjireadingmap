@@ -34,6 +34,7 @@ TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(TOOLS_DIR)
 SRC_DIR = os.path.join(ROOT_DIR, 'src')
 SNAPSHOT_PATH = os.path.join(SRC_DIR, 'data.json')
+MIN_EXACT_DOMINANCE_SCORE = 20
 
 
 def parse_kanjidic2_readings(path):
@@ -75,6 +76,34 @@ def make_entry(kanji, raw_reading, r_type):
             full_hira = kata_to_hira(clean)
             return f"{kanji}{clean}", full_hira
     return None, None
+
+
+def choose_mixed_mode_candidate(candidates, current_entry):
+    """Prefer the dominant exact JMdict reading when on/kun compete in one cell.
+
+    This is intentionally conservative: only switch when the winning exact
+    reading support is meaningful, strictly better than the current choice, and
+    the candidate set mixes on- and kun-yomi for the same kanji/cell.
+    """
+    has_on = any(c['r_type'] == 'ja_on' for c in candidates)
+    has_kun = any(c['r_type'] == 'ja_kun' for c in candidates)
+    if not (has_on and has_kun):
+        return None
+
+    current = next((c for c in candidates if c['entry'] == current_entry), None)
+    if current is None:
+        return None
+
+    best_exact = max(
+        candidates,
+        key=lambda c: (c['exact_score'], 1 if c['r_type'] == 'ja_on' else 0, c['entry']),
+    )
+    if (
+        best_exact['exact_score'] >= MIN_EXACT_DOMINANCE_SCORE
+        and best_exact['exact_score'] > current['exact_score']
+    ):
+        return best_exact
+    return None
 
 
 def main():
@@ -131,7 +160,7 @@ def main():
                 continue
 
             # Collect all readings for this kanji in this cell
-            candidates = []  # (priority, score, raw_reading, r_type)
+            candidates = []
             for raw_reading, r_type in kanjidic_readings[kanji]:
                 clean = raw_reading.strip('-')
                 if not clean:
@@ -149,6 +178,7 @@ def main():
                     continue
 
                 full_hira = kata_to_hira(clean.replace('.', ''))
+                exact_score = freq_map.get((kanji, full_hira), 0)
                 score = get_reading_freq(kanji, full_hira, freq_map)
 
                 is_suffix = raw_reading.startswith('-')
@@ -161,17 +191,37 @@ def main():
                 else:
                     priority = 1  # middle
 
-                candidates.append((priority, score, raw_reading, r_type))
+                candidate, _ = make_entry(kanji, raw_reading, r_type)
+                candidates.append({
+                    'entry': candidate,
+                    'priority': priority,
+                    'score': score,
+                    'exact_score': exact_score,
+                    'raw_reading': raw_reading,
+                    'r_type': r_type,
+                })
 
             if not candidates:
                 new_entries.append(e)
                 continue
 
-            # Sort: suffixes always last, then highest score, then prefer okurigana
-            candidates.sort(key=lambda c: (1 if c[0]==2 else 0, -c[1], c[0]))
-            best_pri, best_score, best_raw, best_rtype = candidates[0]
+            dominant = choose_mixed_mode_candidate(candidates, e)
+            if dominant is not None:
+                candidate = dominant['entry']
+                if candidate and candidate != e:
+                    upgraded += 1
+                    new_entries.append(candidate)
+                else:
+                    new_entries.append(e)
+                continue
 
-            candidate, _ = make_entry(kanji, best_raw, best_rtype)
+            # Sort: suffixes always last, then highest score, then prefer okurigana
+            candidates.sort(
+                key=lambda c: (1 if c['priority'] == 2 else 0, -c['score'], c['priority'])
+            )
+            best = candidates[0]
+
+            candidate = best['entry']
             if candidate and candidate != e:
                 upgraded += 1
                 new_entries.append(candidate)
