@@ -659,24 +659,30 @@ def sort_entries(entries, freq_map, kd_freq=None, kd_grade=None):
     result = [entry for _, entry in kun] + ordered_on
 
     # Within alt-form groups sharing a reading AND the same on/kun type,
-    # ensure the JMdict primary sorts before secondaries.
+    # ensure the JMdict primary sorts before secondaries — but only when
+    # both have the same effective score (don't override score differences).
     alt_forms = getattr(freq_map, 'alt_forms', {})
+    entry_scores = {}
+    for e in result:
+        k, r, o, fr = parse_entry(e)
+        entry_scores[id(e)] = _effective_score(k, fr, freq_map)
     by_reading = {}
     for i, e in enumerate(result):
         k, r, o, fr = parse_entry(e)
         is_on = bool(r) and is_katakana(r[0])
-        by_reading.setdefault((kata_to_hira(fr), is_on), []).append((i, k))
+        by_reading.setdefault((kata_to_hira(fr), is_on), []).append((i, k, e))
     for (full_hira, _), members in by_reading.items():
         if len(members) < 2:
             continue
         for primary, secondaries in alt_forms.get(full_hira, []):
-            pri_idx = [i for i, k in members if k == primary]
-            sec_idxs = [i for i, k in members if k in secondaries]
-            if not pri_idx or not sec_idxs:
+            pri = [(i, k, e) for i, k, e in members if k == primary]
+            secs = [(i, k, e) for i, k, e in members if k in secondaries]
+            if not pri or not secs:
                 continue
-            pi = pri_idx[0]
-            for si in sec_idxs:
-                if si < pi:
+            pi, _, pe = pri[0]
+            ps = entry_scores[id(pe)]
+            for si, _, se in secs:
+                if si < pi and entry_scores[id(se)] == ps:
                     result[si], result[pi] = result[pi], result[si]
                     pi = si
 
