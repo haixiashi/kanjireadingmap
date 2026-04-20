@@ -94,12 +94,8 @@ python3 tools/verify_data.py
   the rules encoded in the script — no prior snapshot is needed.
 
 - `tools/resort_by_reading.py`
-  Core scoring logic for assigning reading frequency, display ordering, and
-  narrow representative-entry overrides.
-
-- `tools/expand_entries.py`
-  Legacy data-maintenance helper.  No longer used by the main rebuild
-  pipeline, which generates entries from scratch.
+  Core scoring logic for assigning reading frequency, display ordering,
+  cell mapping, and alternative-form detection.
 
 ## Core Invariants
 

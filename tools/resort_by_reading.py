@@ -27,6 +27,40 @@ KANJIDIC2_PATH = os.path.join(DATA_DIR, 'kanjidic2.xml')
 JMDICT_PATH = os.path.join(DATA_DIR, 'JMdict_e.xml')
 INDEX_PATH = os.path.join(PROJECT_DIR, 'index.html')
 
+KANA_ROW = ("あいうえおかきくけこさしすせそ"
+            "たちつてとなにぬねのはひふへほ"
+            "まみむめもやゆよらりるれろわ")
+KANA_COL = KANA_ROW + "ん"
+
+_DAKUTEN_MAP = {}
+for _group in ['がかぎきぐくげけごこ', 'ざさじしずすぜせぞそ',
+               'だたぢちづつでてどと', 'ばはびひぶふべへぼほ',
+               'ぱはぴひぷふぺへぽほ']:
+    for _i in range(0, len(_group), 2):
+        _DAKUTEN_MAP[_group[_i]] = _group[_i + 1]
+
+_SMALL_MAP = {'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お',
+              'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ'}
+
+
+def base_kana(c):
+    return _SMALL_MAP.get(c, _DAKUTEN_MAP.get(c, c))
+
+
+def reading_to_cell(reading_hira):
+    if not reading_hira:
+        return None
+    row = base_kana(reading_hira[0])
+    if row not in KANA_ROW:
+        return None
+    if len(reading_hira) >= 2:
+        col = base_kana(reading_hira[1])
+        if col not in KANA_COL:
+            return None
+    else:
+        col = ''
+    return (row, col)
+
 class ReadingFreqMap(dict):
     """Dictionary of base reading scores plus optional secondary bonuses."""
 

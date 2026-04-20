@@ -41,9 +41,8 @@ from resort_by_reading import (
     parse_kanjidic2, parse_jmdict, get_reading_freq, parse_entry,
     sort_entries, kata_to_hira, normalize_kanjidic_reading,
     is_katakana, parse_kanjidic2_freq, parse_kanjidic2_grade,
-    KANJIDIC2_PATH,
+    reading_to_cell, KANJIDIC2_PATH,
 )
-from expand_entries import reading_to_cell, base_kana
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(TOOLS_DIR)
