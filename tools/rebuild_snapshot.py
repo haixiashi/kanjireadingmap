@@ -41,7 +41,7 @@ from resort_by_reading import (
     parse_kanjidic2, parse_jmdict, get_reading_freq, parse_entry,
     sort_entries, kata_to_hira, normalize_kanjidic_reading,
     is_katakana, parse_kanjidic2_freq, parse_kanjidic2_grade,
-    reading_to_cell, KANJIDIC2_PATH,
+    reading_to_cell, _effective_score, KANJIDIC2_PATH,
 )
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -300,11 +300,23 @@ def main():
 
     print(f"Phase 3: {entries_total} entries in {len(snap)} cells")
 
-    # --- Phase 3b: Drop lone single-kana suffix kun entries ---
-    # A single-kana KANJIDIC2 suffix reading (e.g. 人-り, 等-ら) that is
-    # the only kun-yomi in its cell would be displayed in large font due
-    # to the kun-before-on codec constraint.  Drop it so the on-yomi
-    # entries represent the cell instead.
+    # --- Phase 3b: Drop lone kun entries that are redundant ---
+    # A lone kun-yomi entry forced ahead of stronger on-yomi is dropped
+    # when it is:
+    #   (a) a single-kana KANJIDIC2 suffix (e.g. 人-り, 等-ら), or
+    #   (b) a variant pronunciation of the same kanji's kun reading in
+    #       another cell (edit distance ≤ 1, not a prefix relationship,
+    #       e.g. 余あんまり is a variant of 余あまり).
+    def _edit_dist(a, b):
+        n, m = len(a), len(b)
+        dp = list(range(m + 1))
+        for i in range(1, n + 1):
+            prev, dp[0] = dp[0], i
+            for j in range(1, m + 1):
+                prev, dp[j] = dp[j], min(dp[j]+1, dp[j-1]+1,
+                                          prev + (0 if a[i-1] == b[j-1] else 1))
+        return dp[m]
+
     suffix_readings = set()
     for kanji_k in kanji_info:
         for raw, rtype in kanji_info[kanji_k].get('readings', []):
@@ -312,19 +324,60 @@ def main():
                 clean = raw.strip('-').replace('.', '')
                 if len(clean) == 1:
                     suffix_readings.add((kanji_k, kata_to_hira(clean)))
-    lr_dropped = 0
+
+    # Build per-kanji kun readings across all cells.
+    kanji_kun_cells = {}
+    for cell_k, cell_entries in snap.items():
+        for e in cell_entries:
+            k, r, o, fr = parse_entry(e)
+            if r and not is_katakana(r[0]):
+                kanji_kun_cells.setdefault(k, []).append(
+                    (cell_k, kata_to_hira(fr),
+                     _effective_score(k, fr, freq_map)))
+
+    phase3b_dropped = 0
     for cell in list(snap):
         entries = snap[cell]
         kun = [e for e in entries
-               if not is_katakana(parse_entry(e)[1][0])
-               if parse_entry(e)[1]]
-        if len(kun) != 1:
+               if parse_entry(e)[1]
+               and not is_katakana(parse_entry(e)[1][0])]
+        on_scores = [_effective_score(parse_entry(e)[0], parse_entry(e)[3],
+                                      freq_map)
+                     for e in entries
+                     if parse_entry(e)[1]
+                     and is_katakana(parse_entry(e)[1][0])]
+        if len(kun) != 1 or not on_scores:
             continue
         k, r, o, fr = parse_entry(kun[0])
-        if (k, kata_to_hira(fr)) in suffix_readings:
+        kun_hira = kata_to_hira(fr)
+        kun_eff = _effective_score(k, fr, freq_map)
+        if kun_eff >= max(on_scores):
+            continue
+
+        drop = False
+        # (a) Single-kana suffix
+        if (k, kun_hira) in suffix_readings:
+            drop = True
+        # (b) Low-score variant of another kun reading in a different cell
+        if not drop and kun_eff < 90:
+            for other_cell, other_hira, other_eff in kanji_kun_cells.get(k, []):
+                if other_cell == cell:
+                    continue
+                if other_eff < kun_eff:
+                    continue
+                is_prefix = (other_hira.startswith(kun_hira)
+                             or kun_hira.startswith(other_hira))
+                same_onset = (kun_hira and other_hira
+                              and kun_hira[0] == other_hira[0])
+                if (same_onset and not is_prefix
+                        and _edit_dist(kun_hira, other_hira) <= 1):
+                    drop = True
+                    break
+
+        if drop:
             snap[cell] = [e for e in entries if e != kun[0]]
-            lr_dropped += 1
-    print(f"Phase 3b: Dropped {lr_dropped} lone single-kana suffix entries")
+            phase3b_dropped += 1
+    print(f"Phase 3b: Dropped {phase3b_dropped} redundant lone kun entries")
 
     # --- Phase 4: Drop secondary alternative forms ---
     # When JMdict lists two single-kanji spellings as alternatives of the
