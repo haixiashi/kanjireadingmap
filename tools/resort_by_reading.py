@@ -27,26 +27,18 @@ KANJIDIC2_PATH = os.path.join(DATA_DIR, 'kanjidic2.xml')
 JMDICT_PATH = os.path.join(DATA_DIR, 'JMdict_e.xml')
 INDEX_PATH = os.path.join(PROJECT_DIR, 'index.html')
 
-# Explicit display overrides for cells where the generic scorer picks a less
-# representative first entry. These survive future resorting/rebuilds.
-CELL_ENTRY_OVERRIDES = {
-    'え+': '江え',
-    'そ+': '染そ|める',
-    'ね+': '根ね',
-}
-
-# Explicit form corrections for snapshot entries.
-ENTRY_REWRITES = {
-    '又また|の': '又また',
-}
-
-
 class ReadingFreqMap(dict):
     """Dictionary of base reading scores plus optional secondary bonuses."""
 
-    def __init__(self, *args, family_bonus=None, **kwargs):
+    def __init__(self, *args, family_bonus=None, leading_ratio=None,
+                 alt_forms=None, kanji_kun_sum=None, kanji_on_sum=None,
+                 **kwargs):
         super().__init__(*args, **kwargs)
         self.family_bonus = family_bonus or {}
+        self.leading_ratio = leading_ratio or {}
+        self.alt_forms = alt_forms or {}
+        self.kanji_kun_sum = kanji_kun_sum or {}
+        self.kanji_on_sum = kanji_on_sum or {}
 
 
 def is_kanji(c):
@@ -108,6 +100,51 @@ def parse_kanjidic2(path):
 
     print(f"  {len(kanji_readings)} kanji with readings")
     return kanji_readings
+
+
+def parse_kanjidic2_typed(path):
+    """Parse KANJIDIC2 and return kanji -> list of (normalized_reading, is_on)."""
+    tree = ET.parse(path)
+    result = {}
+    for char in tree.getroot().iter('character'):
+        literal = char.find('literal').text
+        readings = []
+        rmg = char.find('reading_meaning')
+        if rmg is not None:
+            for group in rmg.findall('rmgroup'):
+                for reading in group.findall('reading'):
+                    r_type = reading.get('r_type')
+                    if r_type in ('ja_on', 'ja_kun'):
+                        normalized = normalize_kanjidic_reading(reading.text)
+                        if normalized:
+                            readings.append((normalized, r_type == 'ja_on'))
+        if readings:
+            result[literal] = readings
+    return result
+
+
+def parse_kanjidic2_grade(path):
+    """Parse KANJIDIC2 and return kanji -> school grade."""
+    tree = ET.parse(path)
+    kd_grade = {}
+    for char in tree.getroot().iter('character'):
+        lit = char.find('literal').text
+        grade_el = char.find('misc').find('grade')
+        if grade_el is not None:
+            kd_grade[lit] = int(grade_el.text)
+    return kd_grade
+
+
+def parse_kanjidic2_freq(path):
+    """Parse KANJIDIC2 and return kanji -> newspaper frequency rank."""
+    tree = ET.parse(path)
+    kd_freq = {}
+    for char in tree.getroot().iter('character'):
+        lit = char.find('literal').text
+        freq_el = char.find('misc').find('freq')
+        if freq_el is not None:
+            kd_freq[lit] = int(freq_el.text)
+    return kd_freq
 
 
 def parse_kanjidic2_kun_families(path):
@@ -220,6 +257,10 @@ def parse_jmdict(path, kanji_readings):
     re_restr_pattern = re.compile(r'<re_restr>(.*?)</re_restr>')
 
     freq_all = defaultdict(list)  # (kanji_char, reading_hira) -> [word scores]
+    lead_count = defaultdict(int)  # (kanji, reading) -> times kanji leads
+    word_count = defaultdict(int)  # (kanji, reading) -> total appearances
+    _kd_reading_types = parse_kanjidic2_typed(KANJIDIC2_PATH)
+    alt_forms = defaultdict(list)  # reading_hira -> list of (primary, secondaries)
     kun_families = parse_kanjidic2_kun_families(KANJIDIC2_PATH)
     total_entries = 0
     segmented = 0
@@ -251,6 +292,45 @@ def parse_jmdict(path, kanji_readings):
                 r_eles.append((reb.group(1), pri_tags, restrs))
 
         total_entries += 1
+
+        # Detect alternative single-kanji keb forms sharing a reading.
+        # Keb order in JMdict reflects primary → secondary, so we preserve
+        # it as (primary_kanji, set_of_secondaries).
+        if len(k_eles) >= 2:
+            single_k = {}  # preserves insertion (keb) order
+            for keb, _, _ in k_eles:
+                chars = list(keb)
+                kanji_chars = [c for c in chars if is_kanji(c)]
+                if len(kanji_chars) == 1 and all(
+                        is_kanji(c) or is_kana(c) for c in chars):
+                    sfx = ''
+                    for c in reversed(chars):
+                        if is_kana(c):
+                            sfx = kata_to_hira(c) + sfx
+                        else:
+                            break
+                    pfx = ''
+                    for c in chars:
+                        if is_kana(c):
+                            pfx += kata_to_hira(c)
+                        else:
+                            break
+                    single_k[kanji_chars[0]] = (pfx, sfx)
+            if len(single_k) >= 2:
+                for reb, _, _ in r_eles:
+                    rh = kata_to_hira(reb)
+                    matching = []
+                    for k, (pfx, sfx) in single_k.items():
+                        ok = True
+                        if pfx and not rh.startswith(pfx):
+                            ok = False
+                        if sfx and not rh.endswith(sfx):
+                            ok = False
+                        if ok:
+                            matching.append(k)
+                    if len(matching) >= 2:
+                        alt_forms[rh].append(
+                            (matching[0], frozenset(matching[1:])))
 
         # Score all kanji forms except those tagged as rare/archaic (oK, rK, iK).
         # This allows legitimate alternate spellings (e.g. 代わる vs 替わる)
@@ -315,22 +395,30 @@ def parse_jmdict(path, kanji_readings):
                         kanji_reading = kanji_reading[len(kana_prefix):]
 
                     if kanji_reading:
-                        # Collect word scores for decay-weighted aggregation
                         full_reading = reading_hira
                         if kana_prefix:
                             full_reading = reading_hira[len(kana_prefix):]
                         freq_all[(kanji_char, full_reading)].append(score)
                         if full_reading != kanji_reading:
                             freq_all[(kanji_char, kanji_reading)].append(score)
+                        is_leading = (chars.index(kanji_char) == 0)
+                        word_count[(kanji_char, kanji_reading)] += 1
+                        if is_leading:
+                            lead_count[(kanji_char, kanji_reading)] += 1
                     segmented += 1
 
                 else:
                     # Multi-kanji compound - try segmentation
                     result = segment_reading(chars, reading_hira, kanji_readings)
                     if result:
+                        first_kanji = True
                         for char, char_reading in result:
                             if is_kanji(char):
                                 freq_all[(char, char_reading)].append(score)
+                                word_count[(char, char_reading)] += 1
+                                if first_kanji:
+                                    lead_count[(char, char_reading)] += 1
+                                first_kanji = False
                         segmented += 1
                     else:
                         unsegmented += 1
@@ -373,7 +461,53 @@ def parse_jmdict(path, kanji_readings):
             boosted += 1
 
     print(f"  {boosted} weak kun readings boosted by family evidence")
-    return ReadingFreqMap(freq, family_bonus=family_bonus)
+
+    leading_ratio = {}
+    for key in word_count:
+        leading_ratio[key] = lead_count[key] / word_count[key]
+
+    # Per-kanji total score across KANJIDIC2 readings, split by on/kun.
+    # Kun readings that are prefixes of each other (e.g. やわ, やわら,
+    # やわらか, やわらかい) are stem variants — count only the best score
+    # per stem group to avoid diluting dominance.
+    kanji_kun_sum = defaultdict(float)
+    kanji_on_sum = defaultdict(float)
+    for kanji, info_readings in _kd_reading_types.items():
+        on_readings = {}
+        kun_readings = {}
+        for r, is_on in info_readings:
+            if is_on:
+                on_readings[r] = max(on_readings.get(r, 0),
+                                     freq.get((kanji, r), 0))
+            else:
+                kun_readings[r] = max(kun_readings.get(r, 0),
+                                      freq.get((kanji, r), 0))
+        for r, s in on_readings.items():
+            if s > 0:
+                kanji_on_sum[kanji] += s
+        # Group kun readings by shared prefix: if one reading is a prefix
+        # of another, count only the max score in the group.
+        kun_sorted = sorted(kun_readings.keys(), key=len)
+        stems = {}  # stem -> max score
+        for r in kun_sorted:
+            matched = None
+            for stem in stems:
+                if r.startswith(stem):
+                    matched = stem
+                    break
+            if matched:
+                stems[matched] = max(stems[matched], kun_readings[r])
+            else:
+                stems[r] = kun_readings[r]
+        for s in stems.values():
+            if s > 0:
+                kanji_kun_sum[kanji] += s
+
+    return ReadingFreqMap(freq, family_bonus=family_bonus,
+                          leading_ratio=leading_ratio,
+                          alt_forms=dict(alt_forms),
+                          kanji_kun_sum=dict(kanji_kun_sum),
+                          kanji_on_sum=dict(kanji_on_sum))
 
 
 def parse_entry(entry_str):
@@ -385,10 +519,6 @@ def parse_entry(entry_str):
     okurigana = parts[1] if len(parts) > 1 else ''
     full_reading = reading + okurigana
     return kanji, reading, okurigana, full_reading
-
-
-def apply_entry_rewrite(entry):
-    return ENTRY_REWRITES.get(entry, entry)
 
 
 def get_reading_freq(kanji, full_reading, freq_map):
@@ -411,56 +541,112 @@ def get_reading_freq(kanji, full_reading, freq_map):
     return score + family_bonus if score <= 30 else score
 
 
-def sort_entries(entries, freq_map):
+def _reading_dominance(kanji, full_reading, freq_map, is_on=False):
+    """Fraction of this kanji's same-type reading weight owned by this reading.
+
+    Computed within on-yomi or kun-yomi separately, so a kanji with one
+    kun reading and one on reading gets dominance 1.0 for each, not 0.5.
+    """
+    score = get_reading_freq(kanji, full_reading, freq_map)
+    if is_on:
+        total = getattr(freq_map, 'kanji_on_sum', {}).get(kanji, 0)
+    else:
+        total = getattr(freq_map, 'kanji_kun_sum', {}).get(kanji, 0)
+    if total <= 0:
+        return 0.5
+    return score / total
+
+
+def _effective_score(kanji, full_reading, freq_map):
+    """Score with penalty for de-facto suffix readings.
+
+    When JMdict evidence shows a (kanji, reading) pair almost never
+    appears with the kanji in leading position (leading ratio < 0.05),
+    halve the score.  Only exact key matches are used.
+    """
+    score = get_reading_freq(kanji, full_reading, freq_map)
+    reading_hira = kata_to_hira(full_reading)
+    lr = getattr(freq_map, 'leading_ratio', {}).get((kanji, reading_hira))
+    if lr is not None and lr < 0.05:
+        score *= 0.5
+    return score
+
+
+def sort_entries(entries, freq_map, kd_freq=None, kd_grade=None):
     """Sort entries with contiguous on-yomi reading groups.
 
-    Kun-yomi stay ahead of on-yomi for codec compatibility. Kun entries are
-    sorted by per-entry reading frequency. On-yomi are grouped by reading, then
-    the reading groups are ordered by the strongest member score.
+    Kun-yomi stay ahead of on-yomi for codec compatibility. Entries are
+    sorted by effective reading frequency (with suffix penalty), then
+    KANJIDIC2 school grade (lower = more fundamental), then newspaper
+    frequency rank, then Unicode codepoint.
     """
-    entries = [apply_entry_rewrite(entry) for entry in entries]
+    if kd_freq is None:
+        kd_freq = {}
+    if kd_grade is None:
+        kd_grade = {}
 
     parsed = []
-    for idx, entry in enumerate(entries):
+    for entry in entries:
         kanji, reading, okurigana, full_reading = parse_entry(entry)
-        reading_freq = get_reading_freq(kanji, full_reading, freq_map)
         is_on = bool(reading) and is_katakana(reading[0])
-        parsed.append((idx, entry, reading, okurigana, is_on, reading_freq))
+        reading_freq = _effective_score(kanji, full_reading, freq_map)
+        grade = kd_grade.get(kanji, 99)
+        freq_rank = kd_freq.get(kanji, 99999)
+        codepoint = ord(kanji)
+        parsed.append((entry, kanji, reading, okurigana, is_on,
+                        reading_freq, grade, freq_rank, codepoint))
 
     kun = []
     on_groups = {}
-    for idx, entry, reading, okurigana, is_on, reading_freq in parsed:
+    for entry, kanji, reading, okurigana, is_on, reading_freq, grade, freq_rank, codepoint in parsed:
+        sort_key = (-reading_freq, grade, freq_rank, codepoint)
         if not is_on:
-            kun.append(((-reading_freq, idx), entry))
+            kun.append((sort_key, entry))
             continue
         key = (reading, okurigana)
         bucket = on_groups.setdefault(key, [])
-        bucket.append(((-reading_freq, idx), entry, reading_freq))
+        bucket.append((sort_key, entry, reading_freq, freq_rank))
 
     kun.sort(key=lambda x: x[0])
 
-    ordered_on = []
     grouped = []
     for key, bucket in on_groups.items():
         bucket.sort(key=lambda x: x[0])
         best_score = max(item[2] for item in bucket)
-        first_idx = min(item[0][1] for item in bucket)
-        grouped.append(((-best_score, first_idx), [item[1] for item in bucket]))
+        best_freq = min(item[3] for item in bucket)
+        grouped.append(((-best_score, best_freq, key[0]),
+                         [item[1] for item in bucket]))
 
     grouped.sort(key=lambda x: x[0])
+    ordered_on = []
     for _, group_entries in grouped:
         ordered_on.extend(group_entries)
 
-    return [entry for _, entry in kun] + ordered_on
+    result = [entry for _, entry in kun] + ordered_on
 
+    # Within alt-form groups sharing a reading AND the same on/kun type,
+    # ensure the JMdict primary sorts before secondaries.
+    alt_forms = getattr(freq_map, 'alt_forms', {})
+    by_reading = {}
+    for i, e in enumerate(result):
+        k, r, o, fr = parse_entry(e)
+        is_on = bool(r) and is_katakana(r[0])
+        by_reading.setdefault((kata_to_hira(fr), is_on), []).append((i, k))
+    for (full_hira, _), members in by_reading.items():
+        if len(members) < 2:
+            continue
+        for primary, secondaries in alt_forms.get(full_hira, []):
+            pri_idx = [i for i, k in members if k == primary]
+            sec_idxs = [i for i, k in members if k in secondaries]
+            if not pri_idx or not sec_idxs:
+                continue
+            pi = pri_idx[0]
+            for si in sec_idxs:
+                if si < pi:
+                    result[si], result[pi] = result[pi], result[si]
+                    pi = si
 
-def apply_cell_override(cell, entries):
-    preferred = CELL_ENTRY_OVERRIDES.get(cell)
-    if not preferred:
-        return entries
-    if preferred not in entries:
-        return entries
-    return [preferred] + [entry for entry in entries if entry != preferred]
+    return result
 
 
 def extract_kanji_data(html_content):

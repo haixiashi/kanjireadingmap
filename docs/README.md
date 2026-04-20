@@ -89,21 +89,24 @@ python3 tools/verify_data.py
   Base-93 transport codec used by the builder and verifier.
 
 - `tools/rebuild_snapshot.py`
-  Rebuilds `src/data.json` from the dictionary sources and normalizes reading
-  choices, mixed on/kun collisions, and sort order.
+  Generates `src/data.json` deterministically from `data/kanjidic2.xml` and
+  `data/JMdict_e.xml`.  The output depends only on the dictionary files and
+  the rules encoded in the script — no prior snapshot is needed.
 
 - `tools/resort_by_reading.py`
   Core scoring logic for assigning reading frequency, display ordering, and
   narrow representative-entry overrides.
 
 - `tools/expand_entries.py`
-  Data-maintenance helper for adding entries and handling archaic variants.
+  Legacy data-maintenance helper.  No longer used by the main rebuild
+  pipeline, which generates entries from scratch.
 
 ## Core Invariants
 
 These matter more than individual helper names:
 
-- `src/data.json` is the content source of truth.
+- `src/data.json` is reproducible from the dictionary sources via
+  `tools/rebuild_snapshot.py`.
 - `index.html` must be reproducible from source.
 - The browser decoder and `tools/verify_data.py` must stay byte-for-byte
   compatible with the current encoded format.
@@ -235,13 +238,44 @@ These files are gitignored. Download them from:
 
 ## Snapshot Rebuild Logic
 
-`tools/rebuild_snapshot.py` applies the main content-normalization rules:
+`tools/rebuild_snapshot.py` generates `src/data.json` deterministically from
+KANJIDIC2 and JMdict with no dependence on any prior snapshot.
 
-1. Remove readings not supported by KANJIDIC2.
-2. Pick the best reading for each kanji/cell combination.
-3. Re-sort entries within each cell.
+### Kanji eligibility
 
-The ranking pipeline is intentionally conservative. The important rules are:
+A kanji is included when it has:
+
+- KANJIDIC2 grade 1–9 (Jōyō + Jinmeiyō), **or**
+- any KANJIDIC2 grade with a newspaper frequency rank, **or**
+- no grade but a newspaper frequency rank.
+
+Archaic variants are removed when the standard form is also eligible.
+Detection uses JIS-208 variant references and subset-reading matching.
+
+### Reading eligibility
+
+Every `ja_on` and `ja_kun` reading in KANJIDIC2 is a candidate (the `-`
+suffix marker is stripped).  A candidate is included when:
+
+- Its JMdict max-per-word frequency score is > 0 (at least one JMdict word
+  uses the reading).
+- It does not exceed the codec's on-yomi extra-kana limit (first-column
+  on-yomi: no extra kana; two-kana on-yomi: at most one extra kana). This
+  excludes foreign-unit ateji like メエトル and シリング.
+
+**Alternative-form dedup**: when JMdict lists multiple single-kanji
+spellings as alternative forms of the same word (e.g. 国/邦 for くに),
+the first keb is the primary form.  Secondary forms are dropped only
+when their newspaper frequency rank is more than 2× worse than the
+primary's, preventing false drops when two common kanji share a reading
+(e.g. 鏡/鑑 for かがみ are both kept).
+
+Cell placement uses the KANJIDIC2 okurigana boundary (stem only).  When
+multiple KANJIDIC2 readings map to the same cell for the same kanji, the
+best one is chosen: non-bound okurigana form > bare form > bound form
+(leading or trailing `-` in KANJIDIC2), then highest score.
+
+### Scoring
 
 - **Max-per-word scoring**: a `(kanji, reading)` pair gets the score of its
   best matching JMdict word, not a sum across all words.
@@ -254,13 +288,29 @@ The ranking pipeline is intentionally conservative. The important rules are:
 - **Weak lemma family bonus**: a weakly-scored kun-yomi dictionary form ending
   in `る` or `い` may receive a small secondary bonus when multiple common
   same-kanji derived forms strongly support the same KANJIDIC2 stem.
-- **Mixed on/kun exact-support fix**: when the same kanji has both on- and
-  kun-yomi candidates in the same cell, rebuild only switches readings when an
-  exact JMdict match is meaningfully stronger than the current choice.
-- **Display order**: kun-yomi remain before on-yomi for codec compatibility;
-  on-yomi are grouped contiguously by reading and then ordered by the strongest
-  member in each reading group. A small set of explicit cell overrides remains
-  for especially visible representative entries.
+
+### Display order
+
+The sort is fully deterministic with no dependence on input order:
+
+- Kun-yomi before on-yomi (codec constraint).
+- **De-facto suffix penalty**: when JMdict evidence shows a reading almost
+  never appears with the kanji in leading position (leading ratio < 0.05),
+  the score is halved.  This demotes readings like 重え and 十そ that
+  function as suffixes even though KANJIDIC2 does not mark them.
+- **Reading dominance tiebreaker**: when scores are tied, prefer the kanji
+  whose reading represents a larger fraction of its total KANJIDIC2 reading
+  weight.  This puts 水みず (dominance 0.50) ahead of 自みずから (0.30).
+- Kun entries: `(-effective_score, -dominance, kd_freq_rank, codepoint)`.
+- On-yomi are grouped by reading; groups ordered by
+  `(-best_score, best_kd_freq_rank, reading_text)`.
+- Within each on-yomi group: `(-score, -dominance, kd_freq_rank, codepoint)`.
+
+The secondary tiebreaker (`kd_freq_rank`) is the KANJIDIC2 newspaper
+frequency rank (lower = more common).  The tertiary tiebreaker is the
+Unicode codepoint, which is always unique.
+
+There are no hard-coded entry or cell overrides.
 
 ## Encoding Reference
 
