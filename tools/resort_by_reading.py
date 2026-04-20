@@ -601,8 +601,11 @@ def _effective_score(kanji, full_reading, freq_map):
     score = get_reading_freq(kanji, full_reading, freq_map)
     reading_hira = kata_to_hira(full_reading)
     lr = getattr(freq_map, 'leading_ratio', {}).get((kanji, reading_hira))
-    if lr is not None and lr < 0.05:
-        score *= 0.5
+    if lr is not None:
+        if lr == 0.0:
+            score = 0
+        elif lr < 0.05:
+            score *= 0.5
     return score
 
 

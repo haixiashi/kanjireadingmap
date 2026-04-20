@@ -300,6 +300,32 @@ def main():
 
     print(f"Phase 3: {entries_total} entries in {len(snap)} cells")
 
+    # --- Phase 3b: Drop lone single-kana suffix kun entries ---
+    # A single-kana KANJIDIC2 suffix reading (e.g. 人-り, 等-ら) that is
+    # the only kun-yomi in its cell would be displayed in large font due
+    # to the kun-before-on codec constraint.  Drop it so the on-yomi
+    # entries represent the cell instead.
+    suffix_readings = set()
+    for kanji_k in kanji_info:
+        for raw, rtype in kanji_info[kanji_k].get('readings', []):
+            if raw.startswith('-') and rtype == 'ja_kun':
+                clean = raw.strip('-').replace('.', '')
+                if len(clean) == 1:
+                    suffix_readings.add((kanji_k, kata_to_hira(clean)))
+    lr_dropped = 0
+    for cell in list(snap):
+        entries = snap[cell]
+        kun = [e for e in entries
+               if not is_katakana(parse_entry(e)[1][0])
+               if parse_entry(e)[1]]
+        if len(kun) != 1:
+            continue
+        k, r, o, fr = parse_entry(kun[0])
+        if (k, kata_to_hira(fr)) in suffix_readings:
+            snap[cell] = [e for e in entries if e != kun[0]]
+            lr_dropped += 1
+    print(f"Phase 3b: Dropped {lr_dropped} lone single-kana suffix entries")
+
     # --- Phase 4: Drop secondary alternative forms ---
     # When JMdict lists two single-kanji spellings as alternatives of the
     # same word (e.g. 国/邦 for くに), and the secondary kanji's newspaper
